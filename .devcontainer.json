@@ -21,7 +21,8 @@
             ],
             "settings": {
                 "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
-                "python.terminal.activateEnvInSelectedTerminal": true
+                "python.terminal.activateEnvInSelectedTerminal": true,
+                "python.terminal.useEnvFile": true
             }
         }
     },

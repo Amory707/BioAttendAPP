@@ -63,7 +63,6 @@ TEMPLATES = [
 WSGI_APPLICATION = "BioAttend.wsgi.application"
 
 
-# 4. Database : Utilisation de Supabase via DATABASE_URL
 DATABASES = {
     'default': env.db('DATABASE_URL')
 }
@@ -83,7 +82,6 @@ LANGUAGE_CODE = "fr-fr"
 TIME_ZONE = "Europe/Paris"
 USE_I18N = True
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = "static/"
