@@ -1,51 +1,154 @@
 # 🧬 BioAttend
 
-Bienvenue sur le projet **BioAttend**. Ce repo est configuré pour être prêt à l'emploi en quelques secondes grâce à GitHub Codespaces.
+Bienvenue sur le projet **BioAttend**. Ce repository est configuré pour être prêt à l'emploi en quelques secondes grâce à **GitHub Codespaces**.
 
+## 🚀 Démarrage Rapide
 
-## 🚀 Démarrage Rapide:
+### Via GitHub Codespaces (Recommandé)
 
-Pour lancer le projet sans te prendre la tête :
+1. **Ouvrez le repository** dans un **GitHub Codespace** :
+   - Cliquez sur le bouton vert **`<> Code`** en haut à droite
+   - Sélectionnez l'onglet **`Codespaces`**
+   - Cliquez sur le bouton **`+`** pour créer un nouvel environnement
 
-1.  **Ouvre le repo** dans un **GitHub Codespace** (Bouton vert `<> Code` > `Codespaces` > `+`).
-2.  **Attends 1 minute** : Le container installe automatiquement Python, les dépendances et crée ton fichier `.env`.
-3.  **Lance le serveur** :
-    ```bash
-    python manage.py runserver
-    ```
-4.  Clique sur le bouton **"Open in Browser"** qui apparaît en bas à droite. Terminé.
+2. **Patientez ± 1-2 minutes** : Le conteneur installe automatiquement :
+   - Python et ses dépendances
+   - Toutes les bibliothèques du projet
+   - Votre fichier `.env` personnalisé
+
+3. **Lancez le serveur Django** :
+   ```bash
+   python manage.py runserver
+   ```
+
+4. **Accédez à l'application** :
+   - Un bouton **"Open in Browser"** devrait apparaître en bas à droite
+   - Sinon, utilisez la notification "Application running on..." dans le terminal
+   - Visitez : `http://localhost:8000`
+
+> 📚 **Documentation officielle** : Consultez [GitHub Codespaces - Getting started](https://docs.github.com/en/codespaces/getting-started/quickstart) pour plus d'informations.
+
+## 🌐 Port Forwarding (Partage entre camarades)
+
+Pour partager votre environnement de développement en temps réel avec d'autres membres de l'équipe :
+
+1. **Configurez le port forwarding** dans Codespaces :
+   - Allez à l'onglet **"Ports"** (en bas à côté de Terminal)
+   - Faites un clic droit sur le port `8000`
+   - Sélectionnez **"Port Visibility"** → **"Public"**
+
+2. **Partagez l'URL publique** :
+   - L'URL générée apparaît sous le port forwarded
+   - Exemple : `https://username-bioattend-xxxxx.app.github.dev`
+   - Partagez-la avec vos camarades via Slack/Discord
+
+> ⚠️ **Sécurité** : Les ports publics sont exposés sur Internet. Limitez l'accès aux seuls membres de l'équipe et évitez de partager des données sensibles via ces URLs publiques.
 
 ## 🛠️ Configuration & Secrets
 
-Le projet utilise **Supabase** pour la base de données et **pgvector** pour la partie IA/Biométrie. 
+Le projet utilise :
+- **Supabase** pour la base de données PostgreSQL
+- **pgvector** pour les embeddings IA/Biométrie
 
 ### Fichier `.env`
-Le fichier `.env` est généré automatiquement à l'ouverture du Codespace à partir des **Secrets GitHub**. 
-> ⚠️ **Ne modifie pas le `.env` à la main** sauf si tu sais ce que tu fais. Si tu n'as pas accès à la base de données, demande-moi les accès Supabase.
 
-### Dépendances
-Si tu installes une nouvelle bibliothèque, n'oublie pas de mettre à jour la liste pour les autres :
+Le fichier `.env` est **généré automatiquement** à chaque ouverture du Codespace à partir des **GitHub Secrets**.
+
+```
+⚠️  NE MODIFIEZ PAS LE `.env` À LA MAIN
+```
+
+**Si vous n'avez pas accès à la base de données Supabase :**
+- Demandez les accès au responsable du projet
+- Il faut avoir les variables de secret correctes dans les GitHub Secrets du repository
+
+### Structure automatisée : `.devcontainer.json`
+
+Au lieu d'un dossier `.devcontainer/`, ce projet utilise un fichier `devcontainer.json` **à la racine du projet** qui :
+- Configure l'environnement Python automatiquement
+- Installe les dépendances du `requirements.txt`
+- Crée le fichier `.env` via les GitHub Secrets
+- Lance le serveur au démarrage (optionnel)
+
+Vous n'avez rien à faire — tout est automatisé ! 🎉
+
+### Gestion des dépendances
+
+Si vous installez une nouvelle bibliothèque Python, **mettez à jour la liste pour les autres** :
+
 ```bash
 pip freeze > requirements.txt
 ```
 
+Puis commitez le fichier mis à jour.
+
 ## 📂 Structure du Projet
 
-* `BioAttend/` : Configuration principale (URLs, Settings).
-* `manage.py` : Ton couteau suisse pour lancer le serveur, créer des tables, etc.
-* `.devcontainer/` : La magie noire qui configure ton environnement automatiquement.
-* `requirements.txt` : La liste des ingrédients du projet.
+```
+BioAttend/
+├── BioAttend/              # Configuration Django principale (settings, urls, wsgi)
+├── manage.py               # Interface en ligne de commande Django
+├── .devcontainer.json      # Configuration automatique Codespaces (ne pas modifier)
+├── requirements.txt        # Dépendances Python
+├── .env           # Modèle de variables d'environnement (fourni)
+├── .gitguardian.yaml       # Configuration GitGuardian (détection de secrets)
+└── apps/                   # Applications Django (models, views, urls, etc.) (pas encore)
+```
 
-## 💡 Commandes Utiles (Au cas où...)
+## 💡 Commandes Utiles
 
 | Action | Commande |
-| :--- | :--- |
-| **Créer une table** | `python manage.py makigrations` puis `migrate` |
-| **Créer un admin** | `python manage.py createsuperuser` |
-| **Installer tout** | `pip install -r requirements.txt` |
+|:-------|:---------|
+| **Créer les migrations de base** | `python manage.py makemigrations` |
+| **Appliquer les migrations** | `python manage.py migrate` |
+| **Créer un super-utilisateur** (admin) | `python manage.py createsuperuser` |
+| **Installer toutes les dépendances** | `pip install -r requirements.txt` |
+| **Lancer les tests** | `python manage.py test` |
+| **Vider la base de données** | `python manage.py migrate zero` (ou supprimer le volume) |
 
-## 🧪 Status du projet:
+> 💡 **Astuce** : Si quelque chose fonctionne mal, redémarrez le Codespace (bouton `⋯` en haut à gauche → "Rebuild Container") avant de nous contacter.
 
-Suivre le Jira svp: [https://nde-code.atlassian.net/jira/software/projects/BIOAT/summary](https://nde-code.atlassian.net/jira/software/projects/BIOAT/summary)
+## 🔐 Sécurité & Secrets
 
-**Développé avec ❤️ pour BioAttend.** Si ça casse, redémarre le Codespace avant de m'appeler !
+### ⚠️  Avertissement Important sur les Secrets
+
+**Ne commitez JAMAIS de secrets (clés API, tokens, mots de passe) dans le repository !**
+
+Les secrets (clés Supabase, API tokens, etc.) sont :
+- Stockés **uniquement** dans les **GitHub Secrets** du repository
+- Injectés automatiquement via `.devcontainer.json` dans votre `.env`
+- **Jamais visibles** dans le code ou l'historique Git
+
+**Si vous exposez accidentellement un secret :**
+1. **Allez immédiatement** dans les **GitHub Secrets**
+2. **Régénérez** la clé compromise (dans Supabase ou le service concerné)
+3. **Mettez à jour** le GitHub Secret avec la nouvelle valeur
+4. **Redémarrez** votre Codespace
+
+### 🛡️  GitGuardian
+
+Ce repository est **surveillé par GitGuardian** — un outil qui détecte automatiquement les secrets exposés.
+
+- **Les commits contenant des secrets sont bloqués** avant d'être pushés
+- En cas de détection accidentelle, vous recevrez une **alerte GitHub**
+- Consultez l'onglet **"Security"** du repository pour les rapports
+
+> 📖 Plus d'infos : [GitGuardian Documentation](https://docs.gitguardian.com)
+
+## 🧪 Suivi du Projet
+
+Consultez le tableau Jira pour suivre l'avancement :
+
+🔗 **[Jira - BioAttend Project](https://nde-code.atlassian.net/jira/software/projects/BIOAT/summary)**
+
+## 🤝 Besoin d'aide ?
+
+- **Problèmes avec Codespaces ?** → Redémarrez le conteneur (Rebuild)
+- **Accès Supabase manquant ?** → Demandez les secrets au responsable
+- **Secrets exposés accidentellement ?** → Signalez immédiatement et régénérez la clé
+- **Autre problème ?** → Ouvrez une issue GitHub ou contactez directement
+
+
+**Développé avec ❤️ pour BioAttend.**
+
+Bon codage ! 🚀
