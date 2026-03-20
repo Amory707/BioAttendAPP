@@ -1,0 +1,39 @@
+{
+    "name": "BioAttend Codespaces setup script",
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+    
+    "features": {
+        "ghcr.io/devcontainers/features/python:1": { 
+            "version": "3.12",
+            "installTools": true 
+        }
+    },
+
+    "forwardPorts": [8000],
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "batisteo.vscode-django",
+                "njpwerner.autodocstring"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+                "python.terminal.activateEnvInSelectedTerminal": true
+            }
+        }
+    },
+
+    "postCreateCommand": "python3 -m pip install --upgrade pip && python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt && printf \"SECRET_KEY=${SECRET_KEY}\nDEBUG=${DEBUG}\nDATABASE_URL=${DATABASE_URL}\nSUPABASE_URL=${SUPABASE_URL}\nSUPABASE_KEY=${SUPABASE_KEY}\" > .env",
+
+    "remoteUser": "vscode",
+    
+    "portsAttributes": {
+        "8000": {
+            "label": "Django Server",
+            "onAutoForward": "notify"
+        }
+    }
+}

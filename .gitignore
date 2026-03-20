@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environnement virtuel
+.venv/
+venv/
+ENV/
+
+# Secrets et Config
+.env
+
+# Base de données locale (si tu fais des tests hors Supabase)
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/

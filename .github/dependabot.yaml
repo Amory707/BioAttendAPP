@@ -1,0 +1,27 @@
+version: 2
+updates:
+  # Mise à jour des GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      time: "03:15"
+    open-pull-requests-limit: 5
+    groups:
+      github-actions-group:
+        patterns:
+          - "*"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # Mise à jour des dépendances Python (requirements.txt)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      time: "03:15"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
