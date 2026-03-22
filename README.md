@@ -30,7 +30,9 @@ Bienvenue sur le projet **BioAttend**. Ce repository est configuré pour être p
 
 ## 🌐 Port Forwarding (Partage entre camarades)
 
-Pour partager votre environnement de développement en temps réel avec d'autres membres de l'équipe :
+**Normalement, j’ai déjà tout préconfiguré pour que vous n’ayez pas à le faire !**
+
+Maintenant si cela ne va pas: pour partager votre environnement de développement en temps réel avec d'autres membres:
 
 1. **Configurez le port forwarding** dans Codespaces :
    - Allez à l'onglet **"Ports"** (en bas à côté de Terminal)
@@ -86,14 +88,42 @@ Puis commitez le fichier mis à jour.
 
 ```
 BioAttend/
+├── .github/                # Le fichier pour configurer les actions GitHub ainsi que Dependabot
 ├── BioAttend/              # Configuration Django principale (settings, urls, wsgi)
 ├── manage.py               # Interface en ligne de commande Django
 ├── .devcontainer.json      # Configuration automatique Codespaces (ne pas modifier)
 ├── requirements.txt        # Dépendances Python
-├── .env           # Modèle de variables d'environnement (fourni)
-├── .gitguardian.yaml       # Configuration GitGuardian (détection de secrets)
-└── apps/                   # Applications Django (models, views, urls, etc.) (pas encore)
+├── .env                    # Modèle de variables d'environnement (fourni)
 ```
+
+## 🛠️ Ajouter une nouvelle Application Django
+
+Si vous devez créer un nouveau module (ex: `stats`, `notifications`), suivez ces étapes pour que tout soit bien configuré :
+
+1. **Générez l'application** dans le terminal :
+   ```bash
+   python manage.py startapp nom_de_votre_app
+   ```
+
+2. **Enregistrez l'application** :
+   Ouvrez `BioAttend/settings.py` et ajoutez le nom de votre app dans la liste `INSTALLED_APPS` :
+   ```python
+   INSTALLED_APPS = [
+       ...
+       'pgvector',
+       'core',
+       'nom_de_votre_app', # Ajoutez votre app ici
+   ]
+   ```
+
+3. **Préparez la base de données** :
+   Si vous créez des modèles (tables) dans `models.py`, n'oubliez pas de synchroniser Supabase :
+   ```bash
+   python manage.py makemigrations nom_de_votre_app
+   python manage.py migrate
+   ```
+
+> 💡 **Règle d'or** : Gardez vos applications à la racine du projet (au même niveau que `manage.py`) pour que les imports restent simples.
 
 ## 💡 Commandes Utiles
 
@@ -152,3 +182,6 @@ Consultez le tableau Jira pour suivre l'avancement :
 **Développé avec ❤️ pour BioAttend.**
 
 Bon codage ! 🚀
+
+
+

@@ -1,5 +1,6 @@
 import os
 import environ
+import dj_database_url
 from pathlib import Path
 
 # 1. Initialisation de django-environ
@@ -30,7 +31,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "pgvector", # Indispensable pour Supabase + pgvector
+    "pgvector", 
 ]
 
 MIDDLEWARE = [
@@ -62,11 +63,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "BioAttend.wsgi.application"
 
-
 DATABASES = {
-    'default': env.db('DATABASE_URL')
+    'default': dj_database_url.config(
+        default=env('DATABASE_URL'), 
+        conn_max_age=600,
+    )
 }
 
+DATABASES['default']['OPTIONS'] = {
+    'options': '-c search_path=public,extensions'
+}
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
