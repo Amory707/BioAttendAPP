@@ -282,6 +282,7 @@ body.dark-mode .search-input {
     cursor: pointer;
     font-size: 20px;
     transition: transform var(--transition-fast);
+    color: var(--color-text-primary);
 }
 
 .notification-btn:hover {
