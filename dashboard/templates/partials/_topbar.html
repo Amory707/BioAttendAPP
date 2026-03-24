@@ -31,7 +31,11 @@
             </button>
 
             <div class="dropdown-menu" id="userDropdown">
-                <a href="#" class="dropdown-item" id="settingsLink">
+                <a href="{% url 'dashboard:index' %}" class="dropdown-item">
+                    <i class="fas fa-home item-icon"></i>
+                    Dashboard
+                </a>
+                <a href="{% url 'accounts:settings' %}" class="dropdown-item" id="settingsLink">
                     <i class="fas fa-cog item-icon"></i>
                     Paramètres
                 </a>
