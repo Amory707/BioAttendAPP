@@ -27,8 +27,14 @@
                     <i class="fas fa-cog item-icon"></i>
                     Paramètres
                 </a>
+                {% if user.is_staff or user.is_superuser %}
+                    <a href="{% url 'admin:index' %}" class="dropdown-item">
+                        <i class="fas fa-user-shield item-icon"></i>
+                        Accès admin Django
+                    </a>
+                {% endif %}
                 <div class="dropdown-divider"></div>
-                <a href="{% url 'logout' %}" class="dropdown-item logout">
+                <a href="{% url 'dashboard:logout' %}" class="dropdown-item logout">
                     <i class="fas fa-sign-out-alt item-icon"></i>
                     Se déconnecter
                 </a>
