@@ -23,7 +23,6 @@ ALLOWED_HOSTS = ['*'] # Adapté pour GitHub Codespaces
 
 
 # Application definition
-
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -32,7 +31,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "pgvector", 
-    'dashboard',
+    "core",
+    "dashboard",
 ]
 
 MIDDLEWARE = [
@@ -94,7 +94,11 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, '/static'),
+    os.path.join(BASE_DIR, 'static'),
 ]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'core:home'
+LOGOUT_REDIRECT_URL = 'login'
