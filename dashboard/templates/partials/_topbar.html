@@ -1,0 +1,38 @@
+<header class="top-bar">
+    <div class="search-container">
+        <input type="text" class="search-input" placeholder="Rechercher...">
+        <i class="fas fa-search search-icon"></i>
+    </div>
+
+    <div class="top-bar-actions">
+        <button class="notification-btn" title="Notifications">
+            <i class="fas fa-bell"></i>
+            <span class="notification-badge">3</span>
+        </button>
+
+        <button class="theme-toggle-btn" id="themeToggleBtn" title="Basculer le thème">
+            <i class="fas fa-moon"></i>
+        </button>
+
+        <div class="user-menu-wrapper">
+            <button class="user-btn" id="userMenuBtn">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=amory" 
+                     alt="{{ user.first_name }}" class="user-avatar">
+                <span class="user-label">{{ user.first_name|default:"Admin" }}</span>
+                <i class="fas fa-chevron-down dropdown-arrow"></i>
+            </button>
+
+            <div class="dropdown-menu" id="userDropdown">
+                <a href="#" class="dropdown-item" id="settingsLink">
+                    <i class="fas fa-cog item-icon"></i>
+                    Paramètres
+                </a>
+                <div class="dropdown-divider"></div>
+                <a href="{% url 'logout' %}" class="dropdown-item logout">
+                    <i class="fas fa-sign-out-alt item-icon"></i>
+                    Se déconnecter
+                </a>
+            </div>
+        </div>
+    </div>
+</header>
