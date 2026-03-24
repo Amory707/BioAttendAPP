@@ -31,7 +31,6 @@ class RoleUtilisateurInline(admin.TabularInline):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
-# re-register UtilisateurAdmin with inline
 admin.site.unregister(Utilisateur)
 @admin.register(Utilisateur)
 class UtilisateurAdminWithInline(UserAdmin):
@@ -48,7 +47,6 @@ class UtilisateurAdminWithInline(UserAdmin):
     roles_list.short_description = 'Rôles'
 
     def save_formset(self, request, form, formset, change):
-        # Empêcher l'assignation du rôle 'acces_total' depuis l'édition d'un utilisateur
         if hasattr(formset, 'forms'):
             for f in formset.forms:
                 if not hasattr(f, 'cleaned_data'):
