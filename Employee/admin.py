@@ -1,7 +1,6 @@
 from django.contrib import admin
-
 from django.utils.html import format_html
-from .models import Employee,Pointage
+from .models import Utilisateur, Pointage, Alerte, Role # Import des classes du MLD
 import csv
 from django.http import HttpResponse
 from datetime import date
@@ -9,7 +8,7 @@ from datetime import date
 
 class BiometricFilter(admin.SimpleListFilter):
     title = 'Statut biométrique'
-    parameter_name = 'biometric'
+    parameter_name = 'biometrique'
 
     def lookups(self, request, model_admin):
         return (
@@ -24,68 +23,72 @@ class BiometricFilter(admin.SimpleListFilter):
             return queryset.filter(Embedding_facial__isnull=True)
 
 
-def export_csv(modeladmin, request, queryset):
+def exporter_csv(modeladmin, request, queryset):
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="employees.csv"'
+    response['Content-Disposition'] = 'attachment; filename="utilisateurs_bioattend.csv"'
     writer = csv.writer(response)
-    writer.writerow(['ID', 'Nom', 'Prenom', 'Email', 'Departement'])
-    for employee in queryset:
-        writer.writerow([employee.ID_Utilisateur, employee.Nom, employee.Prenom, employee.Email, employee.Departement])
+   
+    writer.writerow(['ID_Utilisateur', 'Nom', 'Prénom', 'Email', 'Département'])
+    for obj in queryset:
+        writer.writerow([obj.ID_Utilisateur, obj.Nom, obj.Prenom, obj.Email, obj.Departement])
     return response
-export_csv.short_description = "Exporter les employés sélectionnés en CSV"
+exporter_csv.short_description = "Exporter la sélection en CSV"
 
 
-# Pour voir l'historique directement DANS la fiche de l'employé
 class PointageInline(admin.TabularInline):
     model = Pointage
-    extra = 0 # Ne pas afficher de lignes vides par défaut
+    verbose_name = "Historique de pointage"
+    verbose_name_plural = "Historiques de pointages"
+    extra = 0
     readonly_fields = ('horodatage', 'type', 'score_confiance')
 
-@admin.register(Employee)
-class EmployeeAdmin(admin.ModelAdmin):
-    # Colonnes affichées avec indicateurs visuels
-    list_display = ('ID_Utilisateur', 'display_full_name', 'Departement', 'status_biometric', 'presence_badge', 'Date_debut')
+
+@admin.register(Utilisateur)
+class UtilisateurAdmin(admin.ModelAdmin):
     
-    # Filtres latéraux pour une navigation rapide
+    list_display = ('ID_Utilisateur', 'afficher_nom_complet', 'Departement', 'statut_ia', 'badge_presence', 'Date_debut')
     list_filter = ('Departement', 'Date_debut', BiometricFilter)
-    
-    # Recherche par nom, prénom ou email
     search_fields = ('Nom', 'Prenom', 'Email')
+    actions = [exporter_csv]
+    filter_horizontal = ('roles',)
+    list_editable = ('Departement',)
+    inlines = [PointageInline]
 
-    # Actions
-    actions = [export_csv]
-
-    # 1. Fonction pour afficher le nom complet plus proprement
-    def display_full_name(self, obj):
+    def afficher_nom_complet(self, obj):
         return f"{obj.Prenom} {obj.Nom}"
-    display_full_name.short_description = "Employé"
+    afficher_nom_complet.short_description = "Identité"
 
-    # 2. Indicateur Biométrique : l'employé est-il enregistré dans l'IA ?
-    def status_biometric(self, obj):
+    def statut_ia(self, obj):
         if obj.Embedding_facial:
             return format_html('<span style="color: green;">✔ Enrôlé</span>')
         return format_html('<span style="color: red;">✘ À faire</span>')
-    status_biometric.short_description = "IA Ready"
+    statut_ia.short_description = "IA Ready"
 
-    # 3. Badge de présence basé sur le dernier pointage du jour
-    def presence_badge(self, obj):
+    def badge_presence(self, obj):
         today = date.today()
-        last_pointage = Pointage.objects.filter(employee=obj, horodatage__date=today).last()
-        if last_pointage and last_pointage.type == 'ENTREE':
+        dernier = Pointage.objects.filter(utilisateur=obj, horodatage__date=today).last()
+        if dernier and dernier.type == 'ENTREE':
             return format_html('<b style="background: #d4edda; color: #155724; padding: 5px; border-radius: 5px;">Présent</b>')
         return format_html('<b style="background: #f8d7da; color: #721c24; padding: 5px; border-radius: 5px;">Absent</b>')
-    presence_badge.short_description = "Statut"
+    badge_presence.short_description = "Statut"
 
-    # Permet de modifier le département directement depuis la liste sans ouvrir la fiche
-    list_editable = ('Departement',)
-
-    inlines = [PointageInline] # <--- Ceci ajoute l'historique en bas de la fiche employé !
-
-
-
+# 5. GESTION DES POINTAGES (Table : Pointage) [cite: 32]
 @admin.register(Pointage)
 class PointageAdmin(admin.ModelAdmin):
-    list_display = ('employee', 'type', 'horodatage', 'score_confiance', 'statut')
+    list_display = ('ID_Pointage', 'utilisateur', 'type', 'horodatage', 'score_confiance', 'statut')
     list_filter = ('type', 'statut', 'horodatage')
-    search_fields = ('employee__Nom', 'employee__Prenom')
+    search_fields = ('utilisateur__Nom', 'utilisateur__Prenom')
 
+# 6. GESTION DES ALERTES (Table : Alertes) [cite: 34]
+@admin.register(Alerte)
+class AlerteAdmin(admin.ModelAdmin):
+    # Champs conformes au MLD [cite: 35]
+    list_display = ('ID_Alerte', 'Type', 'Statut', 'utilisateur', 'Date_creation')
+    list_filter = ('Statut', 'Type', 'Date_creation')
+    list_editable = ('Statut',) # Pour traiter les alertes (VUE, TRAITÉE) [cite: 35]
+    search_fields = ('utilisateur__Nom', 'Description')
+
+# 7. GESTION DES RÔLES (Table : Rôle) [cite: 28]
+@admin.register(Role)
+class RoleAdmin(admin.ModelAdmin):
+    list_display = ('ID_Role', 'Nom')

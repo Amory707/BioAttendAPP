@@ -1,0 +1,36 @@
+{% extends "utilisateur/base.html" %}
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1>Liste des Utilisateurs</h1>
+        <a href="{% url 'exporter_csv' %}" class="btn-csv"><i class="fas fa-file-csv"></i> Exporter CSV</a>
+    </div>
+
+    <form method="GET" style="margin-bottom: 20px;">
+        <input type="text" name="q" placeholder="Rechercher Nom, Prénom ou Email..." value="{{ recherche }}">
+        <button type="submit">Filtrer</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nom Complet</th>
+                <th>Département</th>
+                <th>Email</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in utilisateurs %}
+            <tr>
+                <td>{{ u.ID_Utilisateur }}</td> <td>{{ u.Prenom }} {{ u.Nom }}</td>
+                <td>{{ u.Departement }}</td>
+                <td>{{ u.Email }}</td>
+                <td><a href="{% url 'utilisateur_detail' u.ID_Utilisateur %}">Voir détails</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

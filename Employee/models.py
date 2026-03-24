@@ -2,52 +2,62 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from pgvector.django import VectorField
 
-class Employee(models.Model):
+class Role(models.Model):
+    ID_Role = models.AutoField(primary_key=True)
+    Nom = models.CharField(max_length=10, choices=[('ADMIN', 'Admin'), ('EMPLOYE', 'Employé')])
+
+    class Meta:
+        db_table = 'Rôle'
+        verbose_name = "Rôle"
+
+class Utilisateur(models.Model):  
     ID_Utilisateur = models.AutoField(primary_key=True)
-    Nom = models.CharField(max_length=255)
-    Prenom = models.CharField(max_length=255)
-    Email = models.EmailField(unique=True, max_length=255)
-    
-   
     Login_Utilisateur = models.CharField(max_length=255, unique=True, null=True, blank=True)
-    Password = models.CharField(max_length=255) # Mot de passe hashé 
-    
-    # Données biométriques (Vecteur de 128 ou 512 dimensions )
+    Nom = models.CharField(max_length=255)
+    Prenom = models.CharField(max_length=255) 
+    Email = models.EmailField(unique=True, max_length=255)
+    Mot_de_passe = models.CharField(max_length=255) 
     Embedding_facial = VectorField(dimensions=128, null=True, blank=True)
-    
-   
     Departement = models.CharField(max_length=50, null=True, blank=True)
     Date_debut = models.DateField(auto_now_add=True)
     Date_fin = models.DateField(null=True, blank=True)
+    
+    roles = models.ManyToManyField(Role, related_name="utilisateurs")
 
     class Meta:
-        verbose_name = "Employé"
-        verbose_name_plural = "Employés"
+        db_table = 'Utilisateur' 
+        verbose_name = "Utilisateur"
+        verbose_name_plural = "Utilisateurs"
 
     def __str__(self):
-        return f"{self.Prenom} {self.Nom} ({self.Departement})"
-
-
-
+        return f"{self.Prenom} {self.Nom}"
 
 class Pointage(models.Model):
-    # Choix pour les champs ENUM 
-    TYPE_CHOICES = [('ENTREE', 'Entrée'), ('SORTIE', 'Sortie')]
-    STATUT_CHOICES = [('Validé', 'Validé'), ('Non validé', 'Non validé')]
-
-    # Relation avec l'employé (Clé étrangère)
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='pointages')
-    
-    # Détails du pointage selon votre MLD
+    ID_Pointage = models.AutoField(primary_key=True)
+    statut = models.CharField(max_length=20, choices=[('Validé', 'Validé'), ('Non validé', 'Non validé')], default='Validé')
     horodatage = models.DateTimeField(auto_now_add=True)
-    type = models.CharField(max_length=10, choices=TYPE_CHOICES)
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='Validé')
-    score_confiance = models.FloatField(validators=[MinValueValidator(0.0), MaxValueValidator(1.0)], help_text="Précision de l'IA (0.0 à 1.0)")
+    type = models.CharField(max_length=10, choices=[('ENTREE', 'Entrée'), ('SORTIE', 'Sortie')])
+    score_confiance = models.FloatField(validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
+    
+    
+   
+    utilisateur = models.ForeignKey(Utilisateur, on_delete=models.CASCADE, db_column='ID_Utilisateur', related_name='pointages', null=True, blank=True)
+    class Meta:
+        db_table = 'Pointage'
+
+
+class Alerte(models.Model):
+    ID_Alerte = models.AutoField(primary_key=True) # Clé primaire selon le MLD 
+    Type = models.CharField(max_length=50) # Type d'alerte (RETARD, ABSENCE, etc.) 
+    Description = models.TextField() # Description détaillée 
+    Date_creation = models.DateTimeField(auto_now_add=True) # Date et heure de création 
+    Statut = models.CharField(max_length=20, default='NOUVELLE') # NOUVELLE, VUE, TRAITÉE 
+    
+    # Relations conformes au MLD 
+    utilisateur = models.ForeignKey(Utilisateur, on_delete=models.SET_NULL, null=True, db_column='ID_Utilisateur')
+    pointage = models.ForeignKey(Pointage, on_delete=models.SET_NULL, null=True, db_column='ID_Pointage')
 
     class Meta:
-        verbose_name = "Pointage"
-        verbose_name_plural = "Pointages"
-        ordering = ['-horodatage'] # Les plus récents en premier
-
-    def __str__(self):
-        return f"{self.employee.Nom} - {self.type} - {self.horodatage.strftime('%d/%m/%Y %H:%M')}"
+        db_table = 'Alertes' # Nom exact dans Supabase 
+        verbose_name = "Alerte"
+        verbose_name_plural = "Alertes"
