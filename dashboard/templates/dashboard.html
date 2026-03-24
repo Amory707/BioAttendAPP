@@ -1,5 +1,8 @@
 {% extends 'base.html' %}
 {% load static %}
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+{% endblock %}
 {% block title %}Dashboard - BioAttend{% endblock %}
 {% block content %}
 <section id="dashboard-page" class="page active">
