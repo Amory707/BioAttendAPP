@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "alerts",
     "core",
     "dashboard",
+    "Employee",
 ]
 
 MIDDLEWARE = [
