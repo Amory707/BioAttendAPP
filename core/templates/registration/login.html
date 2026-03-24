@@ -13,6 +13,12 @@
       <div class="alert alert-error">Nom d'utilisateur ou mot de passe invalide.</div>
     {% endif %}
 
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+
     <form method="post" action="{% url 'login' %}">
       {% csrf_token %}
       <div class="form-group">
