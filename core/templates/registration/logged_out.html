@@ -3,9 +3,14 @@
 {% block title %}Déconnecté{% endblock %}
 
 {% block content %}
-  <div class="container">
-    <h1>Déconnecté</h1>
-    <p>Vous avez été déconnecté avec succès.</p>
-    <p><a href="{% url 'login' %}">Se reconnecter</a></p>
+  <div class="auth-container">
+    <div class="auth-header">
+      <h1>Déconnecté</h1>
+      <p>Vous avez été déconnecté avec succès.</p>
+    </div>
+
+    <div class="auth-footer">
+      <p><a href="{% url 'login' %}">Se reconnecter</a></p>
+    </div>
   </div>
 {% endblock %}

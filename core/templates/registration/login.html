@@ -3,26 +3,31 @@
 {% block title %}Connexion{% endblock %}
 
 {% block content %}
-  <div class="container">
-    <h1>Connexion</h1>
+  <div class="auth-container">
+    <div class="auth-header">
+      <h1>Connexion</h1>
+      <p>Entrez vos identifiants pour accéder au tableau de bord.</p>
+    </div>
 
     {% if form.errors %}
-      <p style="color:red;">Nom d'utilisateur ou mot de passe invalide.</p>
+      <div class="alert alert-error">Nom d'utilisateur ou mot de passe invalide.</div>
     {% endif %}
 
     <form method="post" action="{% url 'login' %}">
       {% csrf_token %}
-      <div>
-        <label for="id_username">Nom d'utilisateur :</label><br>
+      <div class="form-group">
+        <label for="id_username">Nom d'utilisateur :</label>
         {{ form.username }}
       </div>
-      <div>
-        <label for="id_password">Mot de passe :</label><br>
+      <div class="form-group">
+        <label for="id_password">Mot de passe :</label>
         {{ form.password }}
       </div>
-      <button type="submit">Se connecter</button>
+      <button type="submit" class="btn btn-primary">Se connecter</button>
     </form>
 
-    <p><a href="{% url 'password_reset' %}">Mot de passe oublié ?</a></p>
+    <div class="auth-footer">
+      <p><a href="{% url 'password_reset' %}">Mot de passe oublié ?</a></p>
+    </div>
   </div>
 {% endblock %}

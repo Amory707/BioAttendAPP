@@ -1,15 +1,12 @@
+{% extends "core/base.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}BioAttend{% endblock %}</title>
+
+{% block extra_css %}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    {% block extra_css %}{% endblock %}
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
     <div class="app-container">
         <button class="hamburger-menu" id="hamburgerMenu">
             <span></span><span></span><span></span>
@@ -20,11 +17,11 @@
         <main class="main-content">
             {% include 'partials/_topbar.html' %}
 
-            {% block content %}{% endblock %}
+            {% block dashboard_content %}{% endblock %}
         </main>
     </div>
+{% endblock %}
 
+{% block extra_js %}
     <script src="{% static 'js/app.js' %}"></script>
-    {% block extra_js %}{% endblock %}
-</body>
-</html>
+{% endblock %}
