@@ -32,7 +32,12 @@ class Utilisateur(AbstractUser):
     @property
     def is_admindjango(self):
         """Retourne True si l'utilisateur a le rôle 'admindjango' (insensible à la casse)."""
-        return self.roles.filter(nom__iexact='admindjango').exists()
+        return self.roles.filter(nom__iexact='acces_total').exists()
+
+    @property
+    def is_acces_total(self):
+        """Retourne True si l'utilisateur a le rôle 'acces_total' (insensible à la casse)."""
+        return self.roles.filter(nom__iexact='acces_total').exists()
 
     @property
     def is_employe(self):
@@ -47,7 +52,7 @@ class Role(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     nom = models.CharField(
         max_length=30,
-        choices=[('employé', 'employé'), ('admin', 'admin'), ('admindjango', 'admindjango')],
+        choices=[('employé', 'employé'), ('admin', 'admin'), ('acces_total', 'acces_total')],
         unique=True,
     )
 
@@ -80,8 +85,9 @@ class RoleUtilisateur(models.Model):
 
     def _sync_django_admin_access(self):
         # L'accès /admin Django dépend du rôle 'admindjango'.
+        # L'accès /admin Django dépend du rôle 'acces_total'.
         # accept different casings (historic values like 'ADMINDJANGO')
-        has_django_admin_role = self.utilisateur.role_utilisateurs.filter(role__nom__iexact='admindjango').exists()
+        has_django_admin_role = self.utilisateur.role_utilisateurs.filter(role__nom__iexact='acces_total').exists()
         desired_is_staff = self.utilisateur.is_superuser or has_django_admin_role
 
         if self.utilisateur.is_staff != desired_is_staff:
@@ -105,6 +111,22 @@ class RoleUtilisateur(models.Model):
                 self.utilisateur.user_permissions.clear()
 
     def save(self, *args, **kwargs):
+        # Protection: n'autorise l'assignation du rôle 'admindjango' que
+        # si la requête courante est effectuée par le superuser 'bioattend'.
+        try:
+            from django.core.exceptions import PermissionDenied
+            from .middleware import ThreadLocalMiddleware
+        except Exception:
+            ThreadLocalMiddleware = None
+            PermissionDenied = None
+
+        if self.role and self.role.nom.lower() == 'acces_total' and ThreadLocalMiddleware is not None:
+            req = ThreadLocalMiddleware.get_current_request()
+            if req is not None:
+                user = getattr(req, 'user', None)
+                if not (getattr(user, 'is_superuser', False) and getattr(user, 'username', '') == 'bioattend'):
+                    raise PermissionDenied("Seulement 'bioattend' peut attribuer le rôle admindjango.")
+
         super().save(*args, **kwargs)
         self._sync_django_admin_access()
 
