@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "pgvector", 
     "core",
     "dashboard",
+    "Employee",
 ]
 
 MIDDLEWARE = [
