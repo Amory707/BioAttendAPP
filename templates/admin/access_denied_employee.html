@@ -1,0 +1,10 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div style="margin:2rem;padding:1.5rem;border-left:4px solid #c00;background:#fff6f6;">
+  <h2 style="margin-top:0;color:#c00">Accès refusé — Compte employé</h2>
+  <p>Votre compte est un compte <strong>employé</strong> et n'a pas les permissions nécessaires pour accéder à l'interface d'administration Django.</p>
+  <p>Si vous pensez que c'est une erreur, contactez un administrateur ou déconnectez-vous et utilisez votre compte approprié.</p>
+  <p><a href="/">Retour à l'application</a> — <a href="{% url 'dashboard:logout' %}">Se déconnecter</a></p>
+</div>
+{% endblock %}

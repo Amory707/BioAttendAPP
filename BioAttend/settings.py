@@ -30,7 +30,11 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "pgvector", 
+    "pgvector",
+    # Apps métier
+    "accounts",
+    "attendance",
+    "alerts",
     "core",
     "dashboard",
 ]
@@ -98,6 +102,9 @@ STATICFILES_DIRS = [
 ]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# User model personnalisé
+AUTH_USER_MODEL = "accounts.Utilisateur"
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard:index'
