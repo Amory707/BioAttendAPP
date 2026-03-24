@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Déconnecté{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <h1>Déconnecté</h1>
+    <p>Vous avez été déconnecté avec succès.</p>
+    <p><a href="{% url 'login' %}">Se reconnecter</a></p>
+  </div>
+{% endblock %}
