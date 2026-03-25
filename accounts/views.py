@@ -11,7 +11,6 @@ class CustomLoginView(LoginView):
 
 	def form_valid(self, form):
 		user = form.get_user()
-		# Empêche les utilisateurs avec le rôle 'employé' d'accéder
 		if user.role_utilisateurs.filter(role__nom__iexact='employé').exists():
 			messages.error(self.request, "Accès refusé : votre compte n'a pas les droits nécessaires.")
 			return self.form_invalid(form)

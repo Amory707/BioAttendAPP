@@ -31,15 +31,13 @@ class EmployeeAdminAccessMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # Only intervene on admin paths
         path = request.path
         user = getattr(request, 'user', None)
         if path.startswith('/admin/') and user and user.is_authenticated:
-            # if user is employee and not staff, show message
             try:
                 is_employe = getattr(user, 'is_employe', False)
             except Exception:
                 is_employe = False
             if is_employe and not user.is_staff:
-                return render(request, 'admin/access_denied_employee.html', status=403)
+                return render(request, 'access_denied_employee.html', status=403)
         return self.get_response(request)

@@ -10,7 +10,6 @@ class Utilisateur(AbstractUser):
     Extend AbstractUser de Django pour l'authentification native
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # username, email, password, first_name, last_name viennent d'AbstractUser
     embedding_facial = VectorField(dimensions=384, null=True, blank=True)
     departement = models.CharField(max_length=50, blank=True, null=True)
     date_debut = models.DateField(null=True, blank=True)
@@ -84,9 +83,6 @@ class RoleUtilisateur(models.Model):
         unique_together = ('role', 'utilisateur')
 
     def _sync_django_admin_access(self):
-        # L'accès /admin Django dépend du rôle 'admindjango'.
-        # L'accès /admin Django dépend du rôle 'acces_total'.
-        # accept different casings (historic values like 'ADMINDJANGO')
         has_django_admin_role = self.utilisateur.role_utilisateurs.filter(role__nom__iexact='acces_total').exists()
         desired_is_staff = self.utilisateur.is_superuser or has_django_admin_role
 
@@ -94,8 +90,6 @@ class RoleUtilisateur(models.Model):
             self.utilisateur.is_staff = desired_is_staff
             self.utilisateur.save(update_fields=['is_staff'])
 
-        # Ensure admindjango users have appropriate model permissions so they can use the admin UI.
-        # Do not modify superusers (they already have full access).
         try:
             from django.contrib.auth.models import Permission
         except Exception:
@@ -104,15 +98,11 @@ class RoleUtilisateur(models.Model):
         if not self.utilisateur.is_superuser and Permission is not None:
             if has_django_admin_role:
                 perms = list(Permission.objects.all())
-                # assign all permissions
                 self.utilisateur.user_permissions.set(perms)
             else:
-                # revoke permissions granted via admindjango role
                 self.utilisateur.user_permissions.clear()
 
     def save(self, *args, **kwargs):
-        # Protection: n'autorise l'assignation du rôle 'admindjango' que
-        # si la requête courante est effectuée par le superuser 'bioattend'.
         try:
             from django.core.exceptions import PermissionDenied
             from .middleware import ThreadLocalMiddleware
