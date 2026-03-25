@@ -52,7 +52,6 @@
         }
         .form-help { font-size: 11px; color: var(--color-text-secondary); }
         .form-error { font-size: 11px; color: var(--color-accent-red); margin-top: 2px; }
-        /* Rôles radio */
         .roles-list { display: flex; flex-direction: column; gap: 8px; }
         .role-item {
             display: flex;
@@ -65,12 +64,14 @@
             transition: all var(--transition-fast);
             cursor: pointer;
         }
-        .role-item:has(input:checked) { border-color: var(--color-primary); background: #EBF4FF; }
-        .role-item:hover { border-color: #b0cef7; background: #f4f8ff; }
+        .role-item:has(input:checked) { border-color: var(--color-primary); background: var(--color-hover-bg); }
+        .role-item:hover {
+            border-color: var(--color-hover-border);
+            background: var(--color-hover-bg);
+        }
         .role-item input[type="radio"] { width: 16px; height: 16px; accent-color: var(--color-primary); cursor: pointer; }
         .role-item span { cursor: pointer; font-size: var(--font-size-sm); font-weight: 500; }
         .role-item.none-option span { color: var(--color-text-secondary); font-style: italic; }
-        /* Photo preview */
         .photo-preview {
             width: 80px; height: 80px;
             border-radius: 50%;
@@ -224,7 +225,7 @@
                     </div>
                 </div>
                 {% elif action == 'Créer' %}
-                <div class="form-card" style="background:#EBF4FF;border:1px solid #b0cef7;box-shadow:none;">
+                <div class="form-card">
                     <div class="form-section-title"><i class="fas fa-info-circle"></i> Mot de passe par défaut</div>
                     <p style="color:var(--color-text-secondary);font-size:var(--font-size-sm);">
                         Le mot de passe sera automatiquement défini sur le <strong>nom d'utilisateur généré</strong> (prénom+nom). L'employé pourra le modifier depuis son profil.

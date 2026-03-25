@@ -24,51 +24,10 @@ from accounts.models import Utilisateur
 
 logger = logging.getLogger(__name__)
 
-EMBEDDING_SIZE = 512
+EMBEDDING_SIZE = 512 # Config
 
 
 class FaceIdentifyView(APIView):
-    """
-    Identifie un utilisateur à partir d'un embedding facial.
-
-    Requête attendue
-    ----------------
-    POST /api/face/identify/
-    Content-Type: application/json
-
-    {
-        "embedding": [0.123, -0.456, ...]   // liste de 512 floats
-    }
-
-    Réponses
-    --------
-    200 — Utilisateur reconnu
-    {
-        "matched": true,
-        "user_id": "uuid...",
-        "username": "jean.dupont",
-        "full_name": "Jean Dupont",
-        "distance": 0.18
-    }
-
-    404 — Aucun utilisateur correspondant trouvé
-    {
-        "matched": false,
-        "error": "Aucun visage correspondant trouvé"
-    }
-
-    400 — Requête mal formée (champ manquant, mauvaise taille, etc.)
-    {
-        "matched": false,
-        "error": "..."
-    }
-
-    500 — Erreur interne
-    {
-        "matched": false,
-        "error": "Erreur interne du serveur"
-    }
-    """
 
     def post(self, request):
         embedding_raw = request.data.get("embedding")

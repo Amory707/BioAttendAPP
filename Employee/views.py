@@ -33,9 +33,7 @@ def _compute_face_embeddings(photo_files):
     app = insightface.app.FaceAnalysis(allowed_modules=['detection', 'recognition'])
     app.prepare(ctx_id=-1, det_size=(640, 640), det_thresh=0.35)
 
-    # Seuil empirique: si la similarite cosinus est trop faible, on considere
-    # qu'il s'agit potentiellement de personnes differentes.
-    similarity_threshold = 0.35
+    similarity_threshold = 0.35 # Valeur à configurer
 
     embeddings = []
     for idx, photo_file in enumerate(photo_files[:5], start=1):
@@ -57,7 +55,6 @@ def _compute_face_embeddings(photo_files):
     if not embeddings:
         return None, None
 
-    # Validation d'identite: toutes les images doivent correspondre au meme visage.
     normed = []
     for emb in embeddings:
         emb_norm = np.linalg.norm(emb)
@@ -82,7 +79,6 @@ def _compute_face_embeddings(photo_files):
         avg_similarity = sum(pairwise_similarities) / len(pairwise_similarities)
         indice_surete = round(max(0.0, min(100.0, avg_similarity * 100.0)), 2)
     else:
-        # Une seule photo soumise et validée : pas de comparaison possible.
         indice_surete = None
 
     return np.mean(embeddings, axis=0), indice_surete
@@ -283,7 +279,6 @@ def create_utilisateur(request):
                 utilisateur.embedding_facial = embedding
                 utilisateur.indice_surete = indice_surete
             utilisateur.save()
-            # Sync role (commit=False → déclencher manuellement)
             new_role = form.cleaned_data.get('role')
             from accounts.models import RoleUtilisateur
             if new_role:

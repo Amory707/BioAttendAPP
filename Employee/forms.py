@@ -28,7 +28,6 @@ class UtilisateurUnifiedForm(forms.ModelForm):
     - Mot de passe : présent à la création OU si editing_self
     - acces_total réservé au superuser
     """
-    # Champs rendus obligatoires explicitement (le modèle a blank=True sur ces champs)
     first_name = forms.CharField(required=True, label='Prénom', max_length=150)
     last_name = forms.CharField(required=True, label='Nom', max_length=150)
     email = forms.EmailField(required=True, label='Email')
@@ -67,11 +66,9 @@ class UtilisateurUnifiedForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         is_create = self.instance is None or self.instance._state.adding
 
-        # Mot de passe : uniquement lors de la modification par soi-même
         if is_create or not editing_self:
             del self.fields['password']
 
-        # Rôles filtrés selon les droits
         if request_user and request_user.is_superuser:
             roles_qs = Role.objects.all()
         else:
@@ -79,7 +76,6 @@ class UtilisateurUnifiedForm(forms.ModelForm):
         self.fields['role'].queryset = roles_qs
         self._manageable_role_pks = set(roles_qs.values_list('pk', flat=True))
 
-        # Pré-sélectionner le rôle actuel (dans le périmètre gérable)
         if not is_create:
             current = self.instance.roles.filter(pk__in=self._manageable_role_pks).first()
             if current:
@@ -87,7 +83,6 @@ class UtilisateurUnifiedForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        # Vérification supplémentaire : prénom+nom doivent donner un username non vide
         first = cleaned_data.get('first_name', '')
         last = cleaned_data.get('last_name', '')
         base = re.sub(r'[^a-z0-9]', '', unicodedata.normalize('NFD', (first + last).lower()))
@@ -100,10 +95,8 @@ class UtilisateurUnifiedForm(forms.ModelForm):
         user = super().save(commit=False)
         is_create = self.instance is None or self.instance._state.adding
 
-        # Auto-générer le username pour les nouveaux utilisateurs
         if is_create:
             user.username = _generate_username(user.first_name, user.last_name)
-            # Mot de passe par défaut = nom d'utilisateur généré
             user.set_password(user.username)
         elif 'password' in self.fields:
             password = self.cleaned_data.get('password')
@@ -113,7 +106,6 @@ class UtilisateurUnifiedForm(forms.ModelForm):
         if commit:
             user.save()
             new_role = self.cleaned_data.get('role')
-            # Supprimer l'ancien rôle gérable puis affecter le nouveau
             RoleUtilisateur.objects.filter(
                 utilisateur=user,
                 role__pk__in=self._manageable_role_pks,
