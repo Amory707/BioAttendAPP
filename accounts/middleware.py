@@ -2,7 +2,8 @@ import threading
 
 
 class ThreadLocalMiddleware:
-    """Stocke la requête courante dans un thread-local pour y accéder depuis les modèles.
+    """
+    Stocke la requête courante dans un thread-local pour y accéder depuis les modèles.
 
     Usage: ajouter 'accounts.middleware.ThreadLocalMiddleware' dans MIDDLEWARE.
     """
@@ -22,7 +23,8 @@ class ThreadLocalMiddleware:
 from django.shortcuts import render
 
 class EmployeeAdminAccessMiddleware:
-    """Block /admin/ pages for users with role 'employé' who are not staff.
+    """
+    Block /admin/ pages for users with role 'employé' who are not staff.
 
     If an authenticated user has role 'employé' and tries to access any URL
     under /admin/ while not being staff, show a friendly access-denied page.

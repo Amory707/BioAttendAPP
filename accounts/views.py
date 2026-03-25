@@ -19,13 +19,13 @@ class CustomLoginView(LoginView):
 
 @login_required
 def settings_view(request):
-	# Page de paramètres utilisateur : lien vers changement de mot de passe
 	return render(request, 'accounts/settings.html', {'current_session_key': request.session.session_key})
 
 
 @login_required
 def logout_all_sessions(request):
-	"""Supprime toutes les sessions associées à l'utilisateur.
+	"""
+	Supprime toutes les sessions associées à l'utilisateur.
 	Si le POST contient 'all'=='1', supprime aussi la session courante (déconnecte l'utilisateur).
 	Sinon, supprime toutes les autres sessions en conservant la session actuelle.
 	"""
@@ -60,5 +60,3 @@ def logout_all_sessions(request):
 		messages.info(request, "Aucune session trouvée à supprimer.")
 
 	return redirect('accounts:settings')
-
-# Create your views here.
