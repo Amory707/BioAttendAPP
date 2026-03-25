@@ -1,0 +1,81 @@
+{% extends "utilisateur/base.html" %}
+
+{% block content %}
+<div class="container" style="max-width: 1000px; margin: auto;">
+    
+    <a href="{% url 'Employee:utilisateur_list' %}" style="text-decoration: none; color: #4e73df; font-weight: bold;">
+        <i class="fas fa-arrow-left"></i> Retour à la liste
+    </a>
+
+    <div style="display: flex; gap: 20px; margin-top: 20px;">
+        
+        <div class="card" style="flex: 1; border-top: 5px solid #4e73df;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div style="width: 100px; height: 100px; background: #eaecf4; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 40px; color: #b7b9cc;">
+                    <i class="fas fa-user"></i>
+                </div>
+                <h2 style="margin: 10px 0;">{{ utilisateur.Prenom }} {{ utilisateur.Nom }}</h2>
+                <span style="background: #f8f9fc; padding: 5px 15px; border-radius: 20px; font-size: 0.9rem; color: #4e73df; font-weight: bold;">
+                    ID: {{ utilisateur.ID_Utilisateur }} </span>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid #eee;">
+
+            <div style="line-height: 2;">
+                <p><strong><i class="fas fa-envelope"></i> Email :</strong> {{ utilisateur.Email }}</p>
+                <p><strong><i class="fas fa-building"></i> Département :</strong> {{ utilisateur.Departement }}</p>
+                <p><strong><i class="fas fa-calendar-alt"></i> Date de début :</strong> {{ utilisateur.Date_debut }}</p>
+                <p><strong><i class="fas fa-fingerprint"></i> Statut Biométrique :</strong> 
+                    {% if utilisateur.Embedding_facial %}
+                        <span style="color: green;">Enrôlé (Vecteur 128)</span> {% else %}
+                        <span style="color: red;">Non enrôlé</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div class="card" style="flex: 0.5; background: #f8f9fc; border: 1px dashed #4e73df;">
+            <h3>Statut aujourd'hui</h3>
+            <div style="text-align: center; padding: 20px 0;">
+                {% if dernier_pointage and dernier_pointage.type == 'ENTREE' %}
+                    <div style="font-size: 3rem; color: #1cc88a;"><i class="fas fa-check-circle"></i></div>
+                    <p style="font-weight: bold; color: #1cc88a;">PRÉSENT</p>
+                    <small>Arrivé à : {{ dernier_pointage.horodatage|date:"H:i" }}</small>
+                {% else %}
+                    <div style="font-size: 3rem; color: #e74a3b;"><i class="fas fa-times-circle"></i></div>
+                    <p style="font-weight: bold; color: #e74a3b;">ABSENT / SORTI</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top: 30px;">
+        <h3><i class="fas fa-history"></i> Derniers Pointages</h3>
+        <table>
+            <thead style="background: #f8f9fc;">
+                <tr>
+                    <th>Date & Heure</th>
+                    <th>Type</th>
+                    <th>Score de Confiance</th> <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in pointages %}
+                <tr>
+                    <td>{{ p.horodatage|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        <span style="padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; background: {% if p.type == 'ENTREE' %}#d1e7dd{% else %}#f8d7da{% endif %};">
+                            {{ p.type }}
+                        </span>
+                    </td>
+                    <td>{{ p.score_confiance|floatformat:2 }} %</td> <td>{{ p.statut }}</td> </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" style="text-align: center; padding: 20px; color: #858796;">Aucun historique pour cet utilisateur.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

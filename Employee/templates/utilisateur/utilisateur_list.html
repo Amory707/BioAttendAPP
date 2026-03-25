@@ -1,0 +1,43 @@
+{% extends "utilisateur/base.html" %}
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1>Liste des Utilisateurs</h1>
+        <div>
+            <a href="{% url 'Employee:utilisateur_create' %}" class="btn-csv" style="background:#4e73df;"><i class="fas fa-plus"></i> Ajouter un employé</a>
+            <a href="{% url 'Employee:exporter_csv' %}" class="btn-csv" style="margin-left:10px;"><i class="fas fa-file-csv"></i> Exporter CSV</a>
+        </div>
+    </div>
+
+    <form method="GET" style="margin-bottom: 20px;">
+        <input type="text" name="q" placeholder="Rechercher Nom, Prénom ou Email..." value="{{ recherche }}">
+        <button type="submit">Filtrer</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nom Complet</th>
+                <th>Département</th>
+                <th>Email</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in utilisateurs %}
+            <tr>
+                <td>{{ u.ID_Utilisateur }}</td> <td>{{ u.Prenom }} {{ u.Nom }}</td>
+                <td>{{ u.Departement }}</td>
+                <td>{{ u.Email }}</td>
+                <td>
+                    <a href="{% url 'Employee:utilisateur_detail' u.ID_Utilisateur %}">Voir</a> |
+                    <a href="{% url 'Employee:utilisateur_update' u.ID_Utilisateur %}">Modifier</a> |
+                    <a href="{% url 'Employee:utilisateur_delete' u.ID_Utilisateur %}">Supprimer</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "utilisateur/base.html" %}
+{% block content %}
+<div class="card">
+    <h1>Liste des Rôles</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nom du rôle</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for role in roles %}
+            <tr>
+                <td>{{ role.id }}</td>
+                <td>{{ role.nom }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="2">Aucun rôle trouvé.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

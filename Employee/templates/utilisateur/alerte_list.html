@@ -1,0 +1,28 @@
+{% extends "utilisateur/base.html" %}
+{% block content %}
+<div class="card">
+    <h1>Journal des Alertes</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>ID Alerte</th>
+                <th>Type</th>
+                <th>Utilisateur</th>
+                <th>Date de Création</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for alerte in alertes %}
+            <tr>
+                <td>{{ alerte.ID_Alerte }}</td> <td><strong>{{ alerte.Type }}</strong></td>
+                <td>{{ alerte.utilisateur.Nom }}</td>
+                <td>{{ alerte.Date_creation }}</td>
+                <td>{{ alerte.Statut }}</td> </tr>
+            {% empty %}
+            <tr><td colspan="5">Aucune alerte pour le moment.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
