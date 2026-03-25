@@ -1,11 +1,14 @@
 from django.urls import path
 from . import views
 
-app_name = 'employee'
+app_name = 'Employee'
 
 urlpatterns = [
     # Utilisateurs
     path('utilisateurs/', views.utilisateur_list, name='utilisateur_list'),
+    path('utilisateurs/ajouter/', views.create_utilisateur, name='utilisateur_create'),
+    path('utilisateurs/<int:utilisateur_id>/modifier/', views.update_utilisateur, name='utilisateur_update'),
+    path('utilisateurs/<int:utilisateur_id>/supprimer/', views.delete_utilisateur, name='utilisateur_delete'),
     path('utilisateurs/<int:utilisateur_id>/', views.utilisateur_detail, name='utilisateur_detail'),
     path('utilisateurs/exporter-csv/', views.exporter_csv, name='exporter_csv'),
 

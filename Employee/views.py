@@ -1,12 +1,39 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import HttpResponse
 from django.utils.html import format_html
+from django.urls import reverse
 from datetime import date
 import csv
 from .models import Utilisateur, Pointage, Alerte, Role
+from .forms import UtilisateurForm
+
+try:
+    import insightface
+    import numpy as np
+    from PIL import Image
+except ImportError:
+    insightface = None
+
+
+def _compute_face_embedding(photo_file):
+    if insightface is None:
+        raise ImportError("insightface n'est pas installé. Exécutez pip install insightface")
+
+    pil_image = Image.open(photo_file).convert('RGB')
+    img_array = np.asarray(pil_image)
+
+    app = insightface.app.FaceAnalysis(allowed_modules=['detection', 'recognition'])
+    app.prepare(ctx_id=-1, det_size=(640, 640))
+
+    faces = app.get(img_array)
+    if not faces:
+        return None
+
+    return faces[0].embedding
+
 
 class FiltreBiometrique:
     @staticmethod
@@ -118,12 +145,68 @@ def alerte_list(request):
     }
     return render(request, 'utilisateur/alerte_list.html', context)
 
-# --- AJOUT DE LA FONCTION MANQUANTE POUR LE MLD ---
+# --- VIEWS CRUD EMPLOYES ---
+@login_required(login_url='login')
+def create_utilisateur(request):
+    if request.method == 'POST':
+        form = UtilisateurForm(request.POST, request.FILES)
+        if form.is_valid():
+            utilisateur = form.save(commit=False)
+            photo = form.cleaned_data.get('Photo')
+            if photo:
+                embedding = _compute_face_embedding(photo)
+                if embedding is None:
+                    form.add_error('Photo', 'Aucun visage détecté sur la photo. Veuillez télécharger une photo claire du visage.')
+                    return render(request, 'utilisateur/utilisateur_form.html', {'form': form, 'action': 'Créer'})
+                utilisateur.Embedding_facial = embedding
+            utilisateur.save()
+            form.save_m2m()
+            messages.success(request, 'Employé créé avec succès.')
+            return redirect('Employee:utilisateur_list')
+    else:
+        form = UtilisateurForm()
+    return render(request, 'utilisateur/utilisateur_form.html', {'form': form, 'action': 'Créer'})
+
+
+@login_required(login_url='login')
+def update_utilisateur(request, utilisateur_id):
+    utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
+    if request.method == 'POST':
+        form = UtilisateurForm(request.POST, request.FILES, instance=utilisateur)
+        if form.is_valid():
+            utilisateur = form.save(commit=False)
+            photo = form.cleaned_data.get('Photo')
+            if photo:
+                embedding = _compute_face_embedding(photo)
+                if embedding is None:
+                    form.add_error('Photo', 'Aucun visage détecté sur la photo. Veuillez télécharger une photo claire du visage.')
+                    return render(request, 'utilisateur/utilisateur_form.html', {'form': form, 'action': 'Modifier'})
+                utilisateur.Embedding_facial = embedding
+            utilisateur.save()
+            form.save_m2m()
+            messages.success(request, 'Employé mis à jour avec succès.')
+            return redirect('Employee:utilisateur_list')
+    else:
+        form = UtilisateurForm(instance=utilisateur)
+    return render(request, 'utilisateur/utilisateur_form.html', {'form': form, 'action': 'Modifier'})
+
+
+@login_required(login_url='login')
+def delete_utilisateur(request, utilisateur_id):
+    utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
+    if request.method == 'POST':
+        utilisateur.delete()
+        messages.success(request, 'Employé supprimé avec succès.')
+        return redirect('Employee:utilisateur_list')
+    return render(request, 'utilisateur/utilisateur_confirm_delete.html', {'utilisateur': utilisateur})
+
+
 @login_required(login_url='login')
 def role_list(request):
     """Affiche la liste des rôles définis dans le MLD"""
     roles = Role.objects.all()
     return render(request, 'utilisateur/role_list.html', {'roles': roles})
+
 
 @login_required(login_url='login')
 def exporter_csv(request):

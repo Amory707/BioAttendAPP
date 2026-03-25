@@ -16,8 +16,9 @@ class Utilisateur(models.Model):
     Nom = models.CharField(max_length=255)
     Prenom = models.CharField(max_length=255) 
     Email = models.EmailField(unique=True, max_length=255)
-    Mot_de_passe = models.CharField(max_length=255) 
-    Embedding_facial = VectorField(dimensions=128, null=True, blank=True)
+    Mot_de_passe = models.CharField(max_length=255)
+    Photo = models.ImageField(upload_to='photos/', null=True, blank=True)
+    Embedding_facial = VectorField(dimensions=512, null=True, blank=True)
     Departement = models.CharField(max_length=50, null=True, blank=True)
     Date_debut = models.DateField(auto_now_add=True)
     Date_fin = models.DateField(null=True, blank=True)
@@ -53,11 +54,11 @@ class Alerte(models.Model):
     Date_creation = models.DateTimeField(auto_now_add=True) # Date et heure de création 
     Statut = models.CharField(max_length=20, default='NOUVELLE') # NOUVELLE, VUE, TRAITÉE 
     
-    # Relations conformes au MLD 
+   
     utilisateur = models.ForeignKey(Utilisateur, on_delete=models.SET_NULL, null=True, db_column='ID_Utilisateur')
     pointage = models.ForeignKey(Pointage, on_delete=models.SET_NULL, null=True, db_column='ID_Pointage')
 
     class Meta:
-        db_table = 'Alertes' # Nom exact dans Supabase 
+        db_table = 'Alertes'  
         verbose_name = "Alerte"
         verbose_name_plural = "Alertes"

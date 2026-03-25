@@ -1,5 +1,8 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic.base import RedirectView
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -7,5 +10,9 @@ urlpatterns = [
     path("dashboard/", include("dashboard.urls")),
     path("accounts/", include("accounts.urls")),
     path("accounts/", include("django.contrib.auth.urls")),
-    path("Employee/", include("Employee.urls")),
+    path("Employee", RedirectView.as_view(url='/Employee/', permanent=True)),
+    path("Employee/", include("Employee.urls", namespace="Employee")),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
