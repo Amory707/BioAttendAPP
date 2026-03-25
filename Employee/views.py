@@ -20,7 +20,7 @@ MAX_TOTAL_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 try:
     import insightface
     import numpy as np
-    from PIL import Image
+    from PIL import Image, ImageOps
 except ImportError:
     insightface = None
 
@@ -31,27 +31,31 @@ def _compute_face_embeddings(photo_files):
         raise ImportError("insightface n'est pas installé. Exécutez pip install insightface")
 
     app = insightface.app.FaceAnalysis(allowed_modules=['detection', 'recognition'])
-    app.prepare(ctx_id=-1, det_size=(640, 640))
+    app.prepare(ctx_id=-1, det_size=(640, 640), det_thresh=0.35)
 
     # Seuil empirique: si la similarite cosinus est trop faible, on considere
     # qu'il s'agit potentiellement de personnes differentes.
     similarity_threshold = 0.35
 
     embeddings = []
-    for photo_file in photo_files[:5]:
-        pil_image = Image.open(photo_file).convert('RGB')
-        img_array = np.asarray(pil_image)
+    for idx, photo_file in enumerate(photo_files[:5], start=1):
+        pil_image = ImageOps.exif_transpose(Image.open(photo_file)).convert('RGB')
+        img_array = np.array(pil_image)
         faces = app.get(img_array)
         if not faces:
-            continue
+            raise ValueError(
+                f"Aucun visage détecté dans la photo n°{idx} ({photo_file.name}). "
+                "Veuillez remplacer cette image par une photo claire du visage."
+            )
         if len(faces) > 1:
             raise ValueError(
-                "Une image contient plusieurs visages. Veuillez fournir une image avec un seul visage."
+                f"La photo n°{idx} ({photo_file.name}) contient plusieurs visages. "
+                "Veuillez fournir une image avec un seul visage."
             )
         embeddings.append(faces[0].embedding)
 
     if not embeddings:
-        return None
+        return None, None
 
     # Validation d'identite: toutes les images doivent correspondre au meme visage.
     normed = []
@@ -62,7 +66,7 @@ def _compute_face_embeddings(photo_files):
         normed.append(emb / emb_norm)
 
     if not normed:
-        return None
+        return None, None
 
     pairwise_similarities = []
     for i in range(len(normed)):
@@ -78,8 +82,8 @@ def _compute_face_embeddings(photo_files):
         avg_similarity = sum(pairwise_similarities) / len(pairwise_similarities)
         indice_surete = round(max(0.0, min(100.0, avg_similarity * 100.0)), 2)
     else:
-        # Une seule photo valide: pas de comparaison possible, on retourne 100%.
-        indice_surete = 100.0
+        # Une seule photo soumise et validée : pas de comparaison possible.
+        indice_surete = None
 
     return np.mean(embeddings, axis=0), indice_surete
 
@@ -101,6 +105,29 @@ def _validate_photo_uploads(photo_files):
     return None
 
 
+SORT_FIELDS = {
+    'username': 'username',
+    '-username': '-username',
+    'last_name': 'last_name',
+    '-last_name': '-last_name',
+    'departement': 'departement',
+    '-departement': '-departement',
+    'indice_surete': 'indice_surete',
+    '-indice_surete': '-indice_surete',
+}
+
+SORT_OPTIONS = [
+    ('username', "Nom d'utilisateur (A → Z)"),
+    ('-username', "Nom d'utilisateur (Z → A)"),
+    ('last_name', 'Nom (A → Z)'),
+    ('-last_name', 'Nom (Z → A)'),
+    ('departement', 'Département (A → Z)'),
+    ('-departement', 'Département (Z → A)'),
+    ('indice_surete', 'Indice de sûreté (croissant)'),
+    ('-indice_surete', 'Indice de sûreté (décroissant)'),
+]
+
+
 class FiltreBiometrique:
     @staticmethod
     def filtrer_queryset(queryset, valeur):
@@ -117,6 +144,7 @@ def utilisateur_list(request):
     departement = request.GET.get('departement', '')
     biometrie = request.GET.get('biometrie', '')
     date_debut = request.GET.get('date_debut', '')
+    tri = request.GET.get('tri', 'username')
 
     utilisateurs = Utilisateur.objects.all()
 
@@ -136,7 +164,8 @@ def utilisateur_list(request):
     if date_debut:
         utilisateurs = utilisateurs.filter(date_debut=date_debut)
 
-    utilisateurs = utilisateurs.prefetch_related('pointages', 'roles')
+    order_field = SORT_FIELDS.get(tri, 'username')
+    utilisateurs = utilisateurs.order_by(order_field).prefetch_related('pointages', 'roles')
 
     context = {
         'utilisateurs': utilisateurs,
@@ -144,6 +173,8 @@ def utilisateur_list(request):
         'filtre_departement': departement,
         'filtre_biometrie': biometrie,
         'filtre_date_debut': date_debut,
+        'tri': tri,
+        'sort_options': SORT_OPTIONS,
         'liste_departements': Utilisateur.objects.values_list('departement', flat=True)
         .distinct()
         .exclude(departement__isnull=True),
