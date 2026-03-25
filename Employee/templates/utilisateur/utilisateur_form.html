@@ -1,25 +1,255 @@
-{% extends "utilisateur/base.html" %}
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}{{ action }} un employé - BioAttend{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <style>
+        .form-card {
+            background: var(--color-bg-white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-lg);
+        }
+        .form-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: var(--spacing-lg);
+            padding-bottom: var(--spacing-sm);
+            border-bottom: 2px solid var(--color-bg-light);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        .form-section-title i { color: var(--color-primary); font-size: 13px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md); }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group.full-width { grid-column: 1 / -1; }
+        .form-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .form-control {
+            padding: 9px 12px;
+            border: 1px solid #E0E0E0;
+            border-radius: var(--radius-md);
+            font-size: var(--font-size-sm);
+            background: var(--color-bg-light);
+            color: var(--color-text-primary);
+            width: 100%;
+            transition: border-color var(--transition-fast);
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(74,144,226,0.1);
+        }
+        .form-help { font-size: 11px; color: var(--color-text-secondary); }
+        .form-error { font-size: 11px; color: var(--color-accent-red); margin-top: 2px; }
+        /* Rôles radio */
+        .roles-list { display: flex; flex-direction: column; gap: 8px; }
+        .role-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: 10px 14px;
+            background: var(--color-bg-light);
+            border-radius: var(--radius-md);
+            border: 1.5px solid transparent;
+            transition: all var(--transition-fast);
+            cursor: pointer;
+        }
+        .role-item:has(input:checked) { border-color: var(--color-primary); background: #EBF4FF; }
+        .role-item:hover { border-color: #b0cef7; background: #f4f8ff; }
+        .role-item input[type="radio"] { width: 16px; height: 16px; accent-color: var(--color-primary); cursor: pointer; }
+        .role-item span { cursor: pointer; font-size: var(--font-size-sm); font-weight: 500; }
+        .role-item.none-option span { color: var(--color-text-secondary); font-style: italic; }
+        /* Photo preview */
+        .photo-preview {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--color-primary);
+            display: block;
+            margin-bottom: var(--spacing-sm);
+        }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 6px;
+            color: var(--color-primary); text-decoration: none;
+            font-size: var(--font-size-sm); font-weight: 500;
+            margin-bottom: var(--spacing-xl);
+        }
+        .username-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--color-bg-light); border: 1px solid #E0E0E0;
+            border-radius: var(--radius-md); padding: 5px 12px;
+            font-size: var(--font-size-sm); color: var(--color-text-secondary);
+        }
+        .non-field-errors {
+            background: #FDEDEC; border-left: 3px solid var(--color-accent-red);
+            padding: var(--spacing-md); border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-lg);
+            font-size: var(--font-size-sm); color: var(--color-accent-red);
+        }
+    </style>
+{% endblock %}
 {% block content %}
-<div class="card" style="max-width: 700px; margin: auto;">
-    <h1>{{ action }} un employé</h1>
+<section class="page active">
+    <a href="{% url 'Employee:utilisateur_list' %}" class="back-link">
+        <i class="fas fa-arrow-left"></i> Retour à la liste
+    </a>
+
+    <div class="page-header" style="margin-bottom: var(--spacing-xl);">
+        <h1>{{ action }} un employé</h1>
+        {% if utilisateur %}
+        <p style="margin-top: var(--spacing-sm);">
+            <span class="username-badge"><i class="fas fa-at"></i> {{ utilisateur.username }}</span>
+        </p>
+        {% endif %}
+    </div>
+
     <form method="post" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
-        {{ form.non_field_errors }}
-        <table>
-            {% for field in form %}
-            <tr>
-                <th>{{ field.label_tag }}</th>
-                <td>
-                    {{ field }}
-                    {% for error in field.errors %}
-                        <div style="color: red;">{{ error }}</div>
-                    {% endfor %}
-                </td>
-            </tr>
-            {% endfor %}
-        </table>
-        <button type="submit" class="btn-csv" style="background:#1cc88a;">{{ action }}</button>
-        <a href="{% url 'Employee:utilisateur_list' %}" class="btn-csv" style="background:#6c757d;">Annuler</a>
+
+        {% if form.non_field_errors %}
+        <div class="non-field-errors">
+            {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+        </div>
+        {% endif %}
+
+        <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--spacing-lg); align-items: start;">
+
+            {# ── Colonne gauche : informations personnelles ── #}
+            <div class="form-card">
+                <div class="form-section-title"><i class="fas fa-user"></i> Informations personnelles</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Prénom *</label>
+                        <input type="text" name="first_name"
+                               value="{{ form.first_name.value|default:'' }}"
+                               class="form-control" required>
+                        {% for e in form.first_name.errors %}<div class="form-error">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nom *</label>
+                        <input type="text" name="last_name"
+                               value="{{ form.last_name.value|default:'' }}"
+                               class="form-control" required>
+                        {% for e in form.last_name.errors %}<div class="form-error">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Email *</label>
+                        <input type="email" name="email"
+                               value="{{ form.email.value|default:'' }}"
+                               class="form-control" required>
+                        {% for e in form.email.errors %}<div class="form-error">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">Département</label>
+                        <input type="text" name="departement"
+                               value="{{ form.departement.value|default:'' }}"
+                               class="form-control">
+                        {% for e in form.departement.errors %}<div class="form-error">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date de début</label>
+                        <input type="date" name="date_debut"
+                               value="{{ form.date_debut.value|date:'Y-m-d'|default:'' }}"
+                               class="form-control">
+                        {% for e in form.date_debut.errors %}<div class="form-error">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date de fin</label>
+                        <input type="date" name="date_fin"
+                               value="{{ form.date_fin.value|date:'Y-m-d'|default:'' }}"
+                               class="form-control">
+                        {% for e in form.date_fin.errors %}<div class="form-error">{{ e }}</div>{% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            {# ── Colonne droite : rôle + photo + mot de passe ── #}
+            <div>
+                {# Rôle #}
+                <div class="form-card">
+                    <div class="form-section-title"><i class="fas fa-shield-alt"></i> Rôle</div>
+                    <div class="roles-list">
+                        {% for choice in form.role %}
+                        <label class="role-item{% if choice.data.value == '' %} none-option{% endif %}">
+                            {{ choice.tag }}
+                            <span>{{ choice.choice_label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% for e in form.role.errors %}<div class="form-error" style="margin-top:8px;">{{ e }}</div>{% endfor %}
+                </div>
+
+                {# Photo #}
+                <div class="form-card">
+                    <div class="form-section-title"><i class="fas fa-camera"></i> Photos biométriques</div>
+                    {% if has_embedding %}
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:var(--spacing-md);">
+                        <img src="https://api.dicebear.com/9.x/bottts/svg?seed={{ utilisateur.username }}"
+                             alt="avatar" class="photo-preview">
+                        <span style="font-size:var(--font-size-xs);color:var(--color-secondary);">
+                            <i class="fas fa-check-circle"></i> Déjà enrôlé (vecteur 512)
+                        </span>
+                    </div>
+                    {% endif %}
+                    <div class="form-group">
+                        <label class="form-label">{% if has_embedding %}Remplacer les photos{% else %}Ajouter des photos (jusqu'à 5){% endif %}</label>
+                        <input type="file" name="photos" accept="image/*" multiple class="form-control">
+                        <span class="form-help">Selectionnez jusqu'a 5 photos claires du visage. Taille totale maximale: 20 MB. Les embeddings seront moyennes en un seul vecteur biometrique.</span>
+                        {% for e in form.non_field_errors %}
+                            {% if 'visage' in e %}<div class="form-error">{{ e }}</div>{% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {# Mot de passe #}
+                {% if 'password' in form.fields %}
+                <div class="form-card">
+                    <div class="form-section-title"><i class="fas fa-lock"></i> Mot de passe</div>
+                    <div class="form-group">
+                        <label class="form-label">Nouveau mot de passe</label>
+                        <input type="password" name="password" class="form-control" autocomplete="new-password">
+                        <span class="form-help">Laissez vide pour conserver le mot de passe actuel.</span>
+                        {% for e in form.password.errors %}<div class="form-error">{{ e }}</div>{% endfor %}
+                    </div>
+                </div>
+                {% elif action == 'Créer' %}
+                <div class="form-card" style="background:#EBF4FF;border:1px solid #b0cef7;box-shadow:none;">
+                    <div class="form-section-title"><i class="fas fa-info-circle"></i> Mot de passe par défaut</div>
+                    <p style="color:var(--color-text-secondary);font-size:var(--font-size-sm);">
+                        Le mot de passe sera automatiquement défini sur le <strong>nom d'utilisateur généré</strong> (prénom+nom). L'employé pourra le modifier depuis son profil.
+                    </p>
+                </div>
+                {% else %}
+                <div class="form-card" style="background:var(--color-bg-light);border:1px dashed #E0E0E0;box-shadow:none;text-align:center;">
+                    <i class="fas fa-lock" style="color:var(--color-text-secondary);font-size:20px;display:block;opacity:0.4;margin-bottom:8px;"></i>
+                    <p style="color:var(--color-text-secondary);font-size:var(--font-size-sm);">
+                        Le mot de passe ne peut être modifié que par l'utilisateur lui-même.
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-sm);">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i>&nbsp; {{ action }}
+            </button>
+            <a href="{% url 'Employee:utilisateur_list' %}" class="btn"
+               style="background:var(--color-text-secondary);color:white;">
+                Annuler
+            </a>
+        </div>
     </form>
-</div>
+</section>
 {% endblock %}

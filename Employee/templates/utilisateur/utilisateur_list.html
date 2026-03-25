@@ -1,43 +1,165 @@
-{% extends "utilisateur/base.html" %}
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block title %}Employés - BioAttend{% endblock %}
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <style>
+        .emp-grid-header,
+        .emp-grid-row {
+            display: grid;
+            grid-template-columns: 2fr 1.2fr 1.2fr 1.8fr 1.2fr 1.2fr;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md) var(--spacing-lg);
+            align-items: center;
+        }
+        .emp-grid-header {
+            background-color: var(--color-bg-light);
+            border-bottom: 1px solid #E0E0E0;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            font-size: var(--font-size-xs);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .emp-grid-row {
+            border-bottom: 1px solid #f0f0f0;
+            transition: background var(--transition-fast);
+        }
+        .emp-grid-row:last-child { border-bottom: none; }
+        .emp-grid-row:hover { background-color: var(--color-bg-light); }
+        .emp-name { font-weight: 500; color: var(--color-text-primary); }
+        .emp-secondary { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+        .emp-actions { display: flex; gap: var(--spacing-sm); }
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 10px;
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+            text-decoration: none;
+            transition: all var(--transition-fast);
+        }
+        .action-btn.view  { background: #E8F4FD; color: var(--color-primary); }
+        .action-btn.edit  { background: #E8F8F5; color: var(--color-secondary); }
+        .action-btn.del   { background: #FDEDEC; color: var(--color-accent-red); }
+        .action-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+        .emp-search-bar {
+            display: flex;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .emp-search-bar input {
+            flex: 1;
+            max-width: 360px;
+            padding: 8px 12px;
+            border: 1px solid #E0E0E0;
+            border-radius: var(--radius-md);
+            font-size: var(--font-size-sm);
+            background: var(--color-bg-light);
+            color: var(--color-text-primary);
+        }
+        .emp-search-bar input:focus { outline: none; border-color: var(--color-primary); }
+        .emp-search-bar button {
+            padding: 8px 16px;
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+        }
+        .bio-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: var(--radius-md);
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+        }
+        .bio-ok  { background: #E8F8F5; color: #1ABC9C; }
+        .bio-no  { background: #FDEDEC; color: var(--color-accent-red); }
+        .surete-high { background: #E8F8F5; color: #14866D; }
+        .surete-mid { background: #FFF8E1; color: #B7791F; }
+        .surete-low { background: #FDEDEC; color: #C0392B; }
+        .btn-green { background: var(--color-secondary) !important; color: white !important; }
+    </style>
+{% endblock %}
 {% block content %}
-<div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h1>Liste des Utilisateurs</h1>
+<section class="page active">
+
+    <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
-            <a href="{% url 'Employee:utilisateur_create' %}" class="btn-csv" style="background:#4e73df;"><i class="fas fa-plus"></i> Ajouter un employé</a>
-            <a href="{% url 'Employee:exporter_csv' %}" class="btn-csv" style="margin-left:10px;"><i class="fas fa-file-csv"></i> Exporter CSV</a>
+            <h1>Employés</h1>
+            <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-top: 4px;">
+                {{ utilisateurs|length }} employé{{ utilisateurs|length|pluralize }} enregistré{{ utilisateurs|length|pluralize }}
+            </p>
+        </div>
+        <div style="display: flex; gap: var(--spacing-sm);">
+            <a href="{% url 'Employee:utilisateur_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i>&nbsp; Ajouter
+            </a>
+            <a href="{% url 'Employee:exporter_csv' %}" class="btn btn-green">
+                <i class="fas fa-file-csv"></i>&nbsp; Exporter CSV
+            </a>
         </div>
     </div>
 
-    <form method="GET" style="margin-bottom: 20px;">
-        <input type="text" name="q" placeholder="Rechercher Nom, Prénom ou Email..." value="{{ recherche }}">
-        <button type="submit">Filtrer</button>
-    </form>
+    <div class="recent-table">
 
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Nom Complet</th>
-                <th>Département</th>
-                <th>Email</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
+        <form method="GET" class="emp-search-bar">
+            <input type="text" name="q" placeholder="Rechercher par nom, prénom ou email…" value="{{ recherche }}">
+            <button type="submit"><i class="fas fa-search"></i>&nbsp; Filtrer</button>
+        </form>
+
+        <div class="emp-grid-header">
+            <div>Nom Complet</div>
+            <div>Nom d'utilisateur</div>
+            <div>Département</div>
+            <div>Email</div>
+            <div>Indice de sûreté</div>
+            <div>Actions</div>
+        </div>
+
+        <div class="table-body">
             {% for u in utilisateurs %}
-            <tr>
-                <td>{{ u.ID_Utilisateur }}</td> <td>{{ u.Prenom }} {{ u.Nom }}</td>
-                <td>{{ u.Departement }}</td>
-                <td>{{ u.Email }}</td>
-                <td>
-                    <a href="{% url 'Employee:utilisateur_detail' u.ID_Utilisateur %}">Voir</a> |
-                    <a href="{% url 'Employee:utilisateur_update' u.ID_Utilisateur %}">Modifier</a> |
-                    <a href="{% url 'Employee:utilisateur_delete' u.ID_Utilisateur %}">Supprimer</a>
-                </td>
-            </tr>
+            <div class="emp-grid-row">
+                <div class="emp-name">
+                    <i class="fas fa-user-circle" style="color: var(--color-primary); margin-right: 6px;"></i>
+                    {{ u.first_name }} {{ u.last_name }}
+                </div>
+                <div class="emp-secondary">{{ u.username }}</div>
+                <div class="emp-secondary">{{ u.departement|default:"—" }}</div>
+                <div class="emp-secondary">{{ u.email }}</div>
+                <div>
+                    {% if u.indice_surete is not None %}
+                        {% if u.indice_surete >= 75 %}
+                            <span class="bio-badge surete-high">{{ u.indice_surete|floatformat:1 }}%</span>
+                        {% elif u.indice_surete >= 55 %}
+                            <span class="bio-badge surete-mid">{{ u.indice_surete|floatformat:1 }}%</span>
+                        {% else %}
+                            <span class="bio-badge surete-low">{{ u.indice_surete|floatformat:1 }}%</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="emp-secondary">—</span>
+                    {% endif %}
+                </div>
+                <div class="emp-actions">
+                    <a href="{% url 'Employee:utilisateur_detail' u.pk %}" class="action-btn view" title="Voir"><i class="fas fa-eye"></i></a>
+                    <a href="{% url 'Employee:utilisateur_update' u.pk %}" class="action-btn edit" title="Modifier"><i class="fas fa-edit"></i></a>
+                    <a href="{% url 'Employee:utilisateur_delete' u.pk %}" class="action-btn del" title="Supprimer"><i class="fas fa-trash"></i></a>
+                </div>
+            </div>
+            {% empty %}
+            <div style="text-align: center; padding: var(--spacing-2xl); color: var(--color-text-secondary);">
+                <i class="fas fa-users" style="font-size: 2rem; margin-bottom: var(--spacing-md); display: block; opacity: 0.3;"></i>
+                Aucun employé trouvé.
+            </div>
             {% endfor %}
-        </tbody>
-    </table>
-</div>
+        </div>
+    </div>
+
+</section>
 {% endblock %}

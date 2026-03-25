@@ -1,12 +1,47 @@
-{% extends "utilisateur/base.html" %}
+{% extends "dashboard/base.html" %}
+{% block title %}Supprimer l'employé - BioAttend{% endblock %}
+{% block extra_css %}
+<style>
+.delete-card {
+    background: var(--color-bg-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--spacing-2xl);
+    max-width: 500px;
+    border-top: 4px solid var(--color-accent-red);
+}
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    margin-bottom: var(--spacing-xl);
+}
+</style>
+{% endblock %}
 {% block content %}
-<div class="card" style="max-width: 700px; margin: auto;">
-    <h1>Supprimer l'employé</h1>
-    <p>Êtes-vous sûr de vouloir supprimer <strong>{{ utilisateur.Prenom }} {{ utilisateur.Nom }}</strong> ?</p>
-    <form method="post">
-        {% csrf_token %}
-        <button type="submit" class="btn-csv" style="background:#e74a3b;">Confirmer la suppression</button>
-        <a href="{% url 'Employee:utilisateur_list' %}" class="btn-csv" style="background:#6c757d;">Annuler</a>
-    </form>
-</div>
+<section class="page active">
+    <a href="{% url 'Employee:utilisateur_list' %}" class="back-link"><i class="fas fa-arrow-left"></i> Retour à la liste</a>
+    <div class="delete-card">
+        <h1 style="font-size: var(--font-size-xl); margin-bottom: var(--spacing-md); color: var(--color-accent-red);">
+            <i class="fas fa-trash"></i> Supprimer l'employé
+        </h1>
+        <p style="margin-bottom: var(--spacing-xl); font-size: var(--font-size-sm); color: var(--color-text-secondary);">
+            Êtes-vous sûr de vouloir supprimer <strong style="color: var(--color-text-primary);">{{ utilisateur.first_name }} {{ utilisateur.last_name }}</strong> ?
+            Cette action est irréversible.
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <div style="display: flex; gap: var(--spacing-sm);">
+                <button type="submit" class="btn" style="background: var(--color-accent-red); color: white;">
+                    <i class="fas fa-trash"></i> Confirmer la suppression
+                </button>
+                <a href="{% url 'Employee:utilisateur_list' %}" class="btn" style="background: var(--color-text-secondary); color: white;">Annuler</a>
+            </div>
+        </form>
+    </div>
+</section>
 {% endblock %}

@@ -15,10 +15,11 @@
         <tbody>
             {% for alerte in alertes %}
             <tr>
-                <td>{{ alerte.ID_Alerte }}</td> <td><strong>{{ alerte.Type }}</strong></td>
-                <td>{{ alerte.utilisateur.Nom }}</td>
-                <td>{{ alerte.Date_creation }}</td>
-                <td>{{ alerte.Statut }}</td> </tr>
+                <td>{{ alerte.id }}</td>
+                <td><strong>{{ alerte.type }}</strong></td>
+                <td>{{ alerte.utilisateur.first_name }} {{ alerte.utilisateur.last_name }}</td>
+                <td>{{ alerte.date_creation }}</td>
+                <td>{{ alerte.statut }}</td> </tr>
             {% empty %}
             <tr><td colspan="5">Aucune alerte pour le moment.</td></tr>
             {% endfor %}

@@ -11,6 +11,7 @@ class Utilisateur(AbstractUser):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     embedding_facial = VectorField(dimensions=512, null=True, blank=True)
+    indice_surete = models.FloatField(null=True, blank=True)
     departement = models.CharField(max_length=50, blank=True, null=True)
     date_debut = models.DateField(null=True, blank=True)
     date_fin = models.DateField(blank=True, null=True)

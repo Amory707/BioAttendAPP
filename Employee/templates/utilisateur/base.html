@@ -18,9 +18,6 @@
     <div class="sidebar">
         <h2>BioAttend</h2>
         <p><a href="{% url 'Employee:utilisateur_list' %}" style="color:white; text-decoration:none;"><i class="fas fa-users"></i> Utilisateurs</a></p>
-        <p><a href="{% url 'Employee:pointage_list' %}" style="color:white; text-decoration:none;"><i class="fas fa-clock"></i> Pointages</a></p>
-        <p><a href="{% url 'Employee:alerte_list' %}" style="color:white; text-decoration:none;"><i class="fas fa-exclamation-triangle"></i> Alertes</a></p>
-        <p><a href="{% url 'Employee:role_list' %}" style="color:white; text-decoration:none;"><i class="fas fa-user-tag"></i> Rôles</a></p>
     </div>
     <div class="content">
         {% block content %}{% endblock %}

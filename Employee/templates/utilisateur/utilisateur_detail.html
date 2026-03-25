@@ -1,62 +1,101 @@
-{% extends "utilisateur/base.html" %}
-
+{% extends "dashboard/base.html" %}
+{% block title %}{{ utilisateur.first_name }} {{ utilisateur.last_name }} - BioAttend{% endblock %}
+{% block extra_css %}
+<style>
+.emp-card {
+    background: var(--color-bg-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--spacing-xl);
+}
+.emp-table { width: 100%; border-collapse: collapse; }
+.emp-table th,
+.emp-table td {
+    padding: 10px var(--spacing-md);
+    text-align: left;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: var(--font-size-sm);
+}
+.emp-table th {
+    background: var(--color-bg-light);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+}
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    margin-bottom: var(--spacing-xl);
+}
+.badge-type {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+}
+</style>
+{% endblock %}
 {% block content %}
-<div class="container" style="max-width: 1000px; margin: auto;">
-    
-    <a href="{% url 'Employee:utilisateur_list' %}" style="text-decoration: none; color: #4e73df; font-weight: bold;">
+<section class="page active">
+    <a href="{% url 'Employee:utilisateur_list' %}" class="back-link">
         <i class="fas fa-arrow-left"></i> Retour à la liste
     </a>
 
-    <div style="display: flex; gap: 20px; margin-top: 20px;">
-        
-        <div class="card" style="flex: 1; border-top: 5px solid #4e73df;">
-            <div style="text-align: center; margin-bottom: 20px;">
-                <div style="width: 100px; height: 100px; background: #eaecf4; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 40px; color: #b7b9cc;">
+    <div style="display: flex; gap: var(--spacing-lg); margin-bottom: var(--spacing-xl);">
+        <div class="emp-card" style="flex: 1; border-top: 4px solid var(--color-primary);">
+            <div style="text-align: center; margin-bottom: var(--spacing-lg);">
+                <div style="width: 80px; height: 80px; background: var(--color-bg-light); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; color: var(--color-primary);">
                     <i class="fas fa-user"></i>
                 </div>
-                <h2 style="margin: 10px 0;">{{ utilisateur.Prenom }} {{ utilisateur.Nom }}</h2>
-                <span style="background: #f8f9fc; padding: 5px 15px; border-radius: 20px; font-size: 0.9rem; color: #4e73df; font-weight: bold;">
-                    ID: {{ utilisateur.ID_Utilisateur }} </span>
+                <h2 style="margin: var(--spacing-sm) 0; font-size: var(--font-size-xl);">{{ utilisateur.first_name }} {{ utilisateur.last_name }}</h2>
+                <span style="background: var(--color-bg-light); padding: 4px 14px; border-radius: 20px; font-size: var(--font-size-xs); color: var(--color-primary); font-weight: 600;">@{{ utilisateur.username }}</span>
             </div>
-
-            <hr style="border: 0; border-top: 1px solid #eee;">
-
-            <div style="line-height: 2;">
-                <p><strong><i class="fas fa-envelope"></i> Email :</strong> {{ utilisateur.Email }}</p>
-                <p><strong><i class="fas fa-building"></i> Département :</strong> {{ utilisateur.Departement }}</p>
-                <p><strong><i class="fas fa-calendar-alt"></i> Date de début :</strong> {{ utilisateur.Date_debut }}</p>
-                <p><strong><i class="fas fa-fingerprint"></i> Statut Biométrique :</strong> 
-                    {% if utilisateur.Embedding_facial %}
-                        <span style="color: green;">Enrôlé (Vecteur 128)</span> {% else %}
-                        <span style="color: red;">Non enrôlé</span>
+            <hr style="border: 0; border-top: 1px solid #f0f0f0; margin-bottom: var(--spacing-md);">
+            <div style="line-height: 2; font-size: var(--font-size-sm);">
+                <p><strong><i class="fas fa-envelope" style="color: var(--color-primary); width: 18px;"></i> Email :</strong> {{ utilisateur.email }}</p>
+                <p><strong><i class="fas fa-building" style="color: var(--color-primary); width: 18px;"></i> Département :</strong> {{ utilisateur.departement }}</p>
+                <p><strong><i class="fas fa-calendar-alt" style="color: var(--color-primary); width: 18px;"></i> Date de début :</strong> {{ utilisateur.date_debut }}</p>
+                <p><strong><i class="fas fa-fingerprint" style="color: var(--color-primary); width: 18px;"></i> Statut Biométrique :</strong>
+                    {% if has_embedding %}
+                        <span style="color: var(--color-secondary);">Enrôlé (Vecteur 512)</span>
+                    {% else %}
+                        <span style="color: var(--color-accent-red);">Non enrôlé</span>
                     {% endif %}
                 </p>
             </div>
         </div>
 
-        <div class="card" style="flex: 0.5; background: #f8f9fc; border: 1px dashed #4e73df;">
-            <h3>Statut aujourd'hui</h3>
-            <div style="text-align: center; padding: 20px 0;">
+        <div class="emp-card" style="flex: 0.4; background: var(--color-bg-light); border: 1px dashed var(--color-primary);">
+            <h3 style="font-size: var(--font-size-base); margin-bottom: var(--spacing-md);">Statut aujourd'hui</h3>
+            <div style="text-align: center; padding: var(--spacing-xl) 0;">
                 {% if dernier_pointage and dernier_pointage.type == 'ENTREE' %}
-                    <div style="font-size: 3rem; color: #1cc88a;"><i class="fas fa-check-circle"></i></div>
-                    <p style="font-weight: bold; color: #1cc88a;">PRÉSENT</p>
-                    <small>Arrivé à : {{ dernier_pointage.horodatage|date:"H:i" }}</small>
+                    <div style="font-size: 3rem; color: var(--color-secondary);"><i class="fas fa-check-circle"></i></div>
+                    <p style="font-weight: bold; color: var(--color-secondary); margin-top: var(--spacing-sm);">PRÉSENT</p>
+                    <small style="color: var(--color-text-secondary);">Arrivé à : {{ dernier_pointage.horodatage|date:"H:i" }}</small>
                 {% else %}
-                    <div style="font-size: 3rem; color: #e74a3b;"><i class="fas fa-times-circle"></i></div>
-                    <p style="font-weight: bold; color: #e74a3b;">ABSENT / SORTI</p>
+                    <div style="font-size: 3rem; color: var(--color-accent-red);"><i class="fas fa-times-circle"></i></div>
+                    <p style="font-weight: bold; color: var(--color-accent-red); margin-top: var(--spacing-sm);">ABSENT / SORTI</p>
                 {% endif %}
             </div>
         </div>
     </div>
 
-    <div class="card" style="margin-top: 30px;">
-        <h3><i class="fas fa-history"></i> Derniers Pointages</h3>
-        <table>
-            <thead style="background: #f8f9fc;">
+    <div class="emp-card">
+        <h3 style="font-size: var(--font-size-base); margin-bottom: var(--spacing-md);"><i class="fas fa-history"></i> Derniers Pointages</h3>
+        <table class="emp-table">
+            <thead>
                 <tr>
                     <th>Date & Heure</th>
                     <th>Type</th>
-                    <th>Score de Confiance</th> <th>Statut</th>
+                    <th>Score de Confiance</th>
+                    <th>Statut</th>
                 </tr>
             </thead>
             <tbody>
@@ -64,18 +103,20 @@
                 <tr>
                     <td>{{ p.horodatage|date:"d/m/Y H:i" }}</td>
                     <td>
-                        <span style="padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; background: {% if p.type == 'ENTREE' %}#d1e7dd{% else %}#f8d7da{% endif %};">
+                        <span class="badge-type" style="background: {% if p.type == 'ENTREE' %}#d1fae5{% else %}#fde8e8{% endif %}; color: {% if p.type == 'ENTREE' %}#065f46{% else %}#9b1c1c{% endif %};">
                             {{ p.type }}
                         </span>
                     </td>
-                    <td>{{ p.score_confiance|floatformat:2 }} %</td> <td>{{ p.statut }}</td> </tr>
+                    <td>{{ p.score_confiance|floatformat:2 }} %</td>
+                    <td>{{ p.statut }}</td>
+                </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" style="text-align: center; padding: 20px; color: #858796;">Aucun historique pour cet utilisateur.</td>
+                    <td colspan="4" style="text-align: center; padding: 30px; color: var(--color-text-secondary);">Aucun historique pour cet utilisateur.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-</div>
+</section>
 {% endblock %}
