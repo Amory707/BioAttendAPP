@@ -49,6 +49,34 @@
     --font-size-3xl: 32px;
 }
 
+/* Global button defaults to ensure consistent look across pages */
+.btn,
+a.btn {
+    padding: 10px 18px;
+    border: none !important;
+    border-radius: var(--radius-md) !important;
+    font-size: var(--font-size-sm) !important;
+    font-weight: 700 !important;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none !important;
+}
+
+.btn-primary,
+a.btn-primary {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%) !important;
+    color: white !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+.btn:hover,
+a.btn:hover {
+    transform: translateY(-2px);
+}
+
+
 body.dark-mode {
     --color-bg-light: #1A1A2E;
     --color-bg-white: #16213E;
@@ -441,3 +469,5 @@ body.dark-mode .search-input {
     width: 20px;
     text-align: center;
 }
+
+

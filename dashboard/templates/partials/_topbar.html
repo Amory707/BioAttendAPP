@@ -1,8 +1,10 @@
 <header class="top-bar">
-    <div class="search-container">
-        <input type="text" class="search-input" placeholder="Rechercher...">
-        <i class="fas fa-search search-icon"></i>
-    </div>
+    <form class="search-container" method="GET" action="{% url 'Employee:utilisateur_list' %}">
+        <input type="text" name="q" class="search-input" placeholder="Rechercher un employé…">
+        <button type="submit" style="position:absolute;right:var(--spacing-md);background:none;border:none;padding:0;cursor:pointer;">
+            <i class="fas fa-search search-icon" style="pointer-events:none;"></i>
+        </button>
+    </form>
 
     <div class="top-bar-actions">
         <button class="notification-btn" title="Notifications">
@@ -15,19 +17,28 @@
         </button>
 
         <div class="user-menu-wrapper">
-            <button class="user-btn" id="userMenuBtn">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=amory" 
-                     alt="{{ user.first_name }}" class="user-avatar">
-                <span class="user-label">{{ user.first_name|default:"Admin" }}</span>
+                <button class="user-btn" id="userMenuBtn">
+                <img src="https://api.dicebear.com/9.x/bottts/svg?seed={{ user.username }}" 
+                     alt="{{ user.get_full_name|default:user.username }}" class="user-avatar">
+                <span class="user-label">
+                    {% with full_name=user.get_full_name %}
+                        {% if full_name %}
+                            {{ full_name }}
+                        {% else %}
+                            {{ user.username }}
+                        {% endif %}
+                    {% endwith %}
+                </span>
                 <i class="fas fa-chevron-down dropdown-arrow"></i>
             </button>
 
             <div class="dropdown-menu" id="userDropdown">
-                <a href="#" class="dropdown-item" id="settingsLink">
-                    <i class="fas fa-cog item-icon"></i>
-                    Paramètres
-                </a>
-                {% if user.is_staff or user.is_superuser %}
+                {% if user.is_admindjango %}
+                    <a href="{% url 'admin:index' %}" class="dropdown-item">
+                        <i class="fas fa-tools item-icon"></i>
+                        Panneau admindjango
+                    </a>
+                {% elif user.is_staff or user.is_superuser %}
                     <a href="{% url 'admin:index' %}" class="dropdown-item">
                         <i class="fas fa-user-shield item-icon"></i>
                         Accès admin Django

@@ -133,6 +133,7 @@ Si vous devez créer un nouveau module (ex: `stats`, `notifications`), suivez ce
 | **Appliquer les migrations** | `python manage.py migrate` |
 | **Créer un super-utilisateur** (admin) | `python manage.py createsuperuser` |
 | **Installer toutes les dépendances** | `pip install -r requirements.txt` |
+
 | **Lancer les tests** | `python manage.py test` |
 | **Vider la base de données** | `python manage.py migrate zero` (ou supprimer le volume) |
 

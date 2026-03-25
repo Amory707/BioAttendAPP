@@ -30,9 +30,17 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "pgvector", 
+    "pgvector",
+    # DRF
+    "rest_framework",
+    # Apps métier
+    "accounts",
+    "attendance",
+    "alerts",
     "core",
     "dashboard",
+    "Employee",
+    "api",
 ]
 
 MIDDLEWARE = [
@@ -41,6 +49,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "accounts.middleware.ThreadLocalMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -97,8 +106,27 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# User model personnalisé
+AUTH_USER_MODEL = "accounts.Utilisateur"
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard:index'
 LOGOUT_REDIRECT_URL = 'login'
+
+# ─── Django REST Framework ───────────────────────────────────────────────────
+REST_FRAMEWORK = {
+    # L'API est consommée par le Raspberry Pi (pas de session Django)
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_PERMISSION_CLASSES": [],
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+}
+
+# ─── Seuil de reconnaissance faciale ─────────────────────────────────────────
+# Distance cosinus en dessous de laquelle on considère un visage comme reconnu.
+# Valeur entre 0 (identique) et 2 (opposé). 0.5 est un bon point de départ.
+FACE_MATCH_THRESHOLD = 0.5
