@@ -12,6 +12,7 @@ urlpatterns = [
     path("accounts/", include("django.contrib.auth.urls")),
     path("Employee", RedirectView.as_view(url='/Employee/', permanent=True)),
     path("Employee/", include("Employee.urls", namespace="Employee")),
+    path("api/", include("api.urls", namespace="api")),
 ]
 
 if settings.DEBUG:

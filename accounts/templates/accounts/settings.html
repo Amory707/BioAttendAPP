@@ -1,0 +1,112 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Paramètres{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <style>
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-lg);
+            border-bottom: 1px solid #E0E0E0;
+            gap: var(--spacing-lg);
+        }
+        .settings-row:last-child { border-bottom: none; }
+        .settings-row-info { flex: 1; }
+        .settings-row-info h3 {
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin: 0 0 4px;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        .settings-row-info h3 i { color: var(--color-primary); font-size: 16px; }
+        .settings-row-info p {
+            font-size: var(--font-size-sm);
+            color: var(--color-text-secondary);
+            margin: 0;
+        }
+        .settings-row-actions {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+            min-width: 220px;
+        }
+        .btn-danger {
+            background: var(--color-accent-red);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #d44060;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="page active">
+    <div class="page-header">
+        <h1>Paramètres</h1>
+    </div>
+
+    {% if messages %}
+        <div style="margin-bottom: var(--spacing-lg);">
+            {% for message in messages %}
+                <div class="alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="recent-section">
+        <div class="section-header">
+            <h2>Sécurité</h2>
+        </div>
+        <div class="recent-table">
+
+            <!-- Ligne : Mot de passe -->
+            <div class="settings-row">
+                <div class="settings-row-info">
+                    <h3><i class="fas fa-lock"></i>Mot de passe</h3>
+                    <p>Modifiez votre mot de passe de connexion pour sécuriser votre compte.</p>
+                </div>
+                <div class="settings-row-actions">
+                    <a href="{% url 'accounts:password_change' %}" class="btn btn-primary">
+                        <i class="fas fa-key" style="margin-right:6px;"></i>Changer le mot de passe
+                    </a>
+                </div>
+            </div>
+
+            <!-- Ligne : Sessions actives -->
+            <div class="settings-row">
+                <div class="settings-row-info">
+                    <h3><i class="fas fa-user-clock"></i>Sessions actives</h3>
+                    <p>Déconnectez les sessions ouvertes sur d'autres appareils. La session actuelle est conservée.</p>
+                </div>
+                <div class="settings-row-actions">
+                    <form method="post" action="{% url 'accounts:logout_all_sessions' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="all" value="0">
+                        <button type="submit" class="btn btn-primary" style="width:100%;">
+                            <i class="fas fa-sign-out-alt" style="margin-right:6px;"></i>Autres sessions
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'accounts:logout_all_sessions' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="all" value="1">
+                        <button type="submit" class="btn btn-danger" style="width:100%;">
+                            <i class="fas fa-trash-alt" style="margin-right:6px;"></i>Toutes les sessions
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
