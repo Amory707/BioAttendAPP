@@ -24,7 +24,6 @@ from accounts.models import Utilisateur
 
 logger = logging.getLogger(__name__)
 
-# Taille attendue des embeddings InsightFace (buffalo_l / arcface)
 EMBEDDING_SIZE = 512
 
 
@@ -72,7 +71,6 @@ class FaceIdentifyView(APIView):
     """
 
     def post(self, request):
-        # ── 1. Validation de l'entrée ──────────────────────────────────────
         embedding_raw = request.data.get("embedding")
 
         if embedding_raw is None:
@@ -99,7 +97,6 @@ class FaceIdentifyView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Vérification que tous les éléments sont bien numériques
         try:
             embedding = [float(v) for v in embedding_raw]
         except (TypeError, ValueError):
@@ -108,12 +105,9 @@ class FaceIdentifyView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ── 2. Recherche de la correspondance via pgvector ─────────────────
         threshold = getattr(settings, "FACE_MATCH_THRESHOLD", 0.5)
 
         try:
-            # CosineDistance retourne une valeur entre 0 (identique) et 2 (opposé).
-            # On ne considère que les utilisateurs qui ont un embedding enregistré.
             match = (
                 Utilisateur.objects.filter(embedding_facial__isnull=False)
                 .annotate(distance=CosineDistance("embedding_facial", embedding))
@@ -127,7 +121,6 @@ class FaceIdentifyView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        # ── 3. Décision : match ou non ─────────────────────────────────────
         if match is None or match.distance > threshold:
             logger.info(
                 "Aucune correspondance faciale (meilleure distance : %s)",
