@@ -1,0 +1,26 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<div class="card">
+    <h1>Historique des Pointages</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Horodatage</th>
+                <th>Utilisateur</th>
+                <th>Type</th>
+                <th>Confiance IA</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in pointages %}
+            <tr>
+                <td>{{ p.horodatage|date:"d/m/Y H:i" }}</td>
+                <td>{{ p.utilisateur.first_name }} {{ p.utilisateur.last_name }}</td>
+                <td>{{ p.type }}</td> <td>{{ p.score_confiance }}</td> <td>{{ p.statut }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
