@@ -7,4 +7,6 @@ urlpatterns = [
     path("dashboard/", include("dashboard.urls")),
     path("accounts/", include("accounts.urls")),
     path("accounts/", include("django.contrib.auth.urls")),
+    # API REST — consommée par le Raspberry Pi
+    path("api/", include("api.urls", namespace="api")),
 ]
