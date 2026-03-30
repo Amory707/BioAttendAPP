@@ -8,11 +8,13 @@ localement par InsightFace. Cette vue compare ce vecteur à ceux stockés en
 base de données (pgvector) et retourne l'utilisateur le plus proche si la
 distance cosinus est en dessous du seuil défini dans settings.FACE_MATCH_THRESHOLD.
 
-Aucune authentification n'est requise sur cet endpoint : il est destiné à
-des appareils physiques sur le réseau local.
+Une authentification légère est requise via:
+- Authorization: Bearer <SECRET_KEY>
+- X-API-Key: <SECRET_KEY>
 """
 
 import logging
+import secrets
 
 from django.conf import settings
 from pgvector.django import CosineDistance
@@ -29,7 +31,32 @@ EMBEDDING_SIZE = 512 # Config
 
 class FaceIdentifyView(APIView):
 
+    def _extract_api_key(self, request):
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            return auth_header[7:].strip()
+
+        return request.headers.get("X-API-Key", "").strip()
+
+    def _is_authorized(self, request):
+        provided_key = self._extract_api_key(request)
+        expected_key = getattr(settings, "SECRET_KEY", "")
+
+        if not provided_key or not expected_key:
+            return False
+
+        return secrets.compare_digest(provided_key, expected_key)
+
     def post(self, request):
+        if not self._is_authorized(request):
+            return Response(
+                {
+                    "matched": False,
+                    "error": "Authentification requise via Authorization Bearer ou X-API-Key.",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
         embedding_raw = request.data.get("embedding")
 
         if embedding_raw is None:

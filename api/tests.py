@@ -12,7 +12,10 @@ from alerts.models import Alerte
 from attendance.models import Pointage
 
 
+@override_settings(SECRET_KEY="test-api-secret")
 class FaceIdentifyApiTests(TestCase):
+	API_KEY = "test-api-secret"
+
 	def tearDown(self):
 		# Nettoyage explicite demande: suppression de tout ajout en base.
 		Alerte.objects.all().delete()
@@ -24,6 +27,21 @@ class FaceIdentifyApiTests(TestCase):
 	def _url(self):
 		return reverse("api:face-identify")
 
+	def _auth_headers(self, mode="bearer", key=None):
+		api_key = self.API_KEY if key is None else key
+		if mode == "x-api-key":
+			return {"HTTP_X_API_KEY": api_key}
+		return {"HTTP_AUTHORIZATION": f"Bearer {api_key}"}
+
+	def _post(self, payload, auth_mode="bearer", key=None):
+		headers = self._auth_headers(mode=auth_mode, key=key)
+		return self.client.post(
+			self._url(),
+			payload,
+			content_type="application/json",
+			**headers,
+		)
+
 	def _mock_queryset_chain(self, first_result=None, raise_on_filter=False):
 		queryset = Mock()
 		queryset.annotate.return_value = queryset
@@ -32,11 +50,11 @@ class FaceIdentifyApiTests(TestCase):
 
 		if raise_on_filter:
 			with patch("api.views.Utilisateur.objects.filter", side_effect=Exception("db error")):
-				response = self.client.post(self._url(), {"embedding": [0.1] * 512}, content_type="application/json")
+				response = self._post({"embedding": [0.1] * 512})
 			return response
 
 		with patch("api.views.Utilisateur.objects.filter", return_value=queryset):
-			response = self.client.post(self._url(), {"embedding": [0.1] * 512}, content_type="application/json")
+			response = self._post({"embedding": [0.1] * 512})
 		return response
 
 	def _embedding_from_face_file(self):
@@ -57,27 +75,23 @@ class FaceIdentifyApiTests(TestCase):
 		return values
 
 	def test_identify_requires_embedding_field(self):
-		response = self.client.post(self._url(), {}, content_type="application/json")
+		response = self._post({})
 
 		self.assertEqual(response.status_code, 400)
 		self.assertEqual(response.json()["matched"], False)
 		self.assertIn("embedding", response.json()["error"])
 
 	def test_identify_rejects_non_list_embedding(self):
-		response = self.client.post(
-			self._url(),
+		response = self._post(
 			{"embedding": "not-a-list"},
-			content_type="application/json",
 		)
 
 		self.assertEqual(response.status_code, 400)
 		self.assertIn("liste", response.json()["error"])
 
 	def test_identify_rejects_wrong_embedding_size(self):
-		response = self.client.post(
-			self._url(),
+		response = self._post(
 			{"embedding": [0.1] * 3},
-			content_type="application/json",
 		)
 
 		self.assertEqual(response.status_code, 400)
@@ -85,10 +99,8 @@ class FaceIdentifyApiTests(TestCase):
 
 	def test_identify_rejects_non_numeric_values(self):
 		payload = [0.2] * 511 + ["x"]
-		response = self.client.post(
-			self._url(),
+		response = self._post(
 			{"embedding": payload},
-			content_type="application/json",
 		)
 
 		self.assertEqual(response.status_code, 400)
@@ -139,6 +151,32 @@ class FaceIdentifyApiTests(TestCase):
 		self.assertEqual(payload["full_name"], "Jean Dupont")
 		self.assertEqual(payload["distance"], 0.12)
 
+	def test_identify_returns_401_without_api_key(self):
+		response = self.client.post(
+			self._url(),
+			{"embedding": [0.1] * 512},
+			content_type="application/json",
+		)
+
+		self.assertEqual(response.status_code, 401)
+		self.assertFalse(response.json()["matched"])
+
+	def test_identify_returns_401_with_invalid_api_key(self):
+		response = self._post({"embedding": [0.1] * 512}, key="wrong-key")
+
+		self.assertEqual(response.status_code, 401)
+		self.assertFalse(response.json()["matched"])
+
+	def test_identify_accepts_x_api_key_header(self):
+		response = self._post(
+			{"embedding": [0.1] * 3},
+			auth_mode="x-api-key",
+		)
+
+		# Auth valide: la requete passe la couche auth et echoue ensuite sur la taille.
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("512", response.json()["error"])
+
 	@override_settings(FACE_MATCH_THRESHOLD=0.7)
 	def test_identify_with_face_file_embedding_returns_200(self):
 		image_path = Path("/workspaces/BioAttendAPP/api/visage test/louis-de-funes.jpeg")
@@ -160,11 +198,7 @@ class FaceIdentifyApiTests(TestCase):
 		queryset.first.return_value = user
 
 		with patch("api.views.Utilisateur.objects.filter", return_value=queryset):
-			response = self.client.post(
-				self._url(),
-				{"embedding": embedding},
-				content_type="application/json",
-			)
+			response = self._post({"embedding": embedding})
 
 		self.assertEqual(response.status_code, 200)
 		payload = response.json()
