@@ -3,8 +3,6 @@ name: Django Tests (Postgres + pgvector)
 on:
   push:
     branches: ["main"]
-  #pull_request:
-  #  branches: ["**"]
   workflow_dispatch:
 
 concurrency:
@@ -20,21 +18,21 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg15
         env:
-          POSTGRES_DB: test_db
+          POSTGRES_DB: postgres
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
         options: >-
           --health-cmd="pg_isready -U postgres"
-          --health-interval=10s
+          --health-interval=5s
           --health-timeout=5s
-          --health-retries=5
+          --health-retries=10
 
     env:
       SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
       DEBUG: "False"
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
 
@@ -62,7 +60,7 @@ jobs:
           for _ in range(20):
               try:
                   conn = psycopg2.connect(
-                      dbname="test_db",
+                      dbname="postgres",
                       user="postgres",
                       password="postgres",
                       host="localhost",
@@ -82,21 +80,32 @@ jobs:
         run: |
           python - <<'PY'
           import psycopg2
+          import time
 
-          conn = psycopg2.connect(
-              dbname="test_db",
-              user="postgres",
-              password="postgres",
-              host="localhost",
-              port=5432,
-          )
-          conn.autocommit = True
+          for _ in range(10):
+              try:
+                  conn = psycopg2.connect(
+                      dbname="postgres",
+                      user="postgres",
+                      password="postgres",
+                      host="localhost",
+                      port=5432,
+                  )
+                  conn.autocommit = True
 
-          with conn.cursor() as cur:
-              cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+                  with conn.cursor() as cur:
+                      cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+                      cur.execute("SELECT 1;")
 
-          conn.close()
-          print("pgvector enabled")
+                  conn.close()
+                  print("pgvector enabled")
+                  break
+
+              except Exception as e:
+                  print("Retrying pgvector init...", e)
+                  time.sleep(2)
+          else:
+              raise RuntimeError("pgvector init failed")
           PY
 
       - name: Run migrations
