@@ -1,0 +1,118 @@
+name: Django Tests (Supabase)
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+
+concurrency:
+  group: django-tests-supabase-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+      DEBUG: "False"
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate required secrets
+        run: |
+          test -n "$SECRET_KEY" || (echo "Missing secret: DJANGO_SECRET_KEY" && exit 1)
+          test -n "$DATABASE_URL" || (echo "Missing secret: DATABASE_URL" && exit 1)
+
+      - name: Prepare test database and pgvector
+        run: |
+          python - <<'PY'
+          import os
+          from urllib.parse import urlparse, urlunparse
+
+          import psycopg2
+          from psycopg2 import errors, sql
+
+          database_url = os.environ["DATABASE_URL"]
+          parsed = urlparse(database_url)
+
+          def with_db_name(db_name: str) -> str:
+              parts = list(parsed)
+              parts[2] = f"/{db_name}"
+              return urlunparse(parts)
+
+          admin_url = with_db_name("postgres")
+          test_url = with_db_name("test_postgres")
+
+          print("Checking test database availability...")
+          can_connect_test = False
+          try:
+              conn = psycopg2.connect(test_url)
+              conn.close()
+              can_connect_test = True
+              print("test_postgres exists and is reachable.")
+          except Exception:
+              print("test_postgres not reachable, trying to create it...")
+
+          if not can_connect_test:
+              admin_conn = psycopg2.connect(admin_url)
+              admin_conn.autocommit = True
+              try:
+                  with admin_conn.cursor() as cur:
+                      cur.execute(
+                          "SELECT 1 FROM pg_database WHERE datname = %s",
+                          ("test_postgres",),
+                      )
+                      if cur.fetchone() is None:
+                          cur.execute(
+                              sql.SQL("CREATE DATABASE {}").format(
+                                  sql.Identifier("test_postgres")
+                              )
+                          )
+                          print("Created test_postgres.")
+                      else:
+                          print("test_postgres already exists.")
+              except errors.InsufficientPrivilege as exc:
+                  raise RuntimeError(
+                      "Cannot create test_postgres with current credentials. "
+                      "Create it once manually in Supabase, then rerun the workflow."
+                  ) from exc
+              finally:
+                  admin_conn.close()
+
+          test_conn = psycopg2.connect(test_url)
+          test_conn.autocommit = True
+          with test_conn.cursor() as cur:
+              cur.execute("CREATE SCHEMA IF NOT EXISTS extensions")
+              cur.execute("CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions")
+              cur.execute(
+                  "SELECT extname, extnamespace::regnamespace::text "
+                  "FROM pg_extension WHERE extname='vector'"
+              )
+              row = cur.fetchone()
+              print(f"pgvector ready: {row}")
+          test_conn.close()
+          PY
+
+      - name: Run tests
+        run: python manage.py test --keepdb --noinput
