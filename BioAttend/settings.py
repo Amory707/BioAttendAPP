@@ -95,6 +95,9 @@ else:
 if IS_CI:
     DATABASES["default"]["TEST"] = {
         "NAME": "test_db",
+        "MIRROR": "default",
+        "CREATE_DB": False,
+        "DEPENDENCIES": [],
     }
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
