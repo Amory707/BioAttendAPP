@@ -73,17 +73,29 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "BioAttend.wsgi.application"
 
+db_url = env('DATABASE_URL')
+IS_CI = "localhost" in db_url or "127.0.0.1" in db_url
+
 DATABASES = {
     'default': dj_database_url.config(
-        default=env('DATABASE_URL'), 
+        default=db_url, 
         conn_max_age=600,
     )
 }
 
-DATABASES['default']['OPTIONS'] = {
-    'options': '-c search_path=public,extensions'
-}
-
+if IS_CI:
+    DATABASES['default']['OPTIONS'] = {
+        'options': '-c search_path=public'
+    }
+else:
+    DATABASES['default']['OPTIONS'] = {
+        'options': '-c search_path=public,extensions'
+    }
+    
+if IS_CI:
+    DATABASES["default"]["TEST"] = {
+        "NAME": "test_db",
+    }
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
