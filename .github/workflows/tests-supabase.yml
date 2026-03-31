@@ -30,7 +30,7 @@ jobs:
           --health-retries=10
 
     env:
-      SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+      SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY || 'django-insecure-test-key' }}
       DEBUG: "False"
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
       PYTHONDONTWRITEBYTECODE: "1"

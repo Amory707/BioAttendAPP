@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -12,6 +12,7 @@ from attendance.models import Pointage
 from .views import FiltreBiometrique, _validate_photo_uploads
 
 
+@override_settings(SECRET_KEY='test-api-secret')
 class EmployeeAppTests(TestCase):
 	def tearDown(self):
 		# Nettoyage explicite demande: suppression de tout ajout en base.

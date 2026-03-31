@@ -1,6 +1,7 @@
 import os
 import environ
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
 
 env = environ.Env(
@@ -11,8 +12,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
-SECRET_KEY = env('SECRET_KEY')
+SECRET_KEY = env('SECRET_KEY', default='')
 DEBUG = env.bool('DEBUG', default=False)
+
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'django-insecure-test-key'
+    else:
+        raise ImproperlyConfigured(
+            'La variable d\'environnement SECRET_KEY est requise et ne peut pas être vide.'
+        )
 
 ALLOWED_HOSTS = ['*']
 if not DEBUG:
