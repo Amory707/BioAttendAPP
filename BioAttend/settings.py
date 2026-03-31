@@ -12,14 +12,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = env('SECRET_KEY')
-DEBUG = env('DEBUG')
+DEBUG = env.bool('DEBUG', default=False)
 
 ALLOWED_HOSTS = ['*']
 if not DEBUG:
 
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    CSRF_TRUSTED_ORIGINS = CSRF_TRUSTED_ORIGINS = [
-        'https://bioattend.138.199.195.144.sslip.io',
+    CSRF_TRUSTED_ORIGINS = [
+        'https://*.138.199.195.144.sslip.io',
         'https://138.199.195.144.sslip.io'
     ]
     
