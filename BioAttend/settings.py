@@ -7,21 +7,32 @@ env = environ.Env(
     DEBUG=(bool, False)
 )
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 2. Lecture du fichier .env
-# On cherche le fichier .env à la racine du projet
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
-# 3. Récupération des secrets depuis le .env
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = ['*'] # Adapté pour GitHub Codespaces
+ALLOWED_HOSTS = ['*']
+if not DEBUG:
 
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    CSRF_TRUSTED_ORIGINS = CSRF_TRUSTED_ORIGINS = [
+        'https://bioattend.138.199.195.144.sslip.io',
+        'https://138.199.195.144.sslip.io'
+    ]
+    
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        "https://*.github.dev",
+        "https://*.app.github.dev",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000"
+    ]
 
-# Application definition
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -30,9 +41,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "pgvector",
-    # DRF
     "rest_framework",
-    # Apps métier
     "accounts",
     "attendance",
     "alerts",
@@ -44,6 +53,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -73,7 +83,6 @@ TEMPLATES = [
 WSGI_APPLICATION = "BioAttend.wsgi.application"
 
 db_url = env('DATABASE_URL')
-IS_CI = "localhost" in db_url or "127.0.0.1" in db_url
 
 DATABASES = {
     'default': dj_database_url.config(
@@ -82,23 +91,6 @@ DATABASES = {
     )
 }
 
-if IS_CI:
-    DATABASES['default']['OPTIONS'] = {
-        'options': '-c search_path=public'
-    }
-else:
-    DATABASES['default']['OPTIONS'] = {
-        'options': '-c search_path=public,extensions'
-    }
-    
-if IS_CI:
-    DATABASES["default"]["TEST"] = {
-        "NAME": "test_db",
-        "MIRROR": "default",
-        "CREATE_DB": False,
-        "DEPENDENCIES": [],
-    }
-# Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -107,40 +99,33 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Internationalization
 LANGUAGE_CODE = "fr-fr" 
 TIME_ZONE = "Europe/Paris"
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# User model personnalisé
 AUTH_USER_MODEL = "accounts.Utilisateur"
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard:index'
 LOGOUT_REDIRECT_URL = 'login'
 
-# ─── Django REST Framework ───────────────────────────────────────────────────
 REST_FRAMEWORK = {
-    # L'API est consommée par le Raspberry Pi (pas de session Django)
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": [],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
 }
 
-# ─── Seuil de reconnaissance faciale ─────────────────────────────────────────
-# Distance cosinus en dessous de laquelle on considère un visage comme reconnu.
-# Valeur entre 0 (identique) et 2 (opposé). 0.5 est un bon point de départ.
 FACE_MATCH_THRESHOLD = 0.5
