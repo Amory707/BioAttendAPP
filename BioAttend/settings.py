@@ -3,7 +3,6 @@ import environ
 import dj_database_url
 from pathlib import Path
 
-# 1. Initialisation de django-environ
 env = environ.Env(
     DEBUG=(bool, False)
 )
