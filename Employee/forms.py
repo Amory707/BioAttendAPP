@@ -23,7 +23,7 @@ class UtilisateurUnifiedForm(forms.ModelForm):
     """
     Formulaire unique pour la création ET la modification d'un employé.
     - Username auto-généré à la création (prénom+nom)
-    - Rôle : choix unique (radio)
+    - Rôles : sélection multiple
     - Photo : optionnelle (enrôlement biométrique)
     - Mot de passe : présent à la création OU si editing_self
     - acces_total réservé au superuser
@@ -32,12 +32,11 @@ class UtilisateurUnifiedForm(forms.ModelForm):
     last_name = forms.CharField(required=True, label='Nom', max_length=150)
     email = forms.EmailField(required=True, label='Email')
 
-    role = forms.ModelChoiceField(
+    roles = forms.ModelMultipleChoiceField(
         queryset=Role.objects.none(),
-        widget=forms.RadioSelect,
+        widget=forms.CheckboxSelectMultiple,
         required=False,
-        label='Rôle',
-        empty_label='Aucun rôle',
+        label='Rôles',
     )
     password = forms.CharField(
         widget=forms.PasswordInput(render_value=False),
@@ -73,13 +72,11 @@ class UtilisateurUnifiedForm(forms.ModelForm):
             roles_qs = Role.objects.all()
         else:
             roles_qs = Role.objects.exclude(nom__iexact='acces_total')
-        self.fields['role'].queryset = roles_qs
+        self.fields['roles'].queryset = roles_qs
         self._manageable_role_pks = set(roles_qs.values_list('pk', flat=True))
 
         if not is_create:
-            current = self.instance.roles.filter(pk__in=self._manageable_role_pks).first()
-            if current:
-                self.fields['role'].initial = current
+            self.fields['roles'].initial = self.instance.roles.filter(pk__in=self._manageable_role_pks)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -105,11 +102,18 @@ class UtilisateurUnifiedForm(forms.ModelForm):
 
         if commit:
             user.save()
-            new_role = self.cleaned_data.get('role')
-            RoleUtilisateur.objects.filter(
-                utilisateur=user,
-                role__pk__in=self._manageable_role_pks,
-            ).delete()
-            if new_role:
-                RoleUtilisateur.objects.get_or_create(utilisateur=user, role=new_role)
+            self.save_roles(user)
         return user
+
+    def save_roles(self, user=None):
+        user = user or self.instance
+        if user is None or user.pk is None:
+            return
+
+        selected_roles = self.cleaned_data.get('roles') or []
+        RoleUtilisateur.objects.filter(
+            utilisateur=user,
+            role__pk__in=self._manageable_role_pks,
+        ).delete()
+        for role in selected_roles:
+            RoleUtilisateur.objects.get_or_create(utilisateur=user, role=role)

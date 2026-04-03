@@ -1,5 +1,5 @@
 <header class="top-bar">
-    {% if user.is_employe and not user.is_platform_admin %}
+    {% if request.session.active_dashboard_space == 'employee' or user.is_employe and not user.is_platform_admin %}
         <div class="search-container" style="display: flex; align-items: center; color: var(--color-text-secondary); font-weight: 600;">
             Espace employé
         </div>
@@ -16,7 +16,7 @@
         <a
             class="notification-btn"
             title="Notifications"
-            href="{% if user.is_employe and not user.is_platform_admin %}{% url 'dashboard:employee_alertes' %}{% else %}{% url 'Employee:alerte_list' %}{% endif %}"
+            href="{% if request.session.active_dashboard_space == 'employee' or user.is_employe and not user.is_platform_admin %}{% url 'dashboard:employee_alertes' %}{% else %}{% url 'Employee:alerte_list' %}{% endif %}"
             style="text-decoration: none;"
         >
             <i class="fas fa-bell"></i>
@@ -44,6 +44,20 @@
             </button>
 
             <div class="dropdown-menu" id="userDropdown">
+                {% if user.is_platform_admin %}
+                    {% if request.session.active_dashboard_space == 'employee' %}
+                        <a href="{% url 'dashboard:switch_space' 'admin' %}" class="dropdown-item">
+                            <i class="fas fa-briefcase item-icon"></i>
+                            Retour à la plateforme RH
+                        </a>
+                    {% else %}
+                        <a href="{% url 'dashboard:switch_space' 'employee' %}" class="dropdown-item">
+                            <i class="fas fa-id-badge item-icon"></i>
+                            Accéder à ma vue employé
+                        </a>
+                    {% endif %}
+                    <div class="dropdown-divider"></div>
+                {% endif %}
                 {% if user.is_admindjango %}
                     <a href="{% url 'admin:index' %}" class="dropdown-item">
                         <i class="fas fa-tools item-icon"></i>

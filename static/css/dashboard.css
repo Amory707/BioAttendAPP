@@ -217,6 +217,17 @@
     box-shadow: var(--shadow-md);
 }
 
+.btn-export {
+    background: linear-gradient(135deg, #16a085 0%, #0f8f74 100%);
+    color: #fff;
+}
+
+.btn-export:hover {
+    background: linear-gradient(135deg, #138d75 0%, #0b7d65 100%);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
 @media (max-width: 1024px) {
     .sidebar {
         width: 130px;

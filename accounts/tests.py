@@ -6,6 +6,7 @@ from django.contrib.sessions.models import Session
 from django.test import TestCase
 from django.urls import reverse
 
+from accounts.access import ACTIVE_SPACE_SESSION_KEY, ADMIN_SPACE
 from accounts.models import Role, RoleUtilisateur, Utilisateur
 
 
@@ -65,6 +66,22 @@ class AccountsAppTests(TestCase):
 		self.assertEqual(response.status_code, 302)
 		self.assertTrue(response.url)
 		self.assertTrue("_auth_user_id" in self.client.session)
+
+	def test_custom_login_sets_admin_space_for_dual_access_user(self):
+		role_employe = self._create_role("employé")
+		role_admin = self._create_role("admin")
+		user = self._create_user("hybrid-user")
+		RoleUtilisateur.objects.create(role=role_employe, utilisateur=user)
+		RoleUtilisateur.objects.create(role=role_admin, utilisateur=user)
+
+		response = self.client.post(
+			reverse("accounts:login"),
+			{"username": "hybrid-user", "password": "test-pass-123"},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertEqual(response.url, reverse("dashboard:index"))
+		self.assertEqual(self.client.session.get(ACTIVE_SPACE_SESSION_KEY), ADMIN_SPACE)
 
 	def test_settings_view_requires_authentication(self):
 		response = self.client.get(reverse("accounts:settings"))

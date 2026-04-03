@@ -94,7 +94,7 @@ class EmployeeAppTests(TestCase):
 			"last_name": "Smith",
 			"email": "jane.smith@example.com",
 			"departement": "IT",
-			"role": str(role_admin.pk),
+			"roles": [str(role_admin.pk)],
 		}
 
 		response = self.client.post(reverse("Employee:utilisateur_create"), payload)
@@ -106,6 +106,29 @@ class EmployeeAppTests(TestCase):
 		self.assertTrue(
 			RoleUtilisateur.objects.filter(utilisateur=created_user, role=role_admin).exists()
 		)
+
+	def test_create_utilisateur_accepts_multiple_roles(self):
+		role_employe = self._create_role("employé")
+		role_admin = self._create_role("admin")
+		request_user = self._create_user("owner-multi")
+		self.client.force_login(request_user)
+
+		payload = {
+			"first_name": "Ari",
+			"last_name": "Dual",
+			"email": "ari.dual@example.com",
+			"departement": "Ops",
+			"roles": [str(role_employe.pk), str(role_admin.pk)],
+		}
+
+		response = self.client.post(reverse("Employee:utilisateur_create"), payload)
+
+		self.assertEqual(response.status_code, 302)
+		created_user = Utilisateur.objects.get(email="ari.dual@example.com")
+		assigned_roles = set(
+			RoleUtilisateur.objects.filter(utilisateur=created_user).values_list("role__nom", flat=True)
+		)
+		self.assertEqual(assigned_roles, {"employé", "admin"})
 
 	def test_pointage_list_filters_by_type(self):
 		user = self._create_user("pointage-user")
@@ -132,6 +155,46 @@ class EmployeeAppTests(TestCase):
 		pointages = list(response.context["pointages"])
 		self.assertEqual(len(pointages), 1)
 		self.assertEqual(pointages[0].type, "ENTREE")
+		self.assertContains(response, "Pointage")
+
+	def test_statistiques_analytique_renders_global_metrics(self):
+		user = self._create_user("stats-admin")
+		target = self._create_user("stats-target", first_name="Lina", last_name="Ops")
+		self.client.force_login(user)
+
+		Pointage.objects.create(
+			utilisateur=target,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=timezone.now(),
+			score_confiance=0.88,
+		)
+
+		response = self.client.get(reverse("Employee:statistiques_analytique"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Analytique")
+		self.assertContains(response, "Performance par employé")
+		self.assertContains(response, reverse("Employee:statistiques_utilisateur", kwargs={"utilisateur_id": target.pk}))
+
+	def test_statistiques_utilisateur_shows_person_scope(self):
+		user = self._create_user("scope-admin")
+		target = self._create_user("scope-target", first_name="Rita", last_name="Data")
+		self.client.force_login(user)
+
+		Pointage.objects.create(
+			utilisateur=target,
+			statut="VALIDE",
+			type="SORTIE",
+			horodatage=timezone.now(),
+			score_confiance=0.91,
+		)
+
+		response = self.client.get(reverse("Employee:statistiques_utilisateur", kwargs={"utilisateur_id": target.pk}))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Vue détaillée pour Rita Data")
+		self.assertContains(response, "Retour global")
 
 	def test_alerte_list_filters_by_status(self):
 		user = self._create_user("alert-user")
@@ -180,3 +243,63 @@ class EmployeeAppTests(TestCase):
 		content = response.content.decode("utf-8")
 		self.assertIn("ID,Nom,Pr\u00e9nom,Email,D\u00e9partement", content)
 		self.assertIn("Iris", content)
+
+	def test_pointage_export_csv_returns_filtered_valid_rows(self):
+		user = self._create_user("csv-pointage-admin")
+		target = self._create_user("csv-pointage-target", first_name="Mina", last_name="Flow")
+		self.client.force_login(user)
+
+		Pointage.objects.create(
+			utilisateur=target,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=timezone.now(),
+			score_confiance=0.95,
+		)
+		Pointage.objects.create(
+			utilisateur=target,
+			statut="NON_VALIDE",
+			type="SORTIE",
+			horodatage=timezone.now(),
+			score_confiance=0.12,
+		)
+
+		response = self.client.get(reverse("Employee:pointage_export_csv"), {"tab": "pointage"})
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response["Content-Type"], "text/csv")
+		content = response.content.decode("utf-8")
+		self.assertIn("ID Pointage,Date Heure,Username,Nom,Prenom,Type,Statut,Score IA", content)
+		self.assertIn("VALIDE", content)
+		self.assertNotIn("NON_VALIDE", content)
+
+	def test_pointage_export_csv_user_scope_uses_utilisateur_filter(self):
+		user = self._create_user("csv-pointage-scope")
+		target = self._create_user("target-scope", first_name="Zoe", last_name="Core")
+		other = self._create_user("other-scope", first_name="Yan", last_name="Ops")
+		self.client.force_login(user)
+
+		Pointage.objects.create(
+			utilisateur=target,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=timezone.now(),
+			score_confiance=0.83,
+		)
+		Pointage.objects.create(
+			utilisateur=other,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=timezone.now(),
+			score_confiance=0.81,
+		)
+
+		response = self.client.get(
+			reverse("Employee:pointage_export_utilisateur_csv", kwargs={"utilisateur_id": target.pk}),
+			{"tab": "pointage"},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		content = response.content.decode("utf-8")
+		self.assertIn("target-scope", content)
+		self.assertNotIn("other-scope", content)

@@ -1,29 +1,122 @@
-{% extends "utilisateur/base.html" %}
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Alertes - BioAttend{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<style>
+    .alertes-filter {
+        display: flex;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-md) var(--spacing-lg);
+        border-bottom: 1px solid #f0f0f0;
+        flex-wrap: wrap;
+        background: var(--color-bg-light);
+    }
+    .alertes-filter input,
+    .alertes-filter select,
+    .alertes-filter button {
+        padding: 8px 10px;
+        border: 1px solid #ddd;
+        border-radius: var(--radius-sm);
+        font-size: var(--font-size-sm);
+    }
+    .alertes-filter button {
+        background: var(--color-primary);
+        color: #fff;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .alertes-grid-header,
+    .alertes-grid-row {
+        display: grid;
+        grid-template-columns: 1.6fr 1.2fr 1.8fr 1.4fr 1fr;
+        gap: var(--spacing-md);
+        padding: var(--spacing-md) var(--spacing-lg);
+        align-items: center;
+    }
+    .alertes-grid-header {
+        background: var(--color-bg-light);
+        border-bottom: 1px solid #e6e6e6;
+        font-size: var(--font-size-xs);
+        text-transform: uppercase;
+        letter-spacing: .4px;
+        color: var(--color-text-secondary);
+        font-weight: 700;
+    }
+    .alertes-grid-row {
+        border-bottom: 1px solid #f1f1f1;
+        font-size: var(--font-size-sm);
+    }
+    .alertes-grid-row:last-child {
+        border-bottom: none;
+    }
+    .alerte-id {
+        color: var(--color-text-secondary);
+        font-family: monospace;
+        font-size: 12px;
+    }
+    .alerte-type {
+        font-weight: 700;
+        color: var(--color-text-primary);
+    }
+    .alerte-user,
+    .alerte-date,
+    .alerte-statut {
+        color: var(--color-text-secondary);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="card">
-    <h1>Journal des Alertes</h1>
-    <table>
-        <thead>
-            <tr>
-                <th>ID Alerte</th>
-                <th>Type</th>
-                <th>Utilisateur</th>
-                <th>Date de Création</th>
-                <th>Statut</th>
-            </tr>
-        </thead>
-        <tbody>
+<section class="page active">
+    <div class="page-header" style="margin-bottom: var(--spacing-lg);">
+        <h1>Journal des alertes</h1>
+    </div>
+
+    <div class="recent-table">
+        <form method="GET" class="alertes-filter">
+            <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Rechercher par nom ou description">
+            <select name="statut">
+                <option value="">Tous les statuts</option>
+                {% for value, label in choix_statut %}
+                    <option value="{{ value }}" {% if request.GET.statut == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit"><i class="fas fa-filter"></i> Filtrer</button>
+        </form>
+
+        <div class="alertes-grid-header">
+            <div>ID Alerte</div>
+            <div>Type</div>
+            <div>Utilisateur</div>
+            <div>Date de Création</div>
+            <div>Statut</div>
+        </div>
+
+        <div class="table-body">
             {% for alerte in alertes %}
-            <tr>
-                <td>{{ alerte.id }}</td>
-                <td><strong>{{ alerte.type }}</strong></td>
-                <td>{{ alerte.utilisateur.first_name }} {{ alerte.utilisateur.last_name }}</td>
-                <td>{{ alerte.date_creation }}</td>
-                <td>{{ alerte.statut }}</td> </tr>
+                <div class="alertes-grid-row">
+                    <div class="alerte-id">{{ alerte.id }}</div>
+                    <div class="alerte-type">{{ alerte.type }}</div>
+                    <div class="alerte-user">
+                        {% if alerte.utilisateur %}
+                            {{ alerte.utilisateur.first_name }} {{ alerte.utilisateur.last_name }}
+                        {% else %}
+                            Utilisateur inconnu
+                        {% endif %}
+                    </div>
+                    <div class="alerte-date">{{ alerte.date_creation|date:'d/m/Y H:i' }}</div>
+                    <div class="alerte-statut">{{ alerte.statut }}</div>
+                </div>
             {% empty %}
-            <tr><td colspan="5">Aucune alerte pour le moment.</td></tr>
+                <div style="padding: var(--spacing-xl); color: var(--color-text-secondary); text-align: center;">
+                    Aucune alerte pour le moment.
+                </div>
             {% endfor %}
-        </tbody>
-    </table>
-</div>
+        </div>
+    </div>
+</section>
 {% endblock %}

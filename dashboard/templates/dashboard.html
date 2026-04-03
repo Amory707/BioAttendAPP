@@ -14,28 +14,28 @@
                 <h3 class="stat-title">Total Employés</h3>
                 <i class="fas fa-users stat-icon"></i>
             </div>
-            <div class="stat-value">99</div>
+            <div class="stat-value">{{ total_employees }}</div>
         </div>
         <div class="stat-card present-today">
             <div class="stat-header">
                 <h3 class="stat-title">Présent Aujourd'hui</h3>
                 <i class="fas fa-check stat-icon"></i>
             </div>
-            <div class="stat-value">32</div>
+            <div class="stat-value">{{ today_present_count }}</div>
         </div>
         <div class="stat-card absent-today">
             <div class="stat-header">
                 <h3 class="stat-title">Absent Aujourd'hui</h3>
                 <i class="fas fa-times stat-icon"></i>
             </div>
-            <div class="stat-value">72</div>
+            <div class="stat-value">{{ today_absent_count }}</div>
         </div>
         <div class="stat-card not-recorded">
             <div class="stat-header">
                 <h3 class="stat-title">Employés non reconnus</h3>
                 <i class="fas fa-exclamation-triangle stat-icon"></i>
             </div>
-            <div class="stat-value">6</div>
+            <div class="stat-value">{{ not_recognized_today }}</div>
         </div>
     </div>
     <div class="charts-section">
@@ -52,10 +52,27 @@
                 <div class="table-col time-col">Heure</div>
                 <div class="table-col status-col">Statut</div>
             </div>
-            <div class="table-body" id="recentTableBody"></div>
+            <div class="table-body" id="recentTableBody">
+                {% for item in recent_checkins %}
+                    <div class="table-row">
+                        <div class="table-col name-col">{{ item.utilisateur.first_name }} {{ item.utilisateur.last_name }}</div>
+                        <div class="table-col time-col">{{ item.horodatage|date:'H:i' }}</div>
+                        <div class="table-col">
+                            <span class="status-badge {% if item.type == 'ENTREE' %}entry{% else %}exit{% endif %}">
+                                {% if item.type == 'ENTREE' %}Entrée{% else %}Sortie{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="table-row">
+                        <div class="table-col">Aucune activité récente</div>
+                    </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
 </section>
+{{ weekly_stats|json_script:'dashboard-weekly-data' }}
 {% endblock %}
 {% block extra_js %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

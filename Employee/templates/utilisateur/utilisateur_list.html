@@ -84,7 +84,6 @@
         .surete-high { background: #E8F8F5; color: #14866D; }
         .surete-mid { background: #FFF8E1; color: #B7791F; }
         .surete-low { background: #FDEDEC; color: #C0392B; }
-        .btn-green { background: var(--color-secondary) !important; color: white !important; }
     </style>
 {% endblock %}
 {% block content %}
@@ -101,7 +100,7 @@
             <a href="{% url 'Employee:utilisateur_create' %}" class="btn btn-primary">
                 <i class="fas fa-plus"></i>&nbsp; Ajouter
             </a>
-            <a href="{% url 'Employee:exporter_csv' %}" class="btn btn-green">
+            <a href="{% url 'Employee:exporter_csv' %}" class="btn btn-export">
                 <i class="fas fa-file-csv"></i>&nbsp; Exporter CSV
             </a>
         </div>

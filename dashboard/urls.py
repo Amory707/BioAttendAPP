@@ -8,5 +8,6 @@ urlpatterns = [
     path('employe/', views.employee_home, name='employee_home'),
     path('employe/pointages/', views.employee_pointages, name='employee_pointages'),
     path('employe/alertes/', views.employee_alertes, name='employee_alertes'),
+    path('espace/<str:space>/', views.switch_space, name='switch_space'),
     path('logout/', views.logout_view, name='logout'),
 ]

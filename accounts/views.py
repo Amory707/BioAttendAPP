@@ -5,14 +5,21 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.sessions.models import Session
 from django.contrib.auth import logout as auth_logout
 
+from .access import ADMIN_SPACE, EMPLOYEE_SPACE, get_default_space_for_user, set_active_space
+
 
 class CustomLoginView(LoginView):
 	template_name = 'registration/login.html'
 
 	def get_success_url(self):
 		user = self.request.user
-		if user.is_employe and not user.is_platform_admin:
+		default_space = get_default_space_for_user(user)
+		if default_space:
+			set_active_space(self.request, default_space)
+		if default_space == EMPLOYEE_SPACE:
 			return '/dashboard/employe/'
+		if default_space == ADMIN_SPACE:
+			return '/dashboard/'
 		return super().get_success_url()
 
 

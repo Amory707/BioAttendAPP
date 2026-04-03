@@ -1,12 +1,17 @@
-from datetime import date
+from datetime import date, datetime, timedelta
 import csv
+import json
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
+from django.db.models import Avg, Count, Q
+from django.db.models.functions import ExtractHour, TruncDate
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.html import format_html
+from django.utils import timezone
+from django.utils.html import escape
 
 from accounts.models import Role, Utilisateur
 from alerts.models import Alerte
@@ -134,6 +139,297 @@ class FiltreBiometrique:
         return queryset
 
 
+def _safe_parse_date(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        return None
+
+
+def _filtered_pointages_queryset(request, utilisateur=None, active_tab='pointage'):
+    search = request.GET.get('q', '').strip()
+    type_filtre = request.GET.get('type', '').strip()
+    statut_filtre = request.GET.get('statut', '').strip()
+    date_debut_raw = request.GET.get('date_debut', '').strip()
+    date_fin_raw = request.GET.get('date_fin', '').strip()
+
+    date_debut = _safe_parse_date(date_debut_raw)
+    date_fin = _safe_parse_date(date_fin_raw)
+
+    base_pointages = Pointage.objects.select_related('utilisateur')
+    if utilisateur is not None:
+        base_pointages = base_pointages.filter(utilisateur=utilisateur)
+
+    if date_debut:
+        base_pointages = base_pointages.filter(horodatage__date__gte=date_debut)
+    if date_fin:
+        base_pointages = base_pointages.filter(horodatage__date__lte=date_fin)
+
+    filtered_pointages = base_pointages
+    if search and utilisateur is None:
+        filtered_pointages = filtered_pointages.filter(
+            Q(utilisateur__first_name__icontains=search)
+            | Q(utilisateur__last_name__icontains=search)
+            | Q(utilisateur__username__icontains=search)
+        )
+    if type_filtre:
+        filtered_pointages = filtered_pointages.filter(type=type_filtre)
+    if statut_filtre:
+        filtered_pointages = filtered_pointages.filter(statut=statut_filtre)
+
+    if active_tab == 'pointage':
+        filtered_pointages = filtered_pointages.filter(statut='VALIDE')
+
+    return {
+        'base_pointages': base_pointages,
+        'filtered_pointages': filtered_pointages.order_by('-horodatage'),
+        'search': search,
+        'type_filtre': type_filtre,
+        'statut_filtre': statut_filtre,
+        'date_debut_raw': date_debut_raw,
+        'date_fin_raw': date_fin_raw,
+        'date_debut': date_debut,
+        'date_fin': date_fin,
+    }
+
+
+def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
+    filtered_data = _filtered_pointages_queryset(request, utilisateur=utilisateur, active_tab=active_tab)
+    base_pointages = filtered_data['base_pointages']
+    filtered_pointages = filtered_data['filtered_pointages']
+    search = filtered_data['search']
+    type_filtre = filtered_data['type_filtre']
+    statut_filtre = filtered_data['statut_filtre']
+    date_debut_raw = filtered_data['date_debut_raw']
+    date_fin_raw = filtered_data['date_fin_raw']
+    date_debut = filtered_data['date_debut']
+    date_fin = filtered_data['date_fin']
+
+    total = base_pointages.count()
+    total_entrees = base_pointages.filter(type='ENTREE').count()
+    total_sorties = base_pointages.filter(type='SORTIE').count()
+    total_valides = base_pointages.filter(statut='VALIDE').count()
+    total_invalides = base_pointages.filter(statut='NON_VALIDE').count()
+    confiance_moyenne = base_pointages.aggregate(moyenne=Avg('score_confiance'))['moyenne']
+    confiance_moyenne = round(confiance_moyenne or 0.0, 2)
+    taux_validation = round((total_valides / total) * 100, 2) if total else 0.0
+
+    users_scope = Utilisateur.objects.all()
+    if utilisateur is not None:
+        users_scope = users_scope.filter(pk=utilisateur.pk)
+
+    user_summaries = list(
+        users_scope.annotate(
+            total_pointages=Count('pointages'),
+            total_valides=Count('pointages', filter=Q(pointages__statut='VALIDE')),
+            total_invalides=Count('pointages', filter=Q(pointages__statut='NON_VALIDE')),
+            moyenne_confiance=Avg('pointages__score_confiance'),
+        ).order_by('-total_pointages', 'last_name', 'first_name')
+    )
+
+    for summary in user_summaries:
+        summary.moyenne_confiance = round(summary.moyenne_confiance or 0.0, 2)
+        summary.taux_validation = round(
+            (summary.total_valides / summary.total_pointages) * 100, 2
+        ) if summary.total_pointages else 0.0
+
+    daily_rows = list(
+        base_pointages
+        .annotate(jour=TruncDate('horodatage'))
+        .values('jour')
+        .annotate(
+            total=Count('id'),
+            entrees=Count('id', filter=Q(type='ENTREE')),
+            sorties=Count('id', filter=Q(type='SORTIE')),
+            invalides=Count('id', filter=Q(statut='NON_VALIDE')),
+        )
+        .order_by('jour')
+    )
+
+    day_max = max((row['total'] for row in daily_rows), default=0)
+    daily_chart = []
+    for row in daily_rows:
+        total_row = row['total'] or 0
+        width = int((total_row / day_max) * 100) if day_max else 0
+        daily_chart.append({
+            'label': row['jour'].strftime('%d/%m/%Y') if row['jour'] else '-',
+            'total': total_row,
+            'entrees': row['entrees'] or 0,
+            'sorties': row['sorties'] or 0,
+            'invalides': row['invalides'] or 0,
+            'width': max(width, 4) if total_row else 0,
+        })
+
+    hourly_rows = {
+        item['heure']: item['total']
+        for item in base_pointages.annotate(heure=ExtractHour('horodatage')).values('heure').annotate(total=Count('id'))
+    }
+    hourly_max = max(hourly_rows.values(), default=0)
+    hourly_chart = []
+    for hour in range(24):
+        value = hourly_rows.get(hour, 0)
+        width = int((value / hourly_max) * 100) if hourly_max else 0
+        hourly_chart.append({
+            'label': f"{hour:02d}h",
+            'total': value,
+            'width': max(width, 4) if value else 0,
+        })
+
+    alerts_qs = Alerte.objects.all()
+    if utilisateur is not None:
+        alerts_qs = alerts_qs.filter(utilisateur=utilisateur)
+    if date_debut:
+        alerts_qs = alerts_qs.filter(date_creation__date__gte=date_debut)
+    if date_fin:
+        alerts_qs = alerts_qs.filter(date_creation__date__lte=date_fin)
+
+    alert_totales = alerts_qs.count()
+    alertes_echec_reco = alerts_qs.filter(type='ECHEC_RECONNAISSANCE').count()
+    alertes_inconnu = alerts_qs.filter(type='UTILISATEUR_INCONNU').count()
+    alertes_retard = alerts_qs.filter(type='RETARD').count()
+    alertes_absence = alerts_qs.filter(type='ABSENCE').count()
+
+    last_30_days = timezone.now() - timedelta(days=30)
+    recent_pointages = base_pointages.filter(horodatage__gte=last_30_days)
+    recent_total = recent_pointages.count()
+    tendance_label = 'Stable'
+    if recent_total:
+        recent_invalid = recent_pointages.filter(statut='NON_VALIDE').count()
+        failure_rate = (recent_invalid / recent_total) * 100
+        if failure_rate <= 5:
+            tendance_label = 'Tres bon'
+        elif failure_rate <= 12:
+            tendance_label = 'Correct'
+        else:
+            tendance_label = 'A surveiller'
+
+    # === DONNÉES POUR CHART.JS (Analytique) ===
+    # Confiance moyenne au fil des jours
+    confidence_timeline_data = list(
+        base_pointages
+        .annotate(jour=TruncDate('horodatage'))
+        .values('jour')
+        .annotate(confiance=Avg('score_confiance'))
+        .order_by('jour')
+    )
+    confidence_timeline = {
+        'labels': [item['jour'].strftime('%d/%m') for item in confidence_timeline_data if item['jour']],
+        'data': [round(item['confiance'] or 0.0, 2) for item in confidence_timeline_data]
+    }
+    
+    # Volume journalier (Entrées, Sorties, Échecs)
+    daily_chart_data_chart = {
+        'labels': [item['label'] for item in daily_chart],
+        'entrees': [item['entrees'] for item in daily_chart],
+        'sorties': [item['sorties'] for item in daily_chart],
+        'invalides': [item['invalides'] for item in daily_chart],
+    }
+    
+    # Distribution horaire
+    hourly_chart_data_chart = {
+        'labels': [item['label'] for item in hourly_chart],
+        'data': [item['total'] for item in hourly_chart],
+    }
+    
+    # Types d'alertes
+    alert_types_data = {
+        'labels': ['Échec reco', 'Utilisateur inconnu', 'Retard', 'Absence'],
+        'data': [alertes_echec_reco, alertes_inconnu, alertes_retard, alertes_absence],
+    }
+
+    if utilisateur is None:
+        pointage_export_url = reverse('Employee:pointage_export_csv')
+    else:
+        pointage_export_url = reverse('Employee:pointage_export_utilisateur_csv', kwargs={'utilisateur_id': utilisateur.pk})
+
+    return {
+        'active_tab': active_tab,
+        'scope_utilisateur': utilisateur,
+        'is_user_scope': utilisateur is not None,
+        'pointages': filtered_pointages[:200],
+        'total_pointages': total,
+        'total_entrees': total_entrees,
+        'total_sorties': total_sorties,
+        'total_valides': total_valides,
+        'total_invalides': total_invalides,
+        'confiance_moyenne': confiance_moyenne,
+        'taux_validation': taux_validation,
+        'alert_totales': alert_totales,
+        'alertes_echec_reco': alertes_echec_reco,
+        'alertes_inconnu': alertes_inconnu,
+        'alertes_retard': alertes_retard,
+        'alertes_absence': alertes_absence,
+        'tendance_label': tendance_label,
+        'daily_chart': daily_chart,
+        'hourly_chart': hourly_chart,
+        'user_summaries': user_summaries[:20],
+        'q': search,
+        'type_filtre': type_filtre,
+        'statut_filtre': statut_filtre,
+        'date_debut': date_debut_raw,
+        'date_fin': date_fin_raw,
+        'pointage_export_url': pointage_export_url,
+        'choix_type': Pointage.TYPE_CHOICES,
+        'choix_statut': Pointage.STATUT_CHOICES,
+        # JSON pour Chart.js
+        'confidence_timeline_json': json.dumps(confidence_timeline),
+        'daily_chart_json': json.dumps(daily_chart_data_chart),
+        'hourly_chart_json': json.dumps(hourly_chart_data_chart),
+        'alert_types_json': json.dumps(alert_types_data),
+        'confidence_timeline': confidence_timeline,
+        'alert_types_data': alert_types_data,
+    }
+
+
+@login_required(login_url='login')
+def exporter_pointages_csv(request, utilisateur_id=None):
+    utilisateur = None
+    if utilisateur_id is not None:
+        utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
+
+    active_tab = request.GET.get('tab', 'pointage').strip().lower()
+    if active_tab not in {'pointage', 'analytique'}:
+        active_tab = 'pointage'
+
+    filtered_data = _filtered_pointages_queryset(request, utilisateur=utilisateur, active_tab=active_tab)
+    pointages = filtered_data['filtered_pointages']
+
+    response = HttpResponse(content_type='text/csv')
+    if utilisateur is None:
+        filename = 'pointages_export.csv'
+    else:
+        filename = f'pointages_{utilisateur.username}.csv'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    writer = csv.writer(response)
+    writer.writerow([
+        'ID Pointage',
+        'Date Heure',
+        'Username',
+        'Nom',
+        'Prenom',
+        'Type',
+        'Statut',
+        'Score IA',
+    ])
+
+    for pointage in pointages:
+        writer.writerow([
+            pointage.pk,
+            pointage.horodatage.strftime('%Y-%m-%d %H:%M:%S') if pointage.horodatage else '',
+            pointage.utilisateur.username,
+            pointage.utilisateur.last_name,
+            pointage.utilisateur.first_name,
+            pointage.type,
+            pointage.statut,
+            pointage.score_confiance,
+        ])
+
+    return response
+
+
 @login_required(login_url='login')
 def utilisateur_list(request):
     recherche = request.GET.get('q', '').strip()
@@ -197,30 +493,24 @@ def utilisateur_detail(request, utilisateur_id):
 
 @login_required(login_url='login')
 def pointage_list(request):
-    recherche = request.GET.get('q', '').strip()
-    type_filtre = request.GET.get('type', '')
-    statut_filtre = request.GET.get('statut', '')
+    context = _build_statistics_context(request, active_tab='pointage')
+    return render(request, 'utilisateur/statistiques.html', context)
 
-    pointages = Pointage.objects.select_related('utilisateur')
 
-    if recherche:
-        pointages = pointages.filter(
-            Q(utilisateur__last_name__icontains=recherche)
-            | Q(utilisateur__first_name__icontains=recherche)
-        )
+@login_required(login_url='login')
+def statistiques_analytique(request):
+    context = _build_statistics_context(request, active_tab='analytique')
+    return render(request, 'utilisateur/statistiques.html', context)
 
-    if type_filtre:
-        pointages = pointages.filter(type=type_filtre)
 
-    if statut_filtre:
-        pointages = pointages.filter(statut=statut_filtre)
-
-    context = {
-        'pointages': pointages,
-        'choix_type': [('ENTREE', 'Entrée'), ('SORTIE', 'Sortie')],
-        'choix_statut': [('VALIDE', 'Validé'), ('NON_VALIDE', 'Non validé')],
-    }
-    return render(request, 'utilisateur/pointage_list.html', context)
+@login_required(login_url='login')
+def statistiques_utilisateur(request, utilisateur_id):
+    utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
+    active_tab = request.GET.get('tab', 'pointage').strip().lower()
+    if active_tab not in {'pointage', 'analytique'}:
+        active_tab = 'pointage'
+    context = _build_statistics_context(request, utilisateur=utilisateur, active_tab=active_tab)
+    return render(request, 'utilisateur/statistiques.html', context)
 
 
 @login_required(login_url='login')
@@ -279,10 +569,7 @@ def create_utilisateur(request):
                 utilisateur.embedding_facial = embedding
                 utilisateur.indice_surete = indice_surete
             utilisateur.save()
-            new_role = form.cleaned_data.get('role')
-            from accounts.models import RoleUtilisateur
-            if new_role:
-                RoleUtilisateur.objects.get_or_create(utilisateur=utilisateur, role=new_role)
+            form.save_roles(utilisateur)
             messages.success(request, 'Employé créé avec succès.')
             return redirect('Employee:utilisateur_list')
     else:

@@ -1,0 +1,645 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Statistiques - BioAttend{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<style>
+    .stats-tabs {
+        display: flex;
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-lg);
+        flex-wrap: wrap;
+    }
+    .stats-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+        padding: 8px 14px;
+        border-radius: var(--radius-md);
+        background: var(--color-bg-light);
+        color: var(--color-text-secondary);
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+    }
+    .stats-tab.active {
+        background: var(--color-primary);
+        color: white;
+        box-shadow: var(--shadow-sm);
+    }
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+    }
+    .kpi-card {
+        background: var(--color-bg-white);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        padding: var(--spacing-md);
+    }
+    .kpi-title {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+        font-weight: 700;
+    }
+    .kpi-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--color-text-primary);
+    }
+    .kpi-meta {
+        margin-top: 6px;
+        color: var(--color-text-secondary);
+        font-size: var(--font-size-xs);
+    }
+    .panel {
+        background: var(--color-bg-white);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        margin-bottom: var(--spacing-lg);
+        overflow: hidden;
+    }
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--spacing-md) var(--spacing-lg);
+        border-bottom: 1px solid #f0f0f0;
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+    }
+    .panel-title {
+        font-size: var(--font-size-base);
+        font-weight: 700;
+        color: var(--color-text-primary);
+    }
+    .filters {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: var(--spacing-sm);
+        padding: var(--spacing-md) var(--spacing-lg);
+        border-bottom: 1px solid #f4f4f4;
+        background: var(--color-bg-light);
+    }
+    .filters input,
+    .filters select,
+    .filters button {
+        padding: 8px 10px;
+        border: 1px solid #ddd;
+        border-radius: var(--radius-sm);
+        font-size: var(--font-size-sm);
+    }
+    .filters button {
+        background: var(--color-primary);
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .filters .btn-export {
+        background: linear-gradient(135deg, #16a085 0%, #0f8f74 100%);
+        color: #fff;
+    }
+    .filters .btn-export:hover {
+        background: linear-gradient(135deg, #138d75 0%, #0b7d65 100%);
+    }
+    .table-wrap {
+        overflow-x: auto;
+    }
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .table th,
+    .table td {
+        text-align: left;
+        padding: 10px var(--spacing-md);
+        border-bottom: 1px solid #f1f1f1;
+        font-size: var(--font-size-sm);
+        vertical-align: middle;
+    }
+    .table th {
+        font-size: var(--font-size-xs);
+        text-transform: uppercase;
+        color: var(--color-text-secondary);
+        letter-spacing: 0.4px;
+        background: var(--color-bg-light);
+    }
+    .table a {
+        color: var(--color-primary);
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .chart-wrap {
+        padding: var(--spacing-md) var(--spacing-lg);
+    }
+    .bar-line {
+        display: grid;
+        grid-template-columns: 96px 1fr 50px;
+        align-items: center;
+        gap: var(--spacing-sm);
+        margin-bottom: 8px;
+    }
+    .bar-track {
+        height: 10px;
+        border-radius: 999px;
+        background: #f0f0f0;
+        overflow: hidden;
+    }
+    .bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #3B82F6, #06B6D4);
+    }
+    .stack-meta {
+        display: flex;
+        gap: 8px;
+        margin-top: 3px;
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+    }
+    .chips {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .chip {
+        font-size: var(--font-size-xs);
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-weight: 700;
+    }
+    .chip.ok { background: #E8F8F5; color: #0E8E6E; }
+    .chip.bad { background: #FDEDEC; color: #C0392B; }
+    .chip.warn { background: #FFF8E1; color: #B7791F; }
+    .empty {
+        padding: var(--spacing-xl);
+        text-align: center;
+        color: var(--color-text-secondary);
+    }
+    .scope-banner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+        padding: var(--spacing-md) var(--spacing-lg);
+        border-radius: var(--radius-lg);
+        border: 1px solid #BFD8FF;
+        border-left: 8px solid #2F7DF4;
+        background: linear-gradient(110deg, #EFF6FF 0%, #F8FBFF 55%, #FFFFFF 100%);
+        box-shadow: var(--shadow-sm);
+        flex-wrap: wrap;
+    }
+    .scope-banner-main {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-md);
+        min-width: 280px;
+    }
+    .scope-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #2F7DF4;
+        color: #fff;
+        font-size: 18px;
+        box-shadow: 0 6px 18px rgba(47, 125, 244, 0.25);
+        flex-shrink: 0;
+    }
+    .scope-title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 800;
+        color: #0F172A;
+    }
+    .scope-subtitle {
+        margin: 3px 0 0;
+        color: #475569;
+        font-size: var(--font-size-sm);
+    }
+    .scope-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #DBEAFE;
+        color: #1D4ED8;
+        border: 1px solid #93C5FD;
+        border-radius: 999px;
+        padding: 5px 11px;
+        font-size: var(--font-size-xs);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+    }
+    .scope-banner-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .scope-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+        border-radius: var(--radius-md);
+        padding: 8px 12px;
+        font-size: var(--font-size-sm);
+        font-weight: 700;
+    }
+    .scope-btn.primary {
+        background: #2F7DF4;
+        color: #fff;
+    }
+    .scope-btn.ghost {
+        background: #fff;
+        color: #334155;
+        border: 1px solid #D6DFEC;
+    }
+    @media (max-width: 720px) {
+        .scope-banner {
+            padding: var(--spacing-md);
+        }
+        .scope-title {
+            font-size: 16px;
+        }
+        .scope-subtitle {
+            font-size: var(--font-size-xs);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page active">
+    <div class="page-header" style="margin-bottom: var(--spacing-lg);">
+        <h1>Statistiques</h1>
+        <p style="color: var(--color-text-secondary); margin-top: 4px;">
+            {% if is_user_scope %}
+                Vue détaillée pour {{ scope_utilisateur.first_name }} {{ scope_utilisateur.last_name }}
+            {% else %}
+                Vue globale RH: activité de pointage et qualité de reconnaissance.
+            {% endif %}
+        </p>
+    </div>
+
+    {% if is_user_scope %}
+    <div class="scope-banner">
+        <div class="scope-banner-main">
+            <span class="scope-avatar"><i class="fas fa-user"></i></span>
+            <div>
+                <span class="scope-pill"><i class="fas fa-bullseye"></i> Mode individuel</span>
+                <p class="scope-title">Analyse ciblée: {{ scope_utilisateur.first_name }} {{ scope_utilisateur.last_name }}</p>
+                <p class="scope-subtitle">Toutes les sections affichent uniquement les données de cet utilisateur.</p>
+            </div>
+        </div>
+        <div class="scope-banner-actions">
+            <a class="scope-btn ghost" href="{% url 'Employee:utilisateur_detail' scope_utilisateur.pk %}">
+                <i class="fas fa-id-card"></i> Fiche employé
+            </a>
+            <a class="scope-btn primary" href="{% url 'Employee:pointage_list' %}">
+                <i class="fas fa-arrow-left"></i> Revenir à la vue globale
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="stats-tabs">
+        {% if is_user_scope %}
+            <a href="{% url 'Employee:statistiques_utilisateur' scope_utilisateur.pk %}?tab=pointage" class="stats-tab {% if active_tab == 'pointage' %}active{% endif %}">
+                <i class="fas fa-fingerprint"></i> Pointage
+            </a>
+            <a href="{% url 'Employee:statistiques_utilisateur' scope_utilisateur.pk %}?tab=analytique" class="stats-tab {% if active_tab == 'analytique' %}active{% endif %}">
+                <i class="fas fa-chart-line"></i> Analytique
+            </a>
+            <a href="{% url 'Employee:pointage_list' %}" class="stats-tab">
+                <i class="fas fa-arrow-left"></i> Retour global
+            </a>
+        {% else %}
+            <a href="{% url 'Employee:pointage_list' %}" class="stats-tab {% if active_tab == 'pointage' %}active{% endif %}">
+                <i class="fas fa-fingerprint"></i> Pointage
+            </a>
+            <a href="{% url 'Employee:statistiques_analytique' %}" class="stats-tab {% if active_tab == 'analytique' %}active{% endif %}">
+                <i class="fas fa-chart-line"></i> Analytique
+            </a>
+        {% endif %}
+    </div>
+
+    {% if active_tab == 'analytique' %}
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-title">Total Pointages</div>
+            <div class="kpi-value">{{ total_pointages }}</div>
+            <div class="kpi-meta">Entrées + sorties sur la période</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Entrées / Sorties</div>
+            <div class="kpi-value">{{ total_entrees }} / {{ total_sorties }}</div>
+            <div class="kpi-meta">Répartition opérationnelle</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Taux Validation</div>
+            <div class="kpi-value">{{ taux_validation }}%</div>
+            <div class="kpi-meta">Validés: {{ total_valides }} - Échecs: {{ total_invalides }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Confiance Moyenne</div>
+            <div class="kpi-value">{{ confiance_moyenne }}</div>
+            <div class="kpi-meta">Score IA moyen (0-1)</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Alertes Totales</div>
+            <div class="kpi-value">{{ alert_totales }}</div>
+            <div class="kpi-meta">Retard: {{ alertes_retard }} - Absence: {{ alertes_absence }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Tendance Qualité</div>
+            <div class="kpi-value">{{ tendance_label }}</div>
+            <div class="kpi-meta">Basée sur les 30 derniers jours</div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if active_tab == 'pointage' %}
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Liste des entrées et sorties validées</div>
+            </div>
+            <form method="GET" class="filters">
+                {% if is_user_scope %}
+                    <input type="hidden" name="tab" value="{{ active_tab }}">
+                {% endif %}
+                {% if not is_user_scope %}
+                    <input type="text" name="q" value="{{ q }}" placeholder="Nom, prénom ou username">
+                {% endif %}
+                <select name="type">
+                    <option value="">Tous les types</option>
+                    {% for value, label in choix_type %}
+                        <option value="{{ value }}" {% if type_filtre == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <input type="date" name="date_debut" value="{{ date_debut }}">
+                <input type="date" name="date_fin" value="{{ date_fin }}">
+                <button type="submit"><i class="fas fa-filter"></i> Filtrer</button>
+                <button type="submit" formaction="{{ pointage_export_url }}" class="btn-export"><i class="fas fa-file-csv"></i> Exporter CSV</button>
+            </form>
+
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date / Heure</th>
+                            <th>Utilisateur</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in pointages %}
+                            <tr>
+                                <td>{{ p.horodatage|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    {% if is_user_scope %}
+                                        {{ p.utilisateur.first_name }} {{ p.utilisateur.last_name }}
+                                    {% else %}
+                                        <a href="{% url 'Employee:statistiques_utilisateur' p.utilisateur_id %}?tab=pointage">{{ p.utilisateur.first_name }} {{ p.utilisateur.last_name }}</a>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="chip {% if p.type == 'ENTREE' %}ok{% else %}warn{% endif %}">{{ p.type }}</span>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="3" class="empty">Aucun pointage validé trouvé.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if active_tab == 'analytique' %}
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Synthèse analytique</div>
+                <div class="chips">
+                    <span class="chip bad">Échecs reco: {{ alertes_echec_reco }}</span>
+                    <span class="chip warn">Utilisateurs inconnus: {{ alertes_inconnu }}</span>
+                </div>
+            </div>
+
+            <form method="GET" class="filters">
+                {% if is_user_scope %}
+                    <input type="hidden" name="tab" value="{{ active_tab }}">
+                {% endif %}
+                <input type="date" name="date_debut" value="{{ date_debut }}">
+                <input type="date" name="date_fin" value="{{ date_fin }}">
+                <button type="submit"><i class="fas fa-filter"></i> Actualiser</button>
+            </form>
+
+            <!-- Graphique Confiance au fil du temps -->
+            {% if confidence_timeline %}
+            <div class="chart-wrap">
+                <h3 style="margin-bottom: var(--spacing-md);">Confiance de reconnaissance faciale dans le temps</h3>
+                <div style="position: relative; height: 300px; margin-bottom: var(--spacing-lg);">
+                    <canvas id="confidenceChart"></canvas>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Graphique Volume journalier en barres empilées -->
+            {% if daily_chart %}
+            <div class="chart-wrap" style="border-top: 1px solid #f2f2f2;">
+                <h3 style="margin-bottom: var(--spacing-md);">Volume journalier (Entrées, Sorties, Échecs)</h3>
+                <div style="position: relative; height: 300px; margin-bottom: var(--spacing-lg);">
+                    <canvas id="dailyChart"></canvas>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Graphique Distribution horaire -->
+            {% if hourly_chart %}
+            <div class="chart-wrap" style="border-top: 1px solid #f2f2f2;">
+                <h3 style="margin-bottom: var(--spacing-md);">Distribution horaire</h3>
+                <div style="position: relative; height: 250px; margin-bottom: var(--spacing-lg);">
+                    <canvas id="hourlyChart"></canvas>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Graphique Alertes par type -->
+            {% if alert_types_data %}
+            <div class="chart-wrap" style="border-top: 1px solid #f2f2f2;">
+                <h3 style="margin-bottom: var(--spacing-md);">Répartition des alertes par type</h3>
+                <div style="position: relative; height: 250px; width: 400px; margin: 0 auto var(--spacing-lg);">
+                    <canvas id="alertsChart"></canvas>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Performance par employé</div>
+            </div>
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Employé</th>
+                            <th>Total</th>
+                            <th>Validés</th>
+                            <th>Échecs</th>
+                            <th>Taux validation</th>
+                            <th>Précision moyenne</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in user_summaries %}
+                            <tr>
+                                <td>
+                                    {% if is_user_scope %}
+                                        {{ u.first_name }} {{ u.last_name }}
+                                    {% else %}
+                                        <a href="{% url 'Employee:statistiques_utilisateur' u.pk %}?tab=analytique">{{ u.first_name }} {{ u.last_name }}</a>
+                                    {% endif %}
+                                </td>
+                                <td>{{ u.total_pointages }}</td>
+                                <td>{{ u.total_valides }}</td>
+                                <td>{{ u.total_invalides }}</td>
+                                <td>{{ u.taux_validation }}%</td>
+                                <td>{{ u.moyenne_confiance }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6" class="empty">Aucune donnée utilisateur.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <script>
+            // Données depuis le contexte Django
+            var confidenceTimeline = {{ confidence_timeline_json|safe }};
+            var dailyChartData = {{ daily_chart_json|safe }};
+            var hourlyChartData = {{ hourly_chart_json|safe }};
+            var alertTypesData = {{ alert_types_json|safe }};
+
+            // Graphique Confiance
+            if (document.getElementById('confidenceChart') && confidenceTimeline.labels.length > 0) {
+                var confidenceCtx = document.getElementById('confidenceChart').getContext('2d');
+                new Chart(confidenceCtx, {
+                    type: 'line',
+                    data: {
+                        labels: confidenceTimeline.labels,
+                        datasets: [{
+                            label: 'Confiance moyenne',
+                            data: confidenceTimeline.data,
+                            borderColor: '#3B82F6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#3B82F6',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true, position: 'top' } },
+                        scales: {
+                            y: { beginAtZero: true, max: 1, ticks: { callback: function(v) { return v.toFixed(2); } } }
+                        }
+                    }
+                });
+            }
+
+            // Graphique Volume journalier
+            if (document.getElementById('dailyChart') && dailyChartData.labels.length > 0) {
+                var dailyCtx = document.getElementById('dailyChart').getContext('2d');
+                new Chart(dailyCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: dailyChartData.labels,
+                        datasets: [
+                            { label: 'Entrées', data: dailyChartData.entrees, backgroundColor: '#10B981' },
+                            { label: 'Sorties', data: dailyChartData.sorties, backgroundColor: '#F59E0B' },
+                            { label: 'Échecs', data: dailyChartData.invalides, backgroundColor: '#EF4444' }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true, position: 'top' } },
+                        scales: { x: { stacked: false }, y: { beginAtZero: true, stacked: false } }
+                    }
+                });
+            }
+
+            // Distribution horaire
+            if (document.getElementById('hourlyChart') && hourlyChartData.labels.length > 0) {
+                var hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+                new Chart(hourlyCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: hourlyChartData.labels,
+                        datasets: [{
+                            label: 'Pointages par heure',
+                            data: hourlyChartData.data,
+                            backgroundColor: '#06B6D4',
+                            borderColor: '#0891B2',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            }
+
+            // Alertes par type (camembert)
+            if (document.getElementById('alertsChart') && alertTypesData.labels.length > 0) {
+                var alertsCtx = document.getElementById('alertsChart').getContext('2d');
+                new Chart(alertsCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: alertTypesData.labels,
+                        datasets: [{
+                            data: alertTypesData.data,
+                            backgroundColor: ['#EF4444', '#F59E0B', '#EC4899', '#6366F1'],
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true, position: 'bottom' } }
+                    }
+                });
+            }
+        </script>
+    {% endif %}
+</section>
+{% endblock %}
