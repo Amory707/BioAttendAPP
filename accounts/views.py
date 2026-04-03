@@ -9,12 +9,11 @@ from django.contrib.auth import logout as auth_logout
 class CustomLoginView(LoginView):
 	template_name = 'registration/login.html'
 
-	def form_valid(self, form):
-		user = form.get_user()
-		if user.role_utilisateurs.filter(role__nom__iexact='employé').exists():
-			messages.error(self.request, "Accès refusé : votre compte n'a pas les droits nécessaires.")
-			return self.form_invalid(form)
-		return super().form_valid(form)
+	def get_success_url(self):
+		user = self.request.user
+		if user.is_employe and not user.is_platform_admin:
+			return '/dashboard/employe/'
+		return super().get_success_url()
 
 
 @login_required

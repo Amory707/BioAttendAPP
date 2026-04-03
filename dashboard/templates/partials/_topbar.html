@@ -1,16 +1,27 @@
 <header class="top-bar">
-    <form class="search-container" method="GET" action="{% url 'Employee:utilisateur_list' %}">
-        <input type="text" name="q" class="search-input" placeholder="Rechercher un employé…">
-        <button type="submit" style="position:absolute;right:var(--spacing-md);background:none;border:none;padding:0;cursor:pointer;">
-            <i class="fas fa-search search-icon" style="pointer-events:none;"></i>
-        </button>
-    </form>
+    {% if user.is_employe and not user.is_platform_admin %}
+        <div class="search-container" style="display: flex; align-items: center; color: var(--color-text-secondary); font-weight: 600;">
+            Espace employé
+        </div>
+    {% else %}
+        <form class="search-container" method="GET" action="{% url 'Employee:utilisateur_list' %}">
+            <input type="text" name="q" class="search-input" placeholder="Rechercher un employé…">
+            <button type="submit" class="search-submit" aria-label="Lancer la recherche">
+                <i class="fas fa-search" aria-hidden="true"></i>
+            </button>
+        </form>
+    {% endif %}
 
     <div class="top-bar-actions">
-        <button class="notification-btn" title="Notifications">
+        <a
+            class="notification-btn"
+            title="Notifications"
+            href="{% if user.is_employe and not user.is_platform_admin %}{% url 'dashboard:employee_alertes' %}{% else %}{% url 'Employee:alerte_list' %}{% endif %}"
+            style="text-decoration: none;"
+        >
             <i class="fas fa-bell"></i>
             <span class="notification-badge">3</span>
-        </button>
+        </a>
 
         <button class="theme-toggle-btn" id="themeToggleBtn" title="Basculer le thème">
             <i class="fas fa-moon"></i>

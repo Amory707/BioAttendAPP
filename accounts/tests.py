@@ -1,7 +1,7 @@
 from importlib import import_module
+from unittest.mock import Mock, patch
 
 from django.conf import settings
-from django.contrib.messages import get_messages
 from django.contrib.sessions.models import Session
 from django.test import TestCase
 from django.urls import reverse
@@ -39,7 +39,7 @@ class AccountsAppTests(TestCase):
 		store.create()
 		return store.session_key
 
-	def test_custom_login_rejects_employe_role(self):
+	def test_custom_login_redirects_employe_to_employee_space(self):
 		employe_role = self._create_role("employé")
 		user = self._create_user("agent")
 		RoleUtilisateur.objects.create(role=employe_role, utilisateur=user)
@@ -47,12 +47,11 @@ class AccountsAppTests(TestCase):
 		response = self.client.post(
 			reverse("accounts:login"),
 			{"username": "agent", "password": "test-pass-123"},
-			follow=True,
 		)
 
-		self.assertEqual(response.status_code, 200)
-		messages = [m.message for m in get_messages(response.wsgi_request)]
-		self.assertTrue(any("Accès refusé" in message for message in messages))
+		self.assertEqual(response.status_code, 302)
+		self.assertEqual(response.url, reverse("dashboard:employee_home"))
+		self.assertTrue("_auth_user_id" in self.client.session)
 
 	def test_custom_login_accepts_non_employe_user(self):
 		self._create_role("admin")
@@ -126,8 +125,13 @@ class AccountsAppTests(TestCase):
 	def test_role_utilisateur_acces_total_sets_staff_and_permissions(self):
 		user = self._create_user("staffable")
 		acces_total = self._create_role("acces_total")
+		approver = self._create_user("bioattend", is_superuser=True, is_staff=True)
 
-		RoleUtilisateur.objects.create(role=acces_total, utilisateur=user)
+		fake_request = Mock()
+		fake_request.user = approver
+
+		with patch("accounts.middleware.ThreadLocalMiddleware.get_current_request", return_value=fake_request):
+			RoleUtilisateur.objects.create(role=acces_total, utilisateur=user)
 		user.refresh_from_db()
 
 		self.assertTrue(user.is_staff)
@@ -138,9 +142,14 @@ class AccountsAppTests(TestCase):
 		role_employe = self._create_role("employé")
 		role_admin = self._create_role("admin")
 		role_total = self._create_role("acces_total")
+		approver = self._create_user("bioattend", is_superuser=True, is_staff=True)
+
+		fake_request = Mock()
+		fake_request.user = approver
 		RoleUtilisateur.objects.create(role=role_employe, utilisateur=user)
 		RoleUtilisateur.objects.create(role=role_admin, utilisateur=user)
-		RoleUtilisateur.objects.create(role=role_total, utilisateur=user)
+		with patch("accounts.middleware.ThreadLocalMiddleware.get_current_request", return_value=fake_request):
+			RoleUtilisateur.objects.create(role=role_total, utilisateur=user)
 
 		self.assertTrue(user.is_employe)
 		self.assertTrue(user.is_acces_total)
