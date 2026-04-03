@@ -297,6 +297,25 @@ body.dark-mode .search-input {
     font-size: 14px;
 }
 
+.search-submit {
+    position: absolute;
+    right: var(--spacing-md);
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    line-height: 1;
+}
+
+.search-submit:hover,
+.search-submit:focus {
+    color: var(--color-primary);
+}
+
 .top-bar-actions {
     display: flex;
     align-items: center;

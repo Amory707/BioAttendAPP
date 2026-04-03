@@ -8,25 +8,44 @@
     </div>
 
     <nav class="nav-menu">
-        <a href="{% url 'dashboard:index' %}" class="nav-item {% if '/dashboard/' in request.path or request.path == '/dashboard' or request.path == '/' %}active{% endif %}">
-            <i class="fas fa-home"></i>
-            <span class="nav-label">Dashboard</span>
-        </a>
-        <a href="{% url 'Employee:utilisateur_list' %}" class="nav-item {% if '/Employee/' in request.path and '/Employee/pointages/' not in request.path %}active{% endif %}">
-            <i class="fas fa-users"></i>
-            <span class="nav-label">Employés</span>
-        </a>
-        <a href="{% url 'Employee:pointage_list' %}" class="nav-item {% if '/Employee/pointages/' in request.path or '/statistiques' in request.path or '/stats' in request.path %}active{% endif %}">
-            <i class="fas fa-chart-bar"></i>
-            <span class="nav-label">Statistiques</span>
-        </a>
-        <a href="#" class="nav-item {% if '/alerts' in request.path or '/alertes' in request.path %}active{% endif %}">
-            <i class="fas fa-bell"></i>
-            <span class="nav-label">Alertes</span>
-        </a>
-        <a href="{% url 'accounts:settings' %}" class="nav-item {% if '/accounts/settings' in request.path %}active{% endif %}">
-            <i class="fas fa-cog"></i>
-            <span class="nav-label">Paramètres</span>
-        </a>
+        {% if user.is_employe and not user.is_platform_admin %}
+            <a href="{% url 'dashboard:employee_home' %}" class="nav-item {% if request.path == '/dashboard/employe/' or request.path == '/dashboard/employe' %}active{% endif %}">
+                <i class="fas fa-home"></i>
+                <span class="nav-label">Mon espace</span>
+            </a>
+            <a href="{% url 'dashboard:employee_pointages' %}" class="nav-item {% if '/dashboard/employe/pointages' in request.path %}active{% endif %}">
+                <i class="fas fa-fingerprint"></i>
+                <span class="nav-label">Mes pointages</span>
+            </a>
+            <a href="{% url 'dashboard:employee_alertes' %}" class="nav-item {% if '/dashboard/employe/alertes' in request.path %}active{% endif %}">
+                <i class="fas fa-bell"></i>
+                <span class="nav-label">Mes alertes</span>
+            </a>
+            <a href="{% url 'accounts:settings' %}" class="nav-item {% if '/accounts/settings' in request.path %}active{% endif %}">
+                <i class="fas fa-cog"></i>
+                <span class="nav-label">Paramètres</span>
+            </a>
+        {% else %}
+            <a href="{% url 'dashboard:index' %}" class="nav-item {% if '/dashboard/' in request.path or request.path == '/dashboard' or request.path == '/' %}active{% endif %}">
+                <i class="fas fa-home"></i>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="{% url 'Employee:utilisateur_list' %}" class="nav-item {% if '/Employee/' in request.path and '/Employee/pointages/' not in request.path and '/Employee/alertes/' not in request.path %}active{% endif %}">
+                <i class="fas fa-users"></i>
+                <span class="nav-label">Employés</span>
+            </a>
+            <a href="{% url 'Employee:pointage_list' %}" class="nav-item {% if '/Employee/pointages/' in request.path or '/statistiques' in request.path or '/stats' in request.path %}active{% endif %}">
+                <i class="fas fa-chart-bar"></i>
+                <span class="nav-label">Statistiques</span>
+            </a>
+            <a href="{% url 'Employee:alerte_list' %}" class="nav-item {% if '/Employee/alertes/' in request.path or '/alerts' in request.path or '/alertes' in request.path %}active{% endif %}">
+                <i class="fas fa-bell"></i>
+                <span class="nav-label">Alertes</span>
+            </a>
+            <a href="{% url 'accounts:settings' %}" class="nav-item {% if '/accounts/settings' in request.path %}active{% endif %}">
+                <i class="fas fa-cog"></i>
+                <span class="nav-label">Paramètres</span>
+            </a>
+        {% endif %}
     </nav>
 </aside>

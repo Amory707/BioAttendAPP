@@ -44,6 +44,15 @@ class Utilisateur(AbstractUser):
         """Retourne True si l'utilisateur a le rôle 'employé' (insensible à la casse)."""
         return self.roles.filter(nom__iexact='employé').exists()
 
+    @property
+    def is_platform_admin(self):
+        """Retourne True si l'utilisateur a un accès plateforme admin."""
+        return (
+            self.roles.filter(nom__iexact='admin').exists()
+            or self.roles.filter(nom__iexact='acces_total').exists()
+            or (self.is_superuser and self.username == 'bioattend')
+        )
+
 
 class Role(models.Model):
     """
