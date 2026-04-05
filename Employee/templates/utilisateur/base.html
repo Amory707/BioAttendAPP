@@ -1,26 +1,53 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>BioAttend - Gestion</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; background: #f8f9fc; }
-        .sidebar { width: 250px; background: #2c3e50; color: white; min-height: 100vh; padding: 20px; }
-        .content { flex: 1; padding: 40px; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-        .btn-csv { background: #1cc88a; color: white; padding: 10px; border-radius: 5px; text-decoration: none; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}BioAttend - Gestion{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/design-system.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <div class="sidebar">
-        <h2>BioAttend</h2>
-        <p><a href="{% url 'Employee:utilisateur_list' %}" style="color:white; text-decoration:none;"><i class="fas fa-users"></i> Utilisateurs</a></p>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-avatar">
+                    <i class="fas fa-fingerprint"></i>
+                </div>
+                <h2 class="sidebar-title">BioAttend</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="{% url 'Employee:utilisateur_list' %}" class="nav-item {% if 'utilisateur' in request.path and 'pointages' not in request.path %}active{% endif %}">
+                    <i class="fas fa-users"></i>
+                    <span class="nav-label">Employés</span>
+                </a>
+                <a href="{% url 'Employee:pointage_list' %}" class="nav-item {% if 'pointages' in request.path or 'statistiques' in request.path %}active{% endif %}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span class="nav-label">Statistiques</span>
+                </a>
+                <a href="{% url 'Employee:alerte_list' %}" class="nav-item {% if 'alertes' in request.path %}active{% endif %}">
+                    <i class="fas fa-bell"></i>
+                    <span class="nav-label">Alertes</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="search-container">
+                    <h1 style="margin: 0; font-size: var(--font-size-xl); flex: 1;">{% block page_title %}BioAttend{% endblock %}</h1>
+                </div>
+            </header>
+            <section class="page active" style="padding: var(--spacing-xl);">
+                {% block content %}{% endblock %}
+            </section>
+        </main>
     </div>
-    <div class="content">
-        {% block content %}{% endblock %}
-    </div>
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

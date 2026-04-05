@@ -48,12 +48,19 @@
         .emp-search-bar {
             display: flex;
             gap: var(--spacing-sm);
-            padding: var(--spacing-md) var(--spacing-lg);
-            border-bottom: 1px solid #f0f0f0;
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+            background-color: var(--color-bg-white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            align-items: center;
+            flex-wrap: nowrap;
         }
         .emp-search-bar input {
             flex: 1;
+            min-width: 200px;
             max-width: 360px;
+            width: auto;
             padding: 8px 12px;
             border: 1px solid #E0E0E0;
             border-radius: var(--radius-md);
@@ -62,15 +69,39 @@
             color: var(--color-text-primary);
         }
         .emp-search-bar input:focus { outline: none; border-color: var(--color-primary); }
-        .emp-search-bar button {
-            padding: 8px 16px;
-            background: var(--color-primary);
-            color: white;
-            border: none;
+        .emp-search-bar select {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1px solid #E0E0E0;
             border-radius: var(--radius-md);
-            cursor: pointer;
             font-size: var(--font-size-sm);
-            font-weight: 600;
+            background: var(--color-bg-light);
+            color: var(--color-text-primary);
+            cursor: pointer;
+            min-width: 220px;
+            width: auto;
+        }
+        .emp-search-bar select:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+        }
+        .emp-search-bar .btn {
+            flex: 0 0 auto;
+        }
+        @media (max-width: 900px) {
+            .emp-search-bar {
+                flex-wrap: wrap;
+            }
+            .emp-search-bar input,
+            .emp-search-bar select {
+                flex: 1 1 100%;
+                max-width: none;
+                width: 100%;
+            }
+            .emp-search-bar .btn {
+                width: 100%;
+            }
         }
         .bio-badge {
             display: inline-block;
@@ -84,7 +115,6 @@
         .surete-high { background: #E8F8F5; color: #14866D; }
         .surete-mid { background: #FFF8E1; color: #B7791F; }
         .surete-low { background: #FDEDEC; color: #C0392B; }
-        .btn-green { background: var(--color-secondary) !important; color: white !important; }
     </style>
 {% endblock %}
 {% block content %}
@@ -101,26 +131,26 @@
             <a href="{% url 'Employee:utilisateur_create' %}" class="btn btn-primary">
                 <i class="fas fa-plus"></i>&nbsp; Ajouter
             </a>
-            <a href="{% url 'Employee:exporter_csv' %}" class="btn btn-green">
+            <a href="{% url 'Employee:exporter_csv' %}" class="btn btn-export">
                 <i class="fas fa-file-csv"></i>&nbsp; Exporter CSV
             </a>
         </div>
     </div>
 
-    <div class="recent-table">
+    <form method="GET" class="emp-search-bar">
+        <input type="text" name="q" placeholder="Rechercher par nom, prénom ou email…" value="{{ recherche }}">
+        {% if filtre_departement %}<input type="hidden" name="departement" value="{{ filtre_departement }}">{% endif %}
+        {% if filtre_biometrie %}<input type="hidden" name="biometrie" value="{{ filtre_biometrie }}">{% endif %}
+        {% if filtre_date_debut %}<input type="hidden" name="date_debut" value="{{ filtre_date_debut }}">{% endif %}
+        <select name="tri">
+            {% for value, label in sort_options %}
+                <option value="{{ value }}" {% if tri == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i>&nbsp; Filtrer</button>
+    </form>
 
-        <form method="GET" class="emp-search-bar">
-            <input type="text" name="q" placeholder="Rechercher par nom, prénom ou email…" value="{{ recherche }}">
-            {% if filtre_departement %}<input type="hidden" name="departement" value="{{ filtre_departement }}">{% endif %}
-            {% if filtre_biometrie %}<input type="hidden" name="biometrie" value="{{ filtre_biometrie }}">{% endif %}
-            {% if filtre_date_debut %}<input type="hidden" name="date_debut" value="{{ filtre_date_debut }}">{% endif %}
-            <select name="tri" style="padding: 8px 10px; border: 1px solid #E0E0E0; border-radius: var(--radius-md); font-size: var(--font-size-sm); background: var(--color-bg-light); color: var(--color-text-primary); cursor: pointer;">
-                {% for value, label in sort_options %}
-                    <option value="{{ value }}" {% if tri == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit"><i class="fas fa-search"></i>&nbsp; Filtrer</button>
-        </form>
+    <div class="recent-table">
 
         <div class="emp-grid-header">
             <div>Nom Complet</div>

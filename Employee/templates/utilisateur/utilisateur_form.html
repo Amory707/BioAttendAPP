@@ -69,7 +69,7 @@
             border-color: var(--color-hover-border);
             background: var(--color-hover-bg);
         }
-        .role-item input[type="radio"] { width: 16px; height: 16px; accent-color: var(--color-primary); cursor: pointer; }
+        .role-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--color-primary); cursor: pointer; }
         .role-item span { cursor: pointer; font-size: var(--font-size-sm); font-weight: 500; }
         .role-item.none-option span { color: var(--color-text-secondary); font-style: italic; }
         .photo-preview {
@@ -178,17 +178,18 @@
             {# ── Colonne droite : rôle + photo + mot de passe ── #}
             <div>
                 {# Rôle #}
-                <div class="form-card">
-                    <div class="form-section-title"><i class="fas fa-shield-alt"></i> Rôle</div>
+                <div class="form-card" id="access-roles">
+                    <div class="form-section-title"><i class="fas fa-shield-alt"></i> Rôles</div>
                     <div class="roles-list">
-                        {% for choice in form.role %}
-                        <label class="role-item{% if choice.data.value == '' %} none-option{% endif %}">
+                        {% for choice in form.roles %}
+                        <label class="role-item">
                             {{ choice.tag }}
                             <span>{{ choice.choice_label }}</span>
                         </label>
                         {% endfor %}
                     </div>
-                    {% for e in form.role.errors %}<div class="form-error" style="margin-top:8px;">{{ e }}</div>{% endfor %}
+                    <div class="form-help" style="margin-top:8px;">Cochez un ou plusieurs accès selon le profil de la personne.</div>
+                    {% for e in form.roles.errors %}<div class="form-error" style="margin-top:8px;">{{ e }}</div>{% endfor %}
                 </div>
 
                 {# Photo #}
@@ -246,8 +247,7 @@
             <button type="submit" class="btn btn-primary">
                 <i class="fas fa-save"></i>&nbsp; {{ action }}
             </button>
-            <a href="{% url 'Employee:utilisateur_list' %}" class="btn"
-               style="background:var(--color-text-secondary);color:white;">
+            <a href="{% url 'Employee:utilisateur_list' %}" class="btn btn-secondary">
                 Annuler
             </a>
         </div>

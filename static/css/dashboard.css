@@ -1,3 +1,6 @@
+/* === DASHBOARD - Styles spécifiques === */
+
+/* Page transitions */
 .page {
     display: none;
     padding: var(--spacing-xl);
@@ -13,7 +16,6 @@
         opacity: 0;
         transform: translateY(10px);
     }
-
     to {
         opacity: 1;
         transform: translateY(0);
@@ -27,9 +29,16 @@
 .page-header h1 {
     font-size: var(--font-size-2xl);
     color: var(--color-text-primary);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
 }
 
+.page-header p {
+    margin-top: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* Stats Grid */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -37,64 +46,7 @@
     margin-bottom: var(--spacing-2xl);
 }
 
-.stat-card {
-    padding: var(--spacing-lg);
-    border-radius: var(--radius-lg);
-    color: white;
-    box-shadow: var(--shadow-md);
-    transition: all var(--transition-fast);
-}
-
-.stat-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-lg);
-}
-
-.stat-card.total-employees {
-    background: linear-gradient(135deg, var(--color-card-total) 0%, #16a085 100%);
-}
-
-.stat-card.present-today {
-    background: linear-gradient(135deg, var(--color-card-present) 0%, #5DADE2 100%);
-}
-
-.stat-card.absent-today {
-    background: linear-gradient(135deg, var(--color-card-absent) 0%, #F39C12 100%);
-}
-
-.stat-card.not-recorded {
-    background: linear-gradient(135deg, var(--color-card-warning) 0%, #2C3E50 100%);
-}
-
-.stat-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: var(--spacing-md);
-}
-
-.stat-title {
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    opacity: 0.9;
-    margin: 0;
-}
-
-.stat-icon {
-    font-size: 24px;
-    opacity: 0.7;
-}
-
-.stat-icon.fa {
-    display: block;
-}
-
-.stat-value {
-    font-size: var(--font-size-3xl);
-    font-weight: 700;
-    margin: 0;
-}
-
+/* Charts and Recent sections */
 .charts-section,
 .recent-section {
     margin-bottom: var(--spacing-2xl);
@@ -170,52 +122,14 @@
 
 .name-col {
     color: var(--color-text-primary);
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
 }
 
 .time-col {
     color: var(--color-text-secondary);
 }
 
-.status-badge {
-    display: inline-block;
-    padding: var(--spacing-xs) var(--spacing-md);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    text-align: center;
-}
-
-.status-badge.entry {
-    background-color: #E8F8F5;
-    color: var(--color-card-total);
-}
-
-.status-badge.exit {
-    background-color: #FFF3E0;
-    color: var(--color-card-absent);
-}
-
-.btn {
-    padding: var(--spacing-sm) var(--spacing-lg);
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-}
-
-.btn-primary {
-    background-color: var(--color-primary);
-    color: white;
-}
-
-.btn-primary:hover {
-    background-color: var(--color-primary-dark);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
+/* Chart section */
 
 @media (max-width: 1024px) {
     .sidebar {

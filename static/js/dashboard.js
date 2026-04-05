@@ -9,49 +9,24 @@ const dashboardColors = {
     gray: '#7F8C8D',
 };
 
-const testData = {
-    weeklyStats: [
-        { day: 'Mon', presents: 45, absents: 30, unrecorded: 8 },
-        { day: 'Tue', presents: 52, absents: 25, unrecorded: 6 },
-        { day: 'Wed', presents: 48, absents: 28, unrecorded: 7 },
-        { day: 'Thu', presents: 55, absents: 22, unrecorded: 6 },
-        { day: 'Fri', presents: 50, absents: 27, unrecorded: 6 },
-    ],
-    recentCheckIns: [
-        { name: 'John', time: '08:01', status: 'entry' },
-        { name: 'Maria', time: '08:05', status: 'entry' },
-        { name: 'Paul', time: '12:00', status: 'exit' },
-        { name: 'Sophie', time: '08:15', status: 'entry' },
-        { name: 'Michel', time: '17:30', status: 'exit' },
-    ],
-};
+function getWeeklyStatsData() {
+    const dataNode = document.getElementById('dashboard-weekly-data');
+    if (!dataNode) return [];
+    try {
+        return JSON.parse(dataNode.textContent) || [];
+    } catch (error) {
+        console.error('Impossible de lire les données hebdomadaires du dashboard.', error);
+        return [];
+    }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
-    loadRecentCheckIns();
     setTimeout(() => { initWeeklyChart(); }, 100);
 });
 
 window.addEventListener('themeChanged', () => {
     if (document.getElementById('weeklyChart')) initWeeklyChart();
 });
-
-function loadRecentCheckIns() {
-    const tableBody = document.getElementById('recentTableBody');
-    if (!tableBody) return;
-
-    tableBody.innerHTML = testData.recentCheckIns
-        .map(item => `
-            <div class="table-row">
-                <div class="table-col name-col">${item.name}</div>
-                <div class="table-col time-col">${item.time}</div>
-                <div class="table-col">
-                    <span class="status-badge ${item.status}">
-                        ${item.status === 'entry' ? 'Entrée' : 'Sortie'}
-                    </span>
-                </div>
-            </div>
-        `).join('');
-}
 
 function initWeeklyChart() {
     const ctx = document.getElementById('weeklyChart');
@@ -61,27 +36,28 @@ function initWeeklyChart() {
 
     const isDarkMode = document.body.classList.contains('dark-mode');
     const textColor = isDarkMode ? '#BDC3C7' : '#7F8C8D';
+    const weeklyStats = getWeeklyStatsData();
 
     dashboardCharts.weekly = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: testData.weeklyStats.map(d => d.day),
+            labels: weeklyStats.map(d => d.day),
             datasets: [
                 {
                     label: 'Présents',
-                    data: testData.weeklyStats.map(d => d.presents),
+                    data: weeklyStats.map(d => d.presents),
                     backgroundColor: dashboardColors.primary,
                     borderRadius: 6,
                 },
                 {
                     label: 'Absents',
-                    data: testData.weeklyStats.map(d => d.absents),
+                    data: weeklyStats.map(d => d.absents),
                     backgroundColor: dashboardColors.orange,
                     borderRadius: 6,
                 },
                 {
                     label: 'Non reconnus',
-                    data: testData.weeklyStats.map(d => d.unrecorded),
+                    data: weeklyStats.map(d => d.unrecorded),
                     backgroundColor: dashboardColors.gray,
                     borderRadius: 6,
                 }

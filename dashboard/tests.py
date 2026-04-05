@@ -4,6 +4,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts.access import ACTIVE_SPACE_SESSION_KEY, EMPLOYEE_SPACE
 from accounts.models import Role, RoleUtilisateur, Utilisateur
 from alerts.models import Alerte
 from attendance.models import Pointage
@@ -49,6 +50,67 @@ class DashboardAppTests(TestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.context["user"].pk, user.pk)
+		self.assertContains(response, "Accéder à ma vue employé")
+
+	def test_dashboard_uses_real_metrics_in_context(self):
+		admin = self._create_user("admin-metrics")
+		employee_one = self._create_user("employee-one",)
+		employee_two = self._create_user("employee-two")
+		employee_one.first_name = "Lina"
+		employee_one.last_name = "Ops"
+		employee_one.save(update_fields=["first_name", "last_name"])
+		self._assign_role(admin, "admin")
+		self._assign_role(employee_one, "employé")
+		self._assign_role(employee_two, "employé")
+		self.client.force_login(admin)
+
+		Pointage.objects.create(
+			utilisateur=employee_one,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=timezone.now(),
+			score_confiance=0.91,
+		)
+		Alerte.objects.create(
+			utilisateur=None,
+			type="UTILISATEUR_INCONNU",
+			description="Visage non reconnu",
+			statut="NOUVELLE",
+		)
+
+		response = self.client.get(reverse("dashboard:index"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context["total_employees"], 2)
+		self.assertEqual(response.context["today_present_count"], 1)
+		self.assertEqual(response.context["today_absent_count"], 1)
+		self.assertEqual(response.context["not_recognized_today"], 1)
+		self.assertEqual(len(response.context["weekly_stats"]), 7)
+		self.assertContains(response, "Lina Ops")
+
+	def test_dashboard_counts_non_admin_user_without_role(self):
+		admin = self._create_user("admin-no-role")
+		worker = self._create_user("worker-no-role")
+		worker.first_name = "Noa"
+		worker.last_name = "Field"
+		worker.save(update_fields=["first_name", "last_name"])
+		self._assign_role(admin, "admin")
+		self.client.force_login(admin)
+
+		Pointage.objects.create(
+			utilisateur=worker,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=timezone.now(),
+			score_confiance=0.77,
+		)
+
+		response = self.client.get(reverse("dashboard:index"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context["total_employees"], 1)
+		self.assertEqual(response.context["today_present_count"], 1)
+		self.assertContains(response, "Noa Field")
 
 	def test_dashboard_allows_user_with_acces_total_role(self):
 		user = self._create_user("total-user")
@@ -88,6 +150,33 @@ class DashboardAppTests(TestCase):
 
 		self.assertEqual(response.status_code, 302)
 		self.assertEqual(response.url, reverse("dashboard:employee_home"))
+
+	def test_switch_space_allows_admin_user_to_open_employee_space(self):
+		user = self._create_user("hybrid-space")
+		self._assign_role(user, "admin")
+		self.client.force_login(user)
+		admin_response = self.client.get(reverse("dashboard:index"))
+
+		self.assertContains(admin_response, "Accéder à ma vue employé")
+
+		response = self.client.get(reverse("dashboard:switch_space", args=[EMPLOYEE_SPACE]))
+
+		self.assertEqual(response.status_code, 302)
+		self.assertEqual(response.url, reverse("dashboard:employee_home"))
+		self.assertEqual(self.client.session.get(ACTIVE_SPACE_SESSION_KEY), EMPLOYEE_SPACE)
+
+	def test_employee_home_allows_admin_user_when_employee_space_is_selected(self):
+		user = self._create_user("hybrid-employee-home")
+		self._assign_role(user, "admin")
+		self.client.force_login(user)
+		session = self.client.session
+		session[ACTIVE_SPACE_SESSION_KEY] = EMPLOYEE_SPACE
+		session.save()
+
+		response = self.client.get(reverse("dashboard:employee_home"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Retour à la plateforme RH")
 
 	def test_employee_home_shows_only_current_user_data(self):
 		employee = self._create_user("employee-own")
