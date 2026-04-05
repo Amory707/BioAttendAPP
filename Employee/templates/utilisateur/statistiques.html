@@ -392,8 +392,8 @@
                 </select>
                 <input type="date" name="date_debut" value="{{ date_debut }}">
                 <input type="date" name="date_fin" value="{{ date_fin }}">
-                <button type="submit"><i class="fas fa-filter"></i> Filtrer</button>
-                <button type="submit" formaction="{{ pointage_export_url }}" class="btn-export"><i class="fas fa-file-csv"></i> Exporter CSV</button>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filtrer</button>
+                <button type="submit" formaction="{{ pointage_export_url }}" class="btn btn-export"><i class="fas fa-file-csv"></i> Exporter CSV</button>
             </form>
 
             <div class="table-wrap">
@@ -447,7 +447,7 @@
                 {% endif %}
                 <input type="date" name="date_debut" value="{{ date_debut }}">
                 <input type="date" name="date_fin" value="{{ date_fin }}">
-                <button type="submit"><i class="fas fa-filter"></i> Actualiser</button>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Actualiser</button>
             </form>
 
             <!-- Graphique Confiance au fil du temps -->
@@ -481,12 +481,17 @@
             {% endif %}
 
             <!-- Graphique Alertes par type -->
-            {% if alert_types_data %}
+            {% if alert_totales > 0 %}
             <div class="chart-wrap" style="border-top: 1px solid #f2f2f2;">
                 <h3 style="margin-bottom: var(--spacing-md);">Répartition des alertes par type</h3>
                 <div style="position: relative; height: 250px; width: 400px; margin: 0 auto var(--spacing-lg);">
                     <canvas id="alertsChart"></canvas>
                 </div>
+            </div>
+            {% else %}
+            <div class="chart-wrap" style="border-top: 1px solid #f2f2f2; text-align: center; padding: var(--spacing-lg);">
+                <h3 style="margin-bottom: var(--spacing-md);">Répartition des alertes par type</h3>
+                <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">Aucune alerte pour la période sélectionnée.</p>
             </div>
             {% endif %}
         </div>
@@ -627,7 +632,7 @@
                         labels: alertTypesData.labels,
                         datasets: [{
                             data: alertTypesData.data,
-                            backgroundColor: ['#EF4444', '#F59E0B', '#EC4899', '#6366F1'],
+                            backgroundColor: ['#EF4444', '#F59E0B', '#EC4899', '#6366F1', '#8B5CF6'],
                             borderColor: '#fff',
                             borderWidth: 2
                         }]

@@ -17,10 +17,6 @@
                 <i class="fas fa-fingerprint"></i>
                 <span class="nav-label">Mes pointages</span>
             </a>
-            <a href="{% url 'dashboard:employee_alertes' %}" class="nav-item {% if '/dashboard/employe/alertes' in request.path %}active{% endif %}">
-                <i class="fas fa-bell"></i>
-                <span class="nav-label">Mes alertes</span>
-            </a>
             <a href="{% url 'accounts:settings' %}" class="nav-item {% if '/accounts/settings' in request.path %}active{% endif %}">
                 <i class="fas fa-cog"></i>
                 <span class="nav-label">Paramètres</span>
@@ -37,10 +33,6 @@
             <a href="{% url 'Employee:pointage_list' %}" class="nav-item {% if '/Employee/pointages/' in request.path %}active{% endif %}">
                 <i class="fas fa-chart-bar"></i>
                 <span class="nav-label">Statistiques</span>
-            </a>
-            <a href="{% url 'Employee:alerte_list' %}" class="nav-item {% if '/Employee/alertes/' in request.path or '/alerts' in request.path or '/alertes' in request.path %}active{% endif %}">
-                <i class="fas fa-bell"></i>
-                <span class="nav-label">Alertes</span>
             </a>
             <a href="{% url 'accounts:settings' %}" class="nav-item {% if '/accounts/settings' in request.path %}active{% endif %}">
                 <i class="fas fa-cog"></i>

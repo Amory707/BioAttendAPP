@@ -290,6 +290,7 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
     alertes_inconnu = alerts_qs.filter(type='UTILISATEUR_INCONNU').count()
     alertes_retard = alerts_qs.filter(type='RETARD').count()
     alertes_absence = alerts_qs.filter(type='ABSENCE').count()
+    alertes_double_pointage = alerts_qs.filter(type='DOUBLE_POINTAGE').count()
 
     last_30_days = timezone.now() - timedelta(days=30)
     recent_pointages = base_pointages.filter(horodatage__gte=last_30_days)
@@ -335,8 +336,8 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
     
     # Types d'alertes
     alert_types_data = {
-        'labels': ['Échec reco', 'Utilisateur inconnu', 'Retard', 'Absence'],
-        'data': [alertes_echec_reco, alertes_inconnu, alertes_retard, alertes_absence],
+        'labels': ['Échec reco', 'Utilisateur inconnu', 'Retard', 'Absence', 'Double pointage'],
+        'data': [alertes_echec_reco, alertes_inconnu, alertes_retard, alertes_absence, alertes_double_pointage],
     }
 
     if utilisateur is None:
@@ -361,6 +362,7 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'alertes_inconnu': alertes_inconnu,
         'alertes_retard': alertes_retard,
         'alertes_absence': alertes_absence,
+        'alertes_double_pointage': alertes_double_pointage,
         'tendance_label': tendance_label,
         'daily_chart': daily_chart,
         'hourly_chart': hourly_chart,

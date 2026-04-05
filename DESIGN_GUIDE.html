@@ -1,0 +1,255 @@
+<!-- 
+    GUIDE VISUEL - BioAttend Design System
+    Démonstration des composants harmonisés
+-->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design System Guide - BioAttend</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../static/css/design-system.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--color-bg-light);
+            padding: var(--spacing-xl);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .section {
+            background: var(--color-bg-white);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            box-shadow: var(--shadow-sm);
+        }
+        .section h2 {
+            margin-top: 0;
+            color: var(--color-primary);
+            font-size: var(--font-size-2xl);
+            border-bottom: 2px solid var(--color-primary-light);
+            padding-bottom: var(--spacing-md);
+        }
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+        }
+        .component-item {
+            padding: var(--spacing-lg);
+            background: var(--color-bg-light);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--color-border-light);
+        }
+        .component-item h4 {
+            margin-top: 0;
+            color: var(--color-text-primary);
+        }
+        .example {
+            padding: var(--spacing-md);
+            margin: var(--spacing-md) 0;
+            background: var(--color-bg-white);
+            border-radius: var(--radius-md);
+            border-left: 4px solid var(--color-primary);
+        }
+        .code {
+            background: #f5f5f5;
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: var(--spacing-sm);
+        }
+        .mt-2 { margin-top: var(--spacing-lg); }
+        .gap-md { gap: var(--spacing-md); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="color: var(--color-primary);">🎨 BioAttend Design System</h1>
+        <p style="color: var(--color-text-secondary); font-size: 18px;">Système visuel harmonisé pour une UX cohérente et attractive</p>
+
+        <!-- Boutons -->
+        <div class="section">
+            <h2><i class="fas fa-square"></i> Boutons</h2>
+            <p>Tous les boutons qui font la même action ont le même style visuel.</p>
+            
+            <div class="component-grid">
+                <div class="component-item">
+                    <h4>Primary Button</h4>
+                    <p>Actions principales</p>
+                    <div class="example">
+                        <button class="btn btn-primary"><i class="fas fa-check"></i> Valider</button>
+                    </div>
+                    <div class="code">&lt;button class="btn btn-primary"&gt;</div>
+                </div>
+
+                <div class="component-item">
+                    <h4>Secondary Button</h4>
+                    <p>Actions secondaires</p>
+                    <div class="example">
+                        <button class="btn btn-secondary"><i class="fas fa-times"></i> Annuler</button>
+                    </div>
+                    <div class="code">&lt;button class="btn btn-secondary"&gt;</div>
+                </div>
+
+                <div class="component-item">
+                    <h4>Success Button</h4>
+                    <p>Confirmations</p>
+                    <div class="example">
+                        <button class="btn btn-success"><i class="fas fa-check-circle"></i> Succès</button>
+                    </div>
+                    <div class="code">&lt;button class="btn btn-success"&gt;</div>
+                </div>
+
+                <div class="component-item">
+                    <h4>Danger Button</h4>
+                    <p>Suppressions</p>
+                    <div class="example">
+                        <button class="btn btn-danger"><i class="fas fa-trash"></i> Supprimer</button>
+                    </div>
+                    <div class="code">&lt;button class="btn btn-danger"&gt;</div>
+                </div>
+
+                <div class="component-item">
+                    <h4>Export Button</h4>
+                    <p>Exports de données</p>
+                    <div class="example">
+                        <button class="btn btn-export"><i class="fas fa-file-csv"></i> Exporter</button>
+                    </div>
+                    <div class="code">&lt;button class="btn btn-export"&gt;</div>
+                </div>
+
+                <div class="component-item">
+                    <h4>Small Size</h4>
+                    <p>Actions compactes</p>
+                    <div class="example">
+                        <button class="btn btn-primary btn-small">Petit</button>
+                    </div>
+                    <div class="code">class="btn btn-primary btn-small"</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cartes de statistiques -->
+        <div class="section">
+            <h2><i class="fas fa-chart-pie"></i> Cartes de Statistiques</h2>
+            <p>Cartes avec dégradés visuels pour un aspect moderne et hi-tech.</p>
+            
+            <div class="component-grid">
+                <div class="stat-card stat-total">
+                    <div class="stat-header">
+                        <h3 class="stat-title">Total Employés</h3>
+                        <i class="fas fa-users stat-icon"></i>
+                    </div>
+                    <div class="stat-value">324</div>
+                    <div class="stat-meta">Teal Green Gradient</div>
+                </div>
+
+                <div class="stat-card stat-success">
+                    <div class="stat-header">
+                        <h3 class="stat-title">Présent</h3>
+                        <i class="fas fa-check stat-icon"></i>
+                    </div>
+                    <div class="stat-value">298</div>
+                    <div class="stat-meta">Green Gradient</div>
+                </div>
+
+                <div class="stat-card stat-warning">
+                    <div class="stat-header">
+                        <h3 class="stat-title">Absent</h3>
+                        <i class="fas fa-times stat-icon"></i>
+                    </div>
+                    <div class="stat-value">26</div>
+                    <div class="stat-meta">Orange Gradient</div>
+                </div>
+
+                <div class="stat-card stat-danger">
+                    <div class="stat-header">
+                        <h3 class="stat-title">Non reconnus</h3>
+                        <i class="fas fa-exclamation-triangle stat-icon"></i>
+                    </div>
+                    <div class="stat-value">3</div>
+                    <div class="stat-meta">Red Gradient</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Badges et Status -->
+        <div class="section">
+            <h2><i class="fas fa-tags"></i> Badges & Status</h2>
+            <p>Étiquettes et indicateurs de statut visuellement distincts.</p>
+            
+            <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-md); margin-top: var(--spacing-lg);">
+                <span class="badge badge-primary"><i class="fas fa-circle-info"></i> Info</span>
+                <span class="badge badge-success"><i class="fas fa-check"></i> Succès</span>
+                <span class="badge badge-warning"><i class="fas fa-exclamation"></i> Warning</span>
+                <span class="badge badge-danger"><i class="fas fa-times"></i> Danger</span>
+            </div>
+
+            <h3 style="margin-top: var(--spacing-lg);">Status Badges</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-md); margin-top: var(--spacing-md);">
+                <span class="status-badge entry"><i class="fas fa-sign-in-alt"></i> Entrée</span>
+                <span class="status-badge exit"><i class="fas fa-sign-out-alt"></i> Sortie</span>
+                <span class="status-badge success"><i class="fas fa-check-circle"></i> Validé</span>
+                <span class="status-badge danger"><i class="fas fa-times-circle"></i> Erreur</span>
+            </div>
+        </div>
+
+        <!-- Palettes -->
+        <div class="section">
+            <h2><i class="fas fa-palette"></i> Palettes de Couleurs</h2>
+            <p>Système de couleurs cohérent et signifiant.</p>
+            
+            <div class="component-grid">
+                <div style="background: var(--color-primary); padding: var(--spacing-lg); border-radius: var(--radius-md); color: white;">
+                    <strong>Primaire</strong><br>
+                    #4A90E2<br>
+                    <small>Actions principales</small>
+                </div>
+                <div style="background: var(--color-success); padding: var(--spacing-lg); border-radius: var(--radius-md); color: white;">
+                    <strong>Succès</strong><br>
+                    #10B981<br>
+                    <small>Actions positives</small>
+                </div>
+                <div style="background: var(--color-warning); padding: var(--spacing-lg); border-radius: var(--radius-md); color: white;">
+                    <strong>Warning</strong><br>
+                    #F59E0B<br>
+                    <small>Avertissements</small>
+                </div>
+                <div style="background: var(--color-danger); padding: var(--spacing-lg); border-radius: var(--radius-md); color: white;">
+                    <strong>Danger</strong><br>
+                    #EF4444<br>
+                    <small>Suppressions</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Règles -->
+        <div class="section" style="border-top: 4px solid var(--color-primary);">
+            <h2><i class="fas fa-rules"></i> Règles de Cohérence</h2>
+            <ul style="color: var(--color-text-secondary); line-height: 1.8;">
+                <li>✅ <strong>Un seul style par action</strong>: Les boutons de suppression = `btn-danger`</li>
+                <li>✅ <strong>Couleurs signifiantes</strong>: Vert=succès, Rouge=danger, Orange=warning</li>
+                <li>✅ <strong>Espacements cohérents</strong>: Utiliser `--spacing-*` plutôt que des valeurs en dur</li>
+                <li>✅ <strong>Ombres subtiles</strong>: `--shadow-sm` pour légèreté, `--shadow-md` pour relief</li>
+                <li>✅ <strong>Transitions fluides</strong>: `--transition-fast` (150ms) pour tous les interactifs</li>
+                <li>✅ <strong>Responsive first</strong>: Mobile-first, puis media queries pour desktop</li>
+                <li>❌ <strong>À éviter</strong>: Styles inline, couleurs propriétaires, espacements en dur</li>
+            </ul>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; padding: var(--spacing-xl); color: var(--color-text-secondary);">
+            <p><strong>BioAttend Design System v1.0</strong></p>
+            <p>Pour plus d'informations, consultez <code>DESIGN_SYSTEM.md</code></p>
+        </div>
+    </div>
+</body>
+</html>
