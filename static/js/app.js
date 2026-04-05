@@ -1,6 +1,6 @@
 /**
  * APP.JS - Logique globale BioAttend
- * Gère : Sidebar, Mode Sombre, Menu Utilisateur
+ * Gère : Mode Sombre, Menu Utilisateur
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,32 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeGlobalListeners() {
-
-    const hamburgerMenu = document.getElementById('hamburgerMenu');
-    const sidebar = document.getElementById('sidebar');
-
-    if (hamburgerMenu && sidebar) {
-        hamburgerMenu.addEventListener('click', () => {
-            hamburgerMenu.classList.toggle('active');
-            sidebar.classList.toggle('active');
-        });
-
-        const navItems = sidebar.querySelectorAll('.nav-item');
-        navItems.forEach((item) => {
-            item.addEventListener('click', () => {
-                hamburgerMenu.classList.remove('active');
-                sidebar.classList.remove('active');
-            });
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.sidebar') && !e.target.closest('.hamburger-menu')) {
-                hamburgerMenu.classList.remove('active');
-                sidebar.classList.remove('active');
-            }
-        });
-    }
-
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     if (themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
 

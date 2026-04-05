@@ -1,79 +1,118 @@
+{% load static %}
 <header class="top-bar">
-    {% if request.session.active_dashboard_space == 'employee' or user.is_employe and not user.is_platform_admin %}
-        <div class="search-container" style="display: flex; align-items: center; color: var(--color-text-secondary); font-weight: 600;">
-            Espace employé
-        </div>
-    {% else %}
-        <form class="search-container" method="GET" action="{% url 'Employee:utilisateur_list' %}">
-            <input type="text" name="q" class="search-input" placeholder="Rechercher un employé…">
-            <button type="submit" class="search-submit" aria-label="Lancer la recherche">
-                <i class="fas fa-search" aria-hidden="true"></i>
-            </button>
-        </form>
-    {% endif %}
-
-    <div class="top-bar-actions">
+    <div class="top-bar-left">
         <a
-            class="notification-btn"
-            title="Notifications"
-            href="{% if request.session.active_dashboard_space == 'employee' or user.is_employe and not user.is_platform_admin %}{% url 'dashboard:employee_alertes' %}{% else %}{% url 'Employee:alerte_list' %}{% endif %}"
-            style="text-decoration: none;"
+            class="brand-link"
+            href="{% if request.session.active_dashboard_space == 'employee' or user.is_employe and not user.is_platform_admin %}{% url 'dashboard:employee_home' %}{% else %}{% url 'dashboard:index' %}{% endif %}"
+            aria-label="Accueil BioAttend"
         >
-            <i class="fas fa-bell"></i>
-            <span class="notification-badge">{{ topbar_alert_count }}</span>
+            <div class="logo-avatar">
+                <img src="{% static 'img/logo.webp' %}" alt="Logo BioAttend">
+            </div>
+            <h3 class="sidebar-title">BioAttend</h3>
         </a>
 
-        <button class="theme-toggle-btn" id="themeToggleBtn" title="Basculer le thème">
-            <i class="fas fa-moon"></i>
-        </button>
+        <nav class="top-nav-menu" aria-label="Navigation principale">
+            {% if request.session.active_dashboard_space == 'employee' or user.is_employe and not user.is_platform_admin %}
+                <a href="{% url 'dashboard:employee_home' %}" class="nav-item {% if request.path == '/dashboard/employe/' or request.path == '/dashboard/employe' %}active{% endif %}">
+                    <i class="fas fa-home"></i>
+                    <span class="nav-label">Ma vue employé</span>
+                </a>
+                <a href="{% url 'dashboard:employee_pointages' %}" class="nav-item {% if '/dashboard/employe/pointages' in request.path %}active{% endif %}">
+                    <i class="fas fa-fingerprint"></i>
+                    <span class="nav-label">Mes pointages</span>
+                </a>
+            {% else %}
+                <a href="{% url 'dashboard:index' %}" class="nav-item {% if '/dashboard/' in request.path or request.path == '/dashboard' or request.path == '/' %}active{% endif %}">
+                    <i class="fas fa-home"></i>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="{% url 'Employee:utilisateur_list' %}" class="nav-item {% if '/Employee/' in request.path and '/Employee/pointages/' not in request.path and '/Employee/alertes/' not in request.path %}active{% endif %}">
+                    <i class="fas fa-users"></i>
+                    <span class="nav-label">Employés</span>
+                </a>
+                <a href="{% url 'Employee:pointage_list' %}" class="nav-item {% if '/Employee/pointages/' in request.path %}active{% endif %}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span class="nav-label">Statistiques</span>
+                </a>
+            {% endif %}
+        </nav>
+    </div>
 
-        <div class="user-menu-wrapper">
-                <button class="user-btn" id="userMenuBtn">
-                <img src="https://api.dicebear.com/9.x/bottts/svg?seed={{ user.username }}" 
-                     alt="{{ user.get_full_name|default:user.username }}" class="user-avatar">
-                <span class="user-label">
-                    {% with full_name=user.get_full_name %}
-                        {% if full_name %}
-                            {{ full_name }}
-                        {% else %}
-                            {{ user.username }}
-                        {% endif %}
-                    {% endwith %}
-                </span>
-                <i class="fas fa-chevron-down dropdown-arrow"></i>
+    <div class="top-bar-right">
+        <div class="top-bar-actions">
+            <a
+                class="notification-btn"
+                title="Notifications"
+                href="{% if request.session.active_dashboard_space == 'employee' or user.is_employe and not user.is_platform_admin %}{% url 'dashboard:employee_alertes' %}{% else %}{% url 'Employee:alerte_list' %}{% endif %}"
+                style="text-decoration: none;"
+            >
+                <i class="fas fa-bell"></i>
+                <span class="notification-badge">{{ topbar_alert_count }}</span>
+            </a>
+
+            <button class="theme-toggle-btn" id="themeToggleBtn" title="Basculer le thème">
+                <i class="fas fa-moon"></i>
             </button>
 
-            <div class="dropdown-menu" id="userDropdown">
-                {% if user.is_platform_admin %}
-                    {% if request.session.active_dashboard_space == 'employee' %}
-                        <a href="{% url 'dashboard:switch_space' 'admin' %}" class="dropdown-item">
-                            <i class="fas fa-briefcase item-icon"></i>
-                            Retour à la plateforme RH
+            <div class="user-menu-wrapper">
+                    <button class="user-btn" id="userMenuBtn">
+                    {% with first=user.first_name|default:user.username last=user.last_name|default:user.username %}
+                    <span class="user-avatar user-avatar-initials" aria-hidden="true">
+                        {{ first|slice:":1"|upper }}{{ last|slice:":3"|upper }}
+                    </span>
+                    {% endwith %}
+                    <span class="user-label">
+                        {% with full_name=user.get_full_name %}
+                            {% if full_name %}
+                                {{ full_name }}
+                            {% else %}
+                                {{ user.username }}
+                            {% endif %}
+                        {% endwith %}
+                    </span>
+                    <i class="fas fa-chevron-down dropdown-arrow"></i>
+                </button>
+
+                <div class="dropdown-menu" id="userDropdown">
+                    {% if user.is_platform_admin %}
+                        {% if request.session.active_dashboard_space == 'employee' %}
+                            <a href="{% url 'dashboard:switch_space' 'admin' %}" class="dropdown-item">
+                                <i class="fas fa-briefcase item-icon"></i>
+                                Retour au portail gérance
+                            </a>
+                        {% else %}
+                            <a href="{% url 'dashboard:switch_space' 'employee' %}" class="dropdown-item">
+                                <i class="fas fa-id-badge item-icon"></i>
+                                Portail employé
+                            </a>
+                        {% endif %}
+                        <div class="dropdown-divider"></div>
+                    {% endif %}
+                    {% if user.is_admindjango %}
+                        <a href="{% url 'admin:index' %}" class="dropdown-item">
+                            <i class="fas fa-tools item-icon"></i>
+                            Portail Django
                         </a>
-                    {% else %}
-                        <a href="{% url 'dashboard:switch_space' 'employee' %}" class="dropdown-item">
-                            <i class="fas fa-id-badge item-icon"></i>
-                            Accéder à ma vue employé
+                    {% elif user.is_staff or user.is_superuser %}
+                        <a href="{% url 'admin:index' %}" class="dropdown-item">
+                            <i class="fas fa-user-shield item-icon"></i>
+                            Portail Django
                         </a>
                     {% endif %}
+                    {% if user.is_platform_admin or user.is_admindjango or user.is_staff or user.is_superuser %}
+                        <div class="dropdown-divider"></div>
+                    {% endif %}
+                    <a href="{% url 'accounts:settings' %}" class="dropdown-item {% if '/accounts/settings' in request.path %}active{% endif %}">
+                        <i class="fas fa-cog item-icon"></i>
+                        Paramètres
+                    </a>
                     <div class="dropdown-divider"></div>
-                {% endif %}
-                {% if user.is_admindjango %}
-                    <a href="{% url 'admin:index' %}" class="dropdown-item">
-                        <i class="fas fa-tools item-icon"></i>
-                        Panneau admindjango
+                    <a href="{% url 'dashboard:logout' %}" class="dropdown-item logout">
+                        <i class="fas fa-sign-out-alt item-icon"></i>
+                        Se déconnecter
                     </a>
-                {% elif user.is_staff or user.is_superuser %}
-                    <a href="{% url 'admin:index' %}" class="dropdown-item">
-                        <i class="fas fa-user-shield item-icon"></i>
-                        Accès admin Django
-                    </a>
-                {% endif %}
-                <div class="dropdown-divider"></div>
-                <a href="{% url 'dashboard:logout' %}" class="dropdown-item logout">
-                    <i class="fas fa-sign-out-alt item-icon"></i>
-                    Se déconnecter
-                </a>
+                </div>
             </div>
         </div>
     </div>

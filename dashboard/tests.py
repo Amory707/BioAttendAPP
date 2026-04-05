@@ -50,7 +50,7 @@ class DashboardAppTests(TestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.context["user"].pk, user.pk)
-		self.assertContains(response, "Accéder à ma vue employé")
+		self.assertContains(response, "Portail employé")
 
 	def test_dashboard_uses_real_metrics_in_context(self):
 		admin = self._create_user("admin-metrics")
@@ -157,7 +157,7 @@ class DashboardAppTests(TestCase):
 		self.client.force_login(user)
 		admin_response = self.client.get(reverse("dashboard:index"))
 
-		self.assertContains(admin_response, "Accéder à ma vue employé")
+		self.assertContains(admin_response, "Portail employé")
 
 		response = self.client.get(reverse("dashboard:switch_space", args=[EMPLOYEE_SPACE]))
 
@@ -176,7 +176,7 @@ class DashboardAppTests(TestCase):
 		response = self.client.get(reverse("dashboard:employee_home"))
 
 		self.assertEqual(response.status_code, 200)
-		self.assertContains(response, "Retour à la plateforme RH")
+		self.assertContains(response, "Retour au portail gérance")
 
 	def test_employee_home_shows_only_current_user_data(self):
 		employee = self._create_user("employee-own")
