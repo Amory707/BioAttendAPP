@@ -10,6 +10,12 @@ class Pointage(models.Model):
     """
     STATUT_CHOICES = [('VALIDE', 'Validé'), ('NON_VALIDE', 'Non validé')]
     TYPE_CHOICES = [('ENTREE', 'ENTREE'), ('SORTIE', 'SORTIE')]
+    ORIGINE_MANUEL = 'MANUEL'
+    ORIGINE_POINTEUSE = 'POINTEUSE'
+    ORIGINE_CHOICES = [
+        (ORIGINE_MANUEL, 'Manuel'),
+        (ORIGINE_POINTEUSE, 'Pointeuse'),
+    ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     utilisateur = models.ForeignKey(
@@ -21,6 +27,7 @@ class Pointage(models.Model):
     horodatage = models.DateTimeField()
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     score_confiance = models.FloatField()
+    origine = models.CharField(max_length=20, choices=ORIGINE_CHOICES, default=ORIGINE_MANUEL)
 
     class Meta:
         db_table = 'pointage'
