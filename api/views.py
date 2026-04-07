@@ -17,12 +17,15 @@ import logging
 import secrets
 
 from django.conf import settings
+from django.db import transaction
+from django.utils import timezone
 from pgvector.django import CosineDistance
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Utilisateur
+from attendance.models import Pointage
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +33,27 @@ EMBEDDING_SIZE = 512 # Config
 
 
 class FaceIdentifyView(APIView):
+
+    @staticmethod
+    def _score_confiance_from_distance(distance):
+        try:
+            value = 1.0 - float(distance)
+        except (TypeError, ValueError):
+            return 0.0
+        return max(0.0, min(1.0, value))
+
+    @staticmethod
+    def _next_pointage_type_for_pointeuse(utilisateur):
+        last_pointage = (
+            Pointage.objects.select_for_update()
+            .filter(utilisateur=utilisateur, origine=Pointage.ORIGINE_POINTEUSE)
+            .order_by("-horodatage", "-id")
+            .first()
+        )
+
+        if last_pointage is None or last_pointage.type == "SORTIE":
+            return "ENTREE"
+        return "SORTIE"
 
     def _extract_api_key(self, request):
         auth_header = request.headers.get("Authorization", "")
@@ -123,6 +147,17 @@ class FaceIdentifyView(APIView):
             match.distance,
         )
 
+        with transaction.atomic():
+            pointage_type = self._next_pointage_type_for_pointeuse(match)
+            pointage = Pointage.objects.create(
+                utilisateur=match,
+                statut="VALIDE",
+                horodatage=timezone.now(),
+                type=pointage_type,
+                score_confiance=self._score_confiance_from_distance(match.distance),
+                origine=Pointage.ORIGINE_POINTEUSE,
+            )
+
         return Response(
             {
                 "matched": True,
@@ -130,6 +165,8 @@ class FaceIdentifyView(APIView):
                 "username": match.username,
                 "full_name": match.get_full_name(),
                 "distance": round(float(match.distance), 6),
+                "pointage_id": str(pointage.id),
+                "pointage_type": pointage.type,
             },
             status=status.HTTP_200_OK,
         )

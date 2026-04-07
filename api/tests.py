@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import Role, RoleUtilisateur, Utilisateur
 from alerts.models import Alerte
@@ -204,3 +205,63 @@ class FaceIdentifyApiTests(TestCase):
 		payload = response.json()
 		self.assertTrue(payload["matched"])
 		self.assertEqual(payload["username"], "face-file-user")
+
+	def test_identify_creates_pointeuse_pointages_with_automatic_toggle(self):
+		user = Utilisateur.objects.create_user(
+			username="toggle-user",
+			email="toggle@example.com",
+			password="pass-123",
+		)
+		user.distance = 0.08
+
+		queryset = Mock()
+		queryset.annotate.return_value = queryset
+		queryset.order_by.return_value = queryset
+		queryset.first.return_value = user
+
+		with patch("api.views.Utilisateur.objects.filter", return_value=queryset):
+			first_response = self._post({"embedding": [0.2] * 512})
+			second_response = self._post({"embedding": [0.2] * 512})
+
+		self.assertEqual(first_response.status_code, 200)
+		self.assertEqual(second_response.status_code, 200)
+		self.assertEqual(first_response.json()["pointage_type"], "ENTREE")
+		self.assertEqual(second_response.json()["pointage_type"], "SORTIE")
+
+		pointage_types = list(
+			Pointage.objects.filter(
+				utilisateur=user,
+				origine=Pointage.ORIGINE_POINTEUSE,
+			)
+			.order_by("horodatage", "id")
+			.values_list("type", flat=True)
+		)
+		self.assertEqual(pointage_types, ["ENTREE", "SORTIE"])
+
+	def test_identify_toggle_ignores_manual_pointage_history(self):
+		user = Utilisateur.objects.create_user(
+			username="manual-history-user",
+			email="manual-history@example.com",
+			password="pass-123",
+		)
+		user.distance = 0.05
+
+		Pointage.objects.create(
+			utilisateur=user,
+			statut="VALIDE",
+			type="SORTIE",
+			horodatage=timezone.now(),
+			score_confiance=0.9,
+			origine=Pointage.ORIGINE_MANUEL,
+		)
+
+		queryset = Mock()
+		queryset.annotate.return_value = queryset
+		queryset.order_by.return_value = queryset
+		queryset.first.return_value = user
+
+		with patch("api.views.Utilisateur.objects.filter", return_value=queryset):
+			response = self._post({"embedding": [0.3] * 512})
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.json()["pointage_type"], "ENTREE")
