@@ -193,7 +193,7 @@ class EmployeeAppTests(TestCase):
 		response = self.client.get(reverse("Employee:statistiques_utilisateur", kwargs={"utilisateur_id": target.pk}))
 
 		self.assertEqual(response.status_code, 200)
-		self.assertContains(response, "Vue détaillée pour Rita Data")
+		self.assertContains(response, "Analyse ciblée: Rita Data")
 		self.assertContains(response, "Retour global")
 
 	def test_alerte_list_filters_by_status(self):
