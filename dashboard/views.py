@@ -31,7 +31,6 @@ def _redirect_to_active_space(request):
 
 
 def _employee_queryset_for_dashboard():
-    # Inclut les utilisateurs opérationnels même si leur rôle employé n'a pas été assigné.
     return (
         Utilisateur.objects.filter(is_superuser=False)
         .exclude(roles__nom__iexact='admin')

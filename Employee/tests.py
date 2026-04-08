@@ -15,7 +15,6 @@ from .views import FiltreBiometrique, _validate_photo_uploads
 @override_settings(SECRET_KEY='test-api-secret')
 class EmployeeAppTests(TestCase):
 	def tearDown(self):
-		# Nettoyage explicite demande: suppression de tout ajout en base.
 		Alerte.objects.all().delete()
 		Pointage.objects.all().delete()
 		RoleUtilisateur.objects.all().delete()

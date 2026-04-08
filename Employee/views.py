@@ -306,8 +306,6 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         else:
             tendance_label = 'A surveiller'
 
-    # === DONNÉES POUR CHART.JS (Analytique) ===
-    # Confiance moyenne au fil des jours
     confidence_timeline_data = list(
         base_pointages
         .annotate(jour=TruncDate('horodatage'))
@@ -320,7 +318,6 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'data': [round(item['confiance'] or 0.0, 2) for item in confidence_timeline_data]
     }
     
-    # Volume journalier (Entrées, Sorties, Échecs)
     daily_chart_data_chart = {
         'labels': [item['label'] for item in daily_chart],
         'entrees': [item['entrees'] for item in daily_chart],
@@ -328,13 +325,11 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'invalides': [item['invalides'] for item in daily_chart],
     }
     
-    # Distribution horaire
     hourly_chart_data_chart = {
         'labels': [item['label'] for item in hourly_chart],
         'data': [item['total'] for item in hourly_chart],
     }
     
-    # Types d'alertes
     alert_types_data = {
         'labels': ['Échec reco', 'Utilisateur inconnu', 'Retard', 'Absence', 'Double pointage'],
         'data': [alertes_echec_reco, alertes_inconnu, alertes_retard, alertes_absence, alertes_double_pointage],
@@ -375,7 +370,6 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'pointage_export_url': pointage_export_url,
         'choix_type': Pointage.TYPE_CHOICES,
         'choix_statut': Pointage.STATUT_CHOICES,
-        # JSON pour Chart.js
         'confidence_timeline_json': json.dumps(confidence_timeline),
         'daily_chart_json': json.dumps(daily_chart_data_chart),
         'hourly_chart_json': json.dumps(hourly_chart_data_chart),

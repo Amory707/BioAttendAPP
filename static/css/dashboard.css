@@ -1,6 +1,3 @@
-/* === DASHBOARD - Styles spécifiques === */
-
-/* Page transitions */
 .page {
     display: none;
     padding: var(--spacing-xl);
@@ -41,7 +38,6 @@
     font-size: var(--font-size-sm);
 }
 
-/* Stats Grid */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -49,7 +45,6 @@
     margin-bottom: var(--spacing-2xl);
 }
 
-/* Charts and Recent sections */
 .charts-section,
 .recent-section {
     margin-bottom: var(--spacing-2xl);
