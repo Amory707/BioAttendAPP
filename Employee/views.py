@@ -340,6 +340,31 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'data': [alertes_echec_reco, alertes_inconnu, alertes_retard, alertes_absence, alertes_double_pointage],
     }
 
+    problem_q = request.GET.get('problem_q', '').strip()
+    problem_type = request.GET.get('problem_type', '').strip()
+    problem_status = request.GET.get('problem_status', '').strip()
+    problem_type_choices = [
+        ('UTILISATEUR_INCONNU', 'Utilisateur inconnu'),
+        ('ECHEC_RECONNAISSANCE', 'Echec reconnaissance'),
+    ]
+    valid_problem_types = {value for value, _ in problem_type_choices}
+    valid_problem_statuses = {value for value, _ in Alerte.STATUT_CHOICES}
+
+    problem_alerts = alerts_qs.filter(type__in=valid_problem_types)
+    if problem_q:
+        problem_alerts = problem_alerts.filter(
+            Q(description__icontains=problem_q)
+            | Q(utilisateur__first_name__icontains=problem_q)
+            | Q(utilisateur__last_name__icontains=problem_q)
+            | Q(utilisateur__username__icontains=problem_q)
+        )
+    if problem_type in valid_problem_types:
+        problem_alerts = problem_alerts.filter(type=problem_type)
+    if problem_status in valid_problem_statuses:
+        problem_alerts = problem_alerts.filter(statut=problem_status)
+
+    problem_alerts = problem_alerts.select_related('utilisateur').order_by('-date_creation')
+
     if utilisateur is None:
         pointage_export_url = reverse('Employee:pointage_export_csv')
     else:
@@ -382,6 +407,12 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'alert_types_json': json.dumps(alert_types_data),
         'confidence_timeline': confidence_timeline,
         'alert_types_data': alert_types_data,
+        'problem_alerts': problem_alerts[:200],
+        'problem_q': problem_q,
+        'problem_type': problem_type,
+        'problem_status': problem_status,
+        'problem_type_choices': problem_type_choices,
+        'problem_status_choices': Alerte.STATUT_CHOICES,
     }
 
 
@@ -392,7 +423,7 @@ def exporter_pointages_csv(request, utilisateur_id=None):
         utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
 
     active_tab = request.GET.get('tab', 'pointage').strip().lower()
-    if active_tab not in {'pointage', 'analytique'}:
+    if active_tab not in {'pointage', 'analytique', 'problemes'}:
         active_tab = 'pointage'
 
     filtered_data = _filtered_pointages_queryset(request, utilisateur=utilisateur, active_tab=active_tab)
@@ -506,10 +537,16 @@ def statistiques_analytique(request):
 
 
 @login_required(login_url='login')
+def statistiques_problemes(request):
+    context = _build_statistics_context(request, active_tab='problemes')
+    return render(request, 'utilisateur/statistiques.html', context)
+
+
+@login_required(login_url='login')
 def statistiques_utilisateur(request, utilisateur_id):
     utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
     active_tab = request.GET.get('tab', 'pointage').strip().lower()
-    if active_tab not in {'pointage', 'analytique'}:
+    if active_tab not in {'pointage', 'analytique', 'problemes'}:
         active_tab = 'pointage'
     context = _build_statistics_context(request, utilisateur=utilisateur, active_tab=active_tab)
     return render(request, 'utilisateur/statistiques.html', context)

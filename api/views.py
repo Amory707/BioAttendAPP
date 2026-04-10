@@ -25,6 +25,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Utilisateur
+from alerts.models import Alerte
 from attendance.models import Pointage
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,23 @@ class FaceIdentifyView(APIView):
             return False
 
         return secrets.compare_digest(provided_key, expected_key)
+
+    @staticmethod
+    def _create_unknown_user_alert(best_distance=None):
+        if best_distance is None:
+            description = "Tentative de pointage avec un visage non reconnu (aucune correspondance)."
+        else:
+            description = (
+                "Tentative de pointage avec un visage non reconnu "
+                f"(meilleure distance={best_distance:.4f})."
+            )
+
+        Alerte.objects.create(
+            utilisateur=None,
+            pointage=None,
+            type="UTILISATEUR_INCONNU",
+            description=description,
+        )
 
     def post(self, request):
         if not self._is_authorized(request):
@@ -136,6 +154,7 @@ class FaceIdentifyView(APIView):
                 "Aucune correspondance faciale (meilleure distance : %s)",
                 getattr(match, "distance", "N/A"),
             )
+            self._create_unknown_user_alert(getattr(match, "distance", None))
             return Response(
                 {"matched": False, "error": "Aucun visage correspondant trouvé."},
                 status=status.HTTP_404_NOT_FOUND,

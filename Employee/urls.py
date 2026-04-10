@@ -13,6 +13,7 @@ urlpatterns = [
     path('pointages/', views.pointage_list, name='pointage_list'),
     path('pointages/export-csv/', views.exporter_pointages_csv, name='pointage_export_csv'),
     path('pointages/analytique/', views.statistiques_analytique, name='statistiques_analytique'),
+    path('pointages/problemes/', views.statistiques_problemes, name='statistiques_problemes'),
     path('pointages/utilisateur/<uuid:utilisateur_id>/', views.statistiques_utilisateur, name='statistiques_utilisateur'),
     path('pointages/utilisateur/<uuid:utilisateur_id>/export-csv/', views.exporter_pointages_csv, name='pointage_export_utilisateur_csv'),
     path('alertes/', views.alerte_list, name='alerte_list'), 

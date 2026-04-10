@@ -196,6 +196,32 @@ class EmployeeAppTests(TestCase):
 		self.assertContains(response, "Analyse ciblée: Rita Data")
 		self.assertContains(response, "Retour global")
 
+	def test_statistiques_problemes_lists_recognition_issues(self):
+		user = self._create_user("problem-admin")
+		target = self._create_user("problem-target", first_name="Nora", last_name="Face")
+		self.client.force_login(user)
+
+		Alerte.objects.create(
+			utilisateur=None,
+			type="UTILISATEUR_INCONNU",
+			description="Visage inconnu detecte",
+			statut="NOUVELLE",
+		)
+		Alerte.objects.create(
+			utilisateur=target,
+			type="ECHEC_RECONNAISSANCE",
+			description="Distance trop elevee",
+			statut="VUE",
+		)
+
+		response = self.client.get(reverse("Employee:statistiques_problemes"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Journal sécurité de reconnaissance")
+		self.assertContains(response, "UTILISATEUR_INCONNU")
+		self.assertContains(response, "ECHEC_RECONNAISSANCE")
+		self.assertEqual(len(response.context["problem_alerts"]), 2)
+
 	def test_alerte_list_filters_by_status(self):
 		user = self._create_user("alert-user")
 		self.client.force_login(user)
