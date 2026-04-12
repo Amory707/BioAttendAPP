@@ -344,6 +344,9 @@
             <a href="{% url 'Employee:statistiques_utilisateur' scope_utilisateur.pk %}?tab=analytique" class="stats-tab {% if active_tab == 'analytique' %}active{% endif %}">
                 <i class="fas fa-chart-line"></i> Analytique
             </a>
+            <a href="{% url 'Employee:statistiques_utilisateur' scope_utilisateur.pk %}?tab=problemes" class="stats-tab {% if active_tab == 'problemes' %}active{% endif %}">
+                <i class="fas fa-shield-halved"></i> Sécurité
+            </a>
             <a href="{% url 'Employee:pointage_list' %}" class="stats-tab">
                 <i class="fas fa-arrow-left"></i> Retour global
             </a>
@@ -353,6 +356,9 @@
             </a>
             <a href="{% url 'Employee:statistiques_analytique' %}" class="stats-tab {% if active_tab == 'analytique' %}active{% endif %}">
                 <i class="fas fa-chart-line"></i> Analytique
+            </a>
+            <a href="{% url 'Employee:statistiques_problemes' %}" class="stats-tab {% if active_tab == 'problemes' %}active{% endif %}">
+                <i class="fas fa-shield-halved"></i> Sécurité
             </a>
         {% endif %}
     </div>
@@ -743,6 +749,101 @@
                 });
             }
         </script>
+    {% endif %}
+
+    {% if active_tab == 'problemes' %}
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-title">Total sécurité</div>
+                <div class="kpi-value">{{ alertes_echec_reco|add:alertes_inconnu }}</div>
+                <div class="kpi-meta">Échec reco + utilisateur inconnu</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Échecs reco</div>
+                <div class="kpi-value">{{ alertes_echec_reco }}</div>
+                <div class="kpi-meta">Reconnaissance en échec</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Utilisateurs inconnus</div>
+                <div class="kpi-value">{{ alertes_inconnu }}</div>
+                <div class="kpi-meta">Visages non référencés</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Journal sécurité de reconnaissance</div>
+                <div class="chips">
+                    <span class="chip bad">Échecs reco: {{ alertes_echec_reco }}</span>
+                    <span class="chip warn">Utilisateurs inconnus: {{ alertes_inconnu }}</span>
+                </div>
+            </div>
+
+            <form method="GET" class="filters">
+                {% if is_user_scope %}
+                    <input type="hidden" name="tab" value="{{ active_tab }}">
+                {% endif %}
+                <input type="text" name="problem_q" value="{{ problem_q }}" placeholder="Description, nom ou username">
+                <select name="problem_type">
+                    <option value="">Tous les types</option>
+                    {% for value, label in problem_type_choices %}
+                        <option value="{{ value }}" {% if problem_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <select name="problem_status">
+                    <option value="">Tous les statuts</option>
+                    {% for value, label in problem_status_choices %}
+                        <option value="{{ value }}" {% if problem_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <input type="date" name="date_debut" value="{{ date_debut }}">
+                <input type="date" name="date_fin" value="{{ date_fin }}">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filtrer</button>
+            </form>
+
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date / Heure</th>
+                            <th>Type</th>
+                            <th>Statut</th>
+                            <th>Utilisateur</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alerte in problem_alerts %}
+                            <tr>
+                                <td>{{ alerte.date_creation|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    <span class="chip {% if alerte.type == 'ECHEC_RECONNAISSANCE' %}bad{% else %}warn{% endif %}">
+                                        {{ alerte.type }}
+                                    </span>
+                                </td>
+                                <td>{{ alerte.statut }}</td>
+                                <td>
+                                    {% if alerte.utilisateur %}
+                                        {% if is_user_scope %}
+                                            {{ alerte.utilisateur.first_name }} {{ alerte.utilisateur.last_name }}
+                                        {% else %}
+                                            <a href="{% url 'Employee:statistiques_utilisateur' alerte.utilisateur_id %}?tab=problemes">{{ alerte.utilisateur.first_name }} {{ alerte.utilisateur.last_name }}</a>
+                                        {% endif %}
+                                    {% else %}
+                                        Inconnu (non rattaché)
+                                    {% endif %}
+                                </td>
+                                <td>{{ alerte.description }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="5" class="empty">Aucun problème trouvé pour les filtres sélectionnés.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     {% endif %}
 </section>
 {% endblock %}

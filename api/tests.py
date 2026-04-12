@@ -118,6 +118,10 @@ class FaceIdentifyApiTests(TestCase):
 
 		self.assertEqual(response.status_code, 404)
 		self.assertEqual(response.json()["matched"], False)
+		self.assertEqual(Alerte.objects.filter(type="UTILISATEUR_INCONNU").count(), 1)
+		alerte = Alerte.objects.filter(type="UTILISATEUR_INCONNU").first()
+		self.assertIsNotNone(alerte)
+		self.assertIn("non reconnu", alerte.description.lower())
 
 	@override_settings(FACE_MATCH_THRESHOLD=0.5)
 	def test_identify_returns_404_when_distance_above_threshold(self):
@@ -131,6 +135,7 @@ class FaceIdentifyApiTests(TestCase):
 
 		self.assertEqual(response.status_code, 404)
 		self.assertIn("Aucun visage", response.json()["error"])
+		self.assertEqual(Alerte.objects.filter(type="UTILISATEUR_INCONNU").count(), 1)
 
 	@override_settings(FACE_MATCH_THRESHOLD=0.5)
 	def test_identify_returns_200_when_match_found(self):
