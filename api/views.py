@@ -33,7 +33,25 @@ logger = logging.getLogger(__name__)
 EMBEDDING_SIZE = 512 # Config
 
 
-class FaceIdentifyView(APIView):
+class DeviceApiAuthMixin:
+    def _extract_api_key(self, request):
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            return auth_header[7:].strip()
+
+        return request.headers.get("X-API-Key", "").strip()
+
+    def _is_authorized(self, request):
+        provided_key = self._extract_api_key(request)
+        expected_key = getattr(settings, "SECRET_KEY", "")
+
+        if not provided_key or not expected_key:
+            return False
+
+        return secrets.compare_digest(provided_key, expected_key)
+
+
+class FaceIdentifyView(DeviceApiAuthMixin, APIView):
 
     @staticmethod
     def _score_confiance_from_distance(distance):
@@ -56,22 +74,6 @@ class FaceIdentifyView(APIView):
             return "ENTREE"
         return "SORTIE"
 
-    def _extract_api_key(self, request):
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            return auth_header[7:].strip()
-
-        return request.headers.get("X-API-Key", "").strip()
-
-    def _is_authorized(self, request):
-        provided_key = self._extract_api_key(request)
-        expected_key = getattr(settings, "SECRET_KEY", "")
-
-        if not provided_key or not expected_key:
-            return False
-
-        return secrets.compare_digest(provided_key, expected_key)
-
     @staticmethod
     def _create_unknown_user_alert(best_distance=None):
         if best_distance is None:
@@ -89,6 +91,29 @@ class FaceIdentifyView(APIView):
             description=description,
         )
 
+    @staticmethod
+    def _create_recognition_failure_alert(utilisateur, distance):
+        username = getattr(utilisateur, "username", "inconnu")
+        description = (
+            "Tentative de pointage en echec de reconnaissance "
+            f"(utilisateur candidat={username}, distance={distance:.4f})."
+        )
+        Alerte.objects.create(
+            utilisateur=None,
+            pointage=None,
+            type="ECHEC_RECONNAISSANCE",
+            description=description,
+        )
+
+    @staticmethod
+    def _create_fraud_alert(reason="Tentative de fraude detectee (photo imprimee, video ou autre)."):
+        Alerte.objects.create(
+            utilisateur=None,
+            pointage=None,
+            type="TENTATIVE_FRAUDE",
+            description=reason,
+        )
+
     def post(self, request):
         if not self._is_authorized(request):
             return Response(
@@ -97,6 +122,16 @@ class FaceIdentifyView(APIView):
                     "error": "Authentification requise via Authorization Bearer ou X-API-Key.",
                 },
                 status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        fraud_detected = request.data.get("fraud_detected", False)
+        fraud_reason = request.data.get("fraud_reason", "Tentative de fraude detectee (photo imprimee, video ou autre).")
+        if fraud_detected:
+            logger.warning("Tentative de fraude signalee par la pointeuse: %s", fraud_reason)
+            self._create_fraud_alert(fraud_reason)
+            return Response(
+                {"matched": False, "error": "Tentative de fraude detectee."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         embedding_raw = request.data.get("embedding")
@@ -149,12 +184,25 @@ class FaceIdentifyView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        if match is None or match.distance > threshold:
+        if match is None:
             logger.info(
                 "Aucune correspondance faciale (meilleure distance : %s)",
                 getattr(match, "distance", "N/A"),
             )
             self._create_unknown_user_alert(getattr(match, "distance", None))
+            return Response(
+                {"matched": False, "error": "Aucun visage correspondant trouvé."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if match.distance > threshold:
+            logger.info(
+                "Correspondance rejetee (utilisateur=%s, distance=%.4f, seuil=%.4f)",
+                getattr(match, "username", "inconnu"),
+                match.distance,
+                threshold,
+            )
+            self._create_recognition_failure_alert(match, match.distance)
             return Response(
                 {"matched": False, "error": "Aucun visage correspondant trouvé."},
                 status=status.HTTP_404_NOT_FOUND,
@@ -188,4 +236,106 @@ class FaceIdentifyView(APIView):
                 "pointage_type": pointage.type,
             },
             status=status.HTTP_200_OK,
+        )
+
+
+class FrontEventView(DeviceApiAuthMixin, APIView):
+    EVENT_TYPE_MAP = {
+        "unknown_user": "UTILISATEUR_INCONNU",
+        "recognition_failed": "ECHEC_RECONNAISSANCE",
+        "spoof_attempt": "TENTATIVE_FRAUDE",
+    }
+    EVENT_STATUS_MAP = {
+        "error": "ERROR",
+        "rejected": "REJECTED",
+        "blocked": "BLOCKED",
+    }
+
+    def post(self, request):
+        if not self._is_authorized(request):
+            return Response(
+                {
+                    "logged": False,
+                    "error": "Authentification requise via Authorization Bearer ou X-API-Key.",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        event_type = request.data.get("event_type")
+        event_status = request.data.get("status")
+        message = request.data.get("message")
+        device_name = request.data.get("device_name")
+        details = request.data.get("details", {})
+
+        if event_type not in self.EVENT_TYPE_MAP:
+            return Response(
+                {
+                    "logged": False,
+                    "error": "'event_type' doit être l'une des valeurs: unknown_user, recognition_failed, spoof_attempt.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if event_status not in self.EVENT_STATUS_MAP:
+            return Response(
+                {
+                    "logged": False,
+                    "error": "'status' doit être l'une des valeurs: error, rejected, blocked.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not isinstance(message, str) or not message.strip():
+            return Response(
+                {
+                    "logged": False,
+                    "error": "Le champ 'message' est requis et doit être une chaine non vide.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not isinstance(device_name, str) or not device_name.strip():
+            return Response(
+                {
+                    "logged": False,
+                    "error": "Le champ 'device_name' est requis et doit être une chaine non vide.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not isinstance(details, dict):
+            return Response(
+                {
+                    "logged": False,
+                    "error": "Le champ 'details' doit être un objet JSON.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        alerte = Alerte.objects.create(
+            utilisateur=None,
+            pointage=None,
+            type=self.EVENT_TYPE_MAP[event_type],
+            description=message.strip(),
+            event_status=self.EVENT_STATUS_MAP[event_status],
+            device_name=device_name.strip(),
+            details=details,
+        )
+
+        logger.info(
+            "Evenement borne journalise: type=%s status=%s device=%s alert_id=%s",
+            event_type,
+            event_status,
+            device_name,
+            alerte.id,
+        )
+
+        return Response(
+            {
+                "logged": True,
+                "event_id": str(alerte.id),
+                "event_type": event_type,
+                "status": event_status,
+            },
+            status=status.HTTP_201_CREATED,
         )

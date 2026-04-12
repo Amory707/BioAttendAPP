@@ -11,10 +11,11 @@ POST /api/face/identify/  → FaceIdentifyView
 
 from django.urls import path
 
-from .views import FaceIdentifyView
+from .views import FaceIdentifyView, FrontEventView
 
 app_name = "api"
 
 urlpatterns = [
     path("face/identify/", FaceIdentifyView.as_view(), name="face-identify"),
+    path("front/events/", FrontEventView.as_view(), name="front-events"),
 ]

@@ -222,6 +222,37 @@ class EmployeeAppTests(TestCase):
 		self.assertContains(response, "ECHEC_RECONNAISSANCE")
 		self.assertEqual(len(response.context["problem_alerts"]), 2)
 
+	def test_statistiques_utilisateur_problemes_includes_unassigned_device_alerts(self):
+		admin = self._create_user("problem-scope-admin")
+		target = self._create_user("problem-scope-target", first_name="Lina", last_name="Scope")
+		self.client.force_login(admin)
+
+		Alerte.objects.create(
+			utilisateur=target,
+			type="ECHEC_RECONNAISSANCE",
+			description="Echec rattache utilisateur",
+			statut="NOUVELLE",
+		)
+		Alerte.objects.create(
+			utilisateur=None,
+			type="TENTATIVE_FRAUDE",
+			description="Incident borne non rattache",
+			statut="NOUVELLE",
+			event_status="BLOCKED",
+			device_name="bioattend-pi",
+			details={"stage": "liveness"},
+		)
+
+		response = self.client.get(
+			reverse("Employee:statistiques_utilisateur", kwargs={"utilisateur_id": target.pk}),
+			{"tab": "problemes"},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Incident borne non rattache")
+		self.assertContains(response, "Echec rattache utilisateur")
+		self.assertEqual(len(response.context["problem_alerts"]), 2)
+
 	def test_alerte_list_filters_by_status(self):
 		user = self._create_user("alert-user")
 		self.client.force_login(user)
