@@ -101,6 +101,75 @@ Content-Type: application/json
 }
 ```
 
+### `POST /api/front/events/`
+
+Journalise côté plateforme les incidents terrain qui ne passent pas par une identification valide.
+
+#### Authentification
+
+Même mécanisme que pour l'identification visage :
+
+```http
+Authorization: Bearer <SECRET_KEY>
+```
+
+ou :
+
+```http
+X-API-Key: <SECRET_KEY>
+```
+
+#### Requête
+
+```json
+{
+  "event_type": "spoof_attempt",
+  "status": "blocked",
+  "message": "Tentative d'usurpation détectée par la liveness",
+  "device_name": "bioattend-pi",
+  "details": {
+    "stage": "liveness",
+    "liveness_score": 0.12
+  }
+}
+```
+
+| Champ | Type | Obligatoire | Valeurs / Description |
+|---|---|---|---|
+| `event_type` | string | Oui | `unknown_user`, `recognition_failed`, `spoof_attempt` |
+| `status` | string | Oui | `error`, `rejected`, `blocked` |
+| `message` | string | Oui | Message lisible affichable côté plateforme |
+| `device_name` | string | Oui | Identifiant de la borne Raspberry |
+| `details` | objet JSON | Non | Contexte technique libre |
+
+#### Réponses
+
+**201 — Événement journalisé**
+```json
+{
+  "logged": true,
+  "event_id": "80c316eb-d03d-4acf-94aa-272356a888da",
+  "event_type": "spoof_attempt",
+  "status": "blocked"
+}
+```
+
+**400 — Requête invalide**
+```json
+{
+  "logged": false,
+  "error": "'event_type' doit être l'une des valeurs: unknown_user, recognition_failed, spoof_attempt."
+}
+```
+
+**401 — Authentification manquante ou invalide**
+```json
+{
+  "logged": false,
+  "error": "Authentification requise via Authorization Bearer ou X-API-Key."
+}
+```
+
 ---
 
 ## Codes HTTP

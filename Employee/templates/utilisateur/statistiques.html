@@ -211,6 +211,7 @@
     .chip.ok { background: #E8F8F5; color: #0E8E6E; }
     .chip.bad { background: #FDEDEC; color: #C0392B; }
     .chip.warn { background: #FFF8E1; color: #B7791F; }
+    .chip.danger { background: #FCE4EC; color: #AD1457; }
     .empty {
         padding: var(--spacing-xl);
         text-align: center;
@@ -755,8 +756,8 @@
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-title">Total sécurité</div>
-                <div class="kpi-value">{{ alertes_echec_reco|add:alertes_inconnu }}</div>
-                <div class="kpi-meta">Échec reco + utilisateur inconnu</div>
+                <div class="kpi-value">{{ alertes_echec_reco|add:alertes_inconnu|add:alertes_fraude }}</div>
+                <div class="kpi-meta">Échec reco + inconnu + fraude</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">Échecs reco</div>
@@ -768,6 +769,11 @@
                 <div class="kpi-value">{{ alertes_inconnu }}</div>
                 <div class="kpi-meta">Visages non référencés</div>
             </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Tentatives fraude</div>
+                <div class="kpi-value">{{ alertes_fraude }}</div>
+                <div class="kpi-meta">Photos, vidéos ou autre</div>
+            </div>
         </div>
 
         <div class="panel">
@@ -776,6 +782,7 @@
                 <div class="chips">
                     <span class="chip bad">Échecs reco: {{ alertes_echec_reco }}</span>
                     <span class="chip warn">Utilisateurs inconnus: {{ alertes_inconnu }}</span>
+                    <span class="chip danger">Tentatives fraude: {{ alertes_fraude }}</span>
                 </div>
             </div>
 
@@ -817,7 +824,7 @@
                             <tr>
                                 <td>{{ alerte.date_creation|date:"d/m/Y H:i" }}</td>
                                 <td>
-                                    <span class="chip {% if alerte.type == 'ECHEC_RECONNAISSANCE' %}bad{% else %}warn{% endif %}">
+                                    <span class="chip {% if alerte.type == 'ECHEC_RECONNAISSANCE' %}bad{% elif alerte.type == 'TENTATIVE_FRAUDE' %}danger{% else %}warn{% endif %}">
                                         {{ alerte.type }}
                                     </span>
                                 </td>

@@ -113,6 +113,18 @@ class FaceIdentifyApiTests(TestCase):
 		self.assertEqual(response.status_code, 500)
 		self.assertEqual(response.json()["matched"], False)
 
+	def test_identify_returns_403_when_fraud_detected(self):
+		response = self._post(
+			{"embedding": [0.1] * 512, "fraud_detected": True, "fraud_reason": "Photo imprimee detectee."},
+		)
+
+		self.assertEqual(response.status_code, 403)
+		self.assertEqual(response.json()["matched"], False)
+		self.assertEqual(Alerte.objects.filter(type="TENTATIVE_FRAUDE").count(), 1)
+		alerte = Alerte.objects.filter(type="TENTATIVE_FRAUDE").first()
+		self.assertIsNone(alerte.utilisateur)
+		self.assertIn("Photo imprimee", alerte.description)
+
 	def test_identify_returns_404_when_no_match(self):
 		response = self._mock_queryset_chain(first_result=None)
 
@@ -135,7 +147,9 @@ class FaceIdentifyApiTests(TestCase):
 
 		self.assertEqual(response.status_code, 404)
 		self.assertIn("Aucun visage", response.json()["error"])
-		self.assertEqual(Alerte.objects.filter(type="UTILISATEUR_INCONNU").count(), 1)
+		self.assertEqual(Alerte.objects.filter(type="ECHEC_RECONNAISSANCE").count(), 1)
+		self.assertEqual(Alerte.objects.filter(type="UTILISATEUR_INCONNU").count(), 0)
+		self.assertIsNone(Alerte.objects.filter(type="ECHEC_RECONNAISSANCE").first().utilisateur)
 
 	@override_settings(FACE_MATCH_THRESHOLD=0.5)
 	def test_identify_returns_200_when_match_found(self):
@@ -270,3 +284,89 @@ class FaceIdentifyApiTests(TestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.json()["pointage_type"], "ENTREE")
+
+
+@override_settings(SECRET_KEY="test-api-secret")
+class FrontEventApiTests(TestCase):
+	API_KEY = "test-api-secret"
+
+	def tearDown(self):
+		Alerte.objects.all().delete()
+
+	def _url(self):
+		return reverse("api:front-events")
+
+	def _post(self, payload, key=None):
+		api_key = self.API_KEY if key is None else key
+		return self.client.post(
+			self._url(),
+			payload,
+			content_type="application/json",
+			HTTP_AUTHORIZATION=f"Bearer {api_key}",
+		)
+
+	def test_front_event_requires_authentication(self):
+		response = self.client.post(
+			self._url(),
+			{},
+			content_type="application/json",
+		)
+
+		self.assertEqual(response.status_code, 401)
+		self.assertFalse(response.json()["logged"])
+
+	def test_front_event_rejects_invalid_event_type(self):
+		response = self._post(
+			{
+				"event_type": "bad-type",
+				"status": "blocked",
+				"message": "Tentative invalide",
+				"device_name": "bioattend-pi",
+				"details": {},
+			}
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("event_type", response.json()["error"])
+
+	def test_front_event_rejects_non_object_details(self):
+		response = self._post(
+			{
+				"event_type": "spoof_attempt",
+				"status": "blocked",
+				"message": "Tentative d'usurpation détectée",
+				"device_name": "bioattend-pi",
+				"details": ["invalid"],
+			}
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("details", response.json()["error"])
+
+	def test_front_event_creates_alert_with_device_context(self):
+		response = self._post(
+			{
+				"event_type": "spoof_attempt",
+				"status": "blocked",
+				"message": "Tentative d'usurpation détectée par la liveness",
+				"device_name": "bioattend-pi",
+				"details": {
+					"stage": "liveness",
+					"liveness_score": 0.12,
+				},
+			}
+		)
+
+		self.assertEqual(response.status_code, 201)
+		payload = response.json()
+		self.assertTrue(payload["logged"])
+		self.assertEqual(payload["event_type"], "spoof_attempt")
+		self.assertEqual(payload["status"], "blocked")
+
+		alerte = Alerte.objects.get(id=payload["event_id"])
+		self.assertEqual(alerte.type, "TENTATIVE_FRAUDE")
+		self.assertEqual(alerte.event_status, "BLOCKED")
+		self.assertEqual(alerte.device_name, "bioattend-pi")
+		self.assertEqual(alerte.details["stage"], "liveness")
+		self.assertEqual(alerte.details["liveness_score"], 0.12)
+		self.assertEqual(alerte.description, "Tentative d'usurpation détectée par la liveness")

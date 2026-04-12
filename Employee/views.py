@@ -279,7 +279,13 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
 
     alerts_qs = Alerte.objects.all()
     if utilisateur is not None:
-        alerts_qs = alerts_qs.filter(utilisateur=utilisateur)
+        alerts_qs = alerts_qs.filter(
+            Q(utilisateur=utilisateur)
+            | Q(
+                utilisateur__isnull=True,
+                type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
+            )
+        )
     if date_debut:
         alerts_qs = alerts_qs.filter(date_creation__date__gte=date_debut)
     if date_fin:
@@ -288,6 +294,7 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
     alert_totales = alerts_qs.count()
     alertes_echec_reco = alerts_qs.filter(type='ECHEC_RECONNAISSANCE').count()
     alertes_inconnu = alerts_qs.filter(type='UTILISATEUR_INCONNU').count()
+    alertes_fraude = alerts_qs.filter(type='TENTATIVE_FRAUDE').count()
     alertes_retard = alerts_qs.filter(type='RETARD').count()
     alertes_absence = alerts_qs.filter(type='ABSENCE').count()
     alertes_double_pointage = alerts_qs.filter(type='DOUBLE_POINTAGE').count()
@@ -331,8 +338,8 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
     }
     
     alert_types_data = {
-        'labels': ['Échec reco', 'Utilisateur inconnu', 'Retard', 'Absence', 'Double pointage'],
-        'data': [alertes_echec_reco, alertes_inconnu, alertes_retard, alertes_absence, alertes_double_pointage],
+        'labels': ['Échec reco', 'Utilisateur inconnu', 'Tentative fraude', 'Retard', 'Absence', 'Double pointage'],
+        'data': [alertes_echec_reco, alertes_inconnu, alertes_fraude, alertes_retard, alertes_absence, alertes_double_pointage],
     }
 
     problem_q = request.GET.get('problem_q', '').strip()
@@ -341,6 +348,7 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
     problem_type_choices = [
         ('UTILISATEUR_INCONNU', 'Utilisateur inconnu'),
         ('ECHEC_RECONNAISSANCE', 'Echec reconnaissance'),
+        ('TENTATIVE_FRAUDE', 'Tentative de fraude'),
     ]
     valid_problem_types = {value for value, _ in problem_type_choices}
     valid_problem_statuses = {value for value, _ in Alerte.STATUT_CHOICES}
@@ -380,6 +388,7 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'alert_totales': alert_totales,
         'alertes_echec_reco': alertes_echec_reco,
         'alertes_inconnu': alertes_inconnu,
+        'alertes_fraude': alertes_fraude,
         'alertes_retard': alertes_retard,
         'alertes_absence': alertes_absence,
         'alertes_double_pointage': alertes_double_pointage,

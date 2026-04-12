@@ -66,7 +66,7 @@ def dashboard(request):
 
     not_recognized_today = Alerte.objects.filter(
         date_creation__date=today,
-        type='UTILISATEUR_INCONNU',
+        type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
     ).count()
 
     weekly_present_map = {
@@ -89,7 +89,7 @@ def dashboard(request):
             Alerte.objects.filter(
                 date_creation__date__gte=start_week,
                 date_creation__date__lte=today,
-                type='UTILISATEUR_INCONNU',
+                type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
             )
             .annotate(jour=TruncDate('date_creation'))
             .values('jour')

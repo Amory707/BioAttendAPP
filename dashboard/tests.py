@@ -76,6 +76,18 @@ class DashboardAppTests(TestCase):
 			description="Visage non reconnu",
 			statut="NOUVELLE",
 		)
+		Alerte.objects.create(
+			utilisateur=employee_two,
+			type="ECHEC_RECONNAISSANCE",
+			description="Distance faciale trop elevee",
+			statut="NOUVELLE",
+		)
+		Alerte.objects.create(
+			utilisateur=None,
+			type="TENTATIVE_FRAUDE",
+			description="Tentative avec photo imprimee detectee",
+			statut="NOUVELLE",
+		)
 
 		response = self.client.get(reverse("dashboard:index"))
 
@@ -83,7 +95,7 @@ class DashboardAppTests(TestCase):
 		self.assertEqual(response.context["total_employees"], 2)
 		self.assertEqual(response.context["today_present_count"], 1)
 		self.assertEqual(response.context["today_absent_count"], 1)
-		self.assertEqual(response.context["not_recognized_today"], 1)
+		self.assertEqual(response.context["not_recognized_today"], 3)
 		self.assertEqual(len(response.context["weekly_stats"]), 7)
 		self.assertContains(response, "Lina Ops")
 
