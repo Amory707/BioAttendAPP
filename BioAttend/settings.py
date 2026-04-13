@@ -50,7 +50,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "pgvector",
     "rest_framework",
-    "accounts",
+    "accounts.apps.AccountsConfig",
     "attendance",
     "alerts",
     "core",
