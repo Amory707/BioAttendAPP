@@ -537,6 +537,22 @@ def statistiques_utilisateur(request, utilisateur_id):
 
 @login_required(login_url='login')
 def alerte_list(request):
+    if request.method == 'POST':
+        if request.POST.get('delete_all') == '1':
+            Alerte.objects.all().delete()
+            messages.success(request, 'Toutes les alertes ont été supprimées.')
+            return redirect('Employee:alerte_list')
+
+        selected_ids = request.POST.getlist('selected_alertes')
+        if selected_ids:
+            Alerte.objects.filter(id__in=selected_ids).delete()
+            messages.success(request, 'Alertes sélectionnées supprimées.')
+            return redirect('Employee:alerte_list')
+
+        messages.info(request, 'Aucune alerte sélectionnée pour la suppression.')
+        
+        return redirect('Employee:alerte_list')
+
     recherche = request.GET.get('q', '').strip()
     statut_filtre = request.GET.get('statut', '')
 

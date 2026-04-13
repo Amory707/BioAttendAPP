@@ -29,10 +29,23 @@
         font-weight: 600;
         cursor: pointer;
     }
+    .alertes-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-md) var(--spacing-lg);
+        background: var(--color-bg-light);
+        border-bottom: 1px solid #e6e6e6;
+        flex-wrap: wrap;
+    }
+    .alertes-actions .action-info {
+        color: var(--color-text-secondary);
+        font-size: var(--font-size-sm);
+    }
     .alertes-grid-header,
     .alertes-grid-row {
         display: grid;
-        grid-template-columns: 1.6fr 1.2fr 1.8fr 1.4fr 1fr;
+        grid-template-columns: 0.4fr 1.6fr 1.2fr 1.8fr 1.4fr 1fr;
         gap: var(--spacing-md);
         padding: var(--spacing-md) var(--spacing-lg);
         align-items: center;
@@ -88,35 +101,105 @@
             <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filtrer</button>
         </form>
 
-        <div class="alertes-grid-header">
-            <div>ID Alerte</div>
-            <div>Type</div>
-            <div>Utilisateur</div>
-            <div>Date de Création</div>
-            <div>Statut</div>
-        </div>
+        <form method="POST" id="alertes-actions-form">
+            {% csrf_token %}
+            <div class="alertes-actions">
+                <button type="submit" name="delete_selected" value="1" class="btn btn-danger" id="delete-selected" disabled>Supprimer la sélection</button>
+                <button type="submit" name="delete_all" value="1" class="btn btn-danger" id="delete-all">Supprimer toutes les notifications</button>
+                <span class="action-info">Sélectionnez des alertes pour les supprimer individuellement ou videz toutes les notifications.</span>
+            </div>
 
-        <div class="table-body">
-            {% for alerte in alertes %}
-                <div class="alertes-grid-row">
-                    <div class="alerte-id">{{ alerte.id }}</div>
-                    <div class="alerte-type">{{ alerte.type }}</div>
-                    <div class="alerte-user">
-                        {% if alerte.utilisateur %}
-                            {{ alerte.utilisateur.first_name }} {{ alerte.utilisateur.last_name }}
-                        {% else %}
-                            Utilisateur inconnu
-                        {% endif %}
+            <div class="alertes-grid-header">
+                <div><input type="checkbox" id="select-all" aria-label="Sélectionner toutes les alertes"></div>
+                <div>ID Alerte</div>
+                <div>Type</div>
+                <div>Utilisateur</div>
+                <div>Date de Création</div>
+                <div>Statut</div>
+            </div>
+
+            <div class="table-body">
+                {% for alerte in alertes %}
+                    <div class="alertes-grid-row">
+                        <div><input type="checkbox" name="selected_alertes" value="{{ alerte.id }}" class="alerte-select"></div>
+                        <div class="alerte-id">{{ alerte.id }}</div>
+                        <div class="alerte-type">{{ alerte.type }}</div>
+                        <div class="alerte-user">
+                            {% if alerte.utilisateur %}
+                                {{ alerte.utilisateur.first_name }} {{ alerte.utilisateur.last_name }}
+                            {% else %}
+                                Utilisateur inconnu
+                            {% endif %}
+                        </div>
+                        <div class="alerte-date">{{ alerte.date_creation|date:'d/m/Y H:i' }}</div>
+                        <div class="alerte-statut">{{ alerte.statut }}</div>
                     </div>
-                    <div class="alerte-date">{{ alerte.date_creation|date:'d/m/Y H:i' }}</div>
-                    <div class="alerte-statut">{{ alerte.statut }}</div>
-                </div>
-            {% empty %}
-                <div style="padding: var(--spacing-xl); color: var(--color-text-secondary); text-align: center;">
-                    Aucune alerte pour le moment.
-                </div>
-            {% endfor %}
-        </div>
+                {% empty %}
+                    <div style="padding: var(--spacing-xl); color: var(--color-text-secondary); text-align: center;">
+                        Aucune alerte pour le moment.
+                    </div>
+                {% endfor %}
+            </div>
+        </form>
     </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const selectAllCheckbox = document.querySelector('#select-all');
+    const rowCheckboxes = Array.from(document.querySelectorAll('.alerte-select'));
+    const deleteSelectedButton = document.querySelector('#delete-selected');
+    const deleteAllButton = document.querySelector('#delete-all');
+    const form = document.querySelector('#alertes-actions-form');
+
+    function updateSelectionState() {
+        const checkedCount = rowCheckboxes.filter(checkbox => checkbox.checked).length;
+        deleteSelectedButton.disabled = checkedCount === 0;
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = checkedCount > 0 && checkedCount === rowCheckboxes.length;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < rowCheckboxes.length;
+        }
+    }
+
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', () => {
+            rowCheckboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            updateSelectionState();
+        });
+    }
+
+    rowCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectionState);
+    });
+
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            const button = event.submitter;
+            if (!button) {
+                return;
+            }
+
+            if (button.id === 'delete-selected') {
+                const hasSelection = rowCheckboxes.some(checkbox => checkbox.checked);
+                if (!hasSelection) {
+                    event.preventDefault();
+                    alert('Sélectionnez au moins une alerte avant de supprimer.');
+                    return;
+                }
+                if (!confirm('Supprimer les alertes sélectionnées ?')) {
+                    event.preventDefault();
+                }
+            }
+
+            if (button.id === 'delete-all') {
+                if (!confirm('Supprimer toutes les notifications ? Cette action est irréversible.')) {
+                    event.preventDefault();
+                }
+            }
+        });
+    }
+</script>
 {% endblock %}
