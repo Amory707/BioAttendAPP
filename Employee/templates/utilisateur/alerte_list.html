@@ -104,9 +104,9 @@
         <form method="POST" id="alertes-actions-form">
             {% csrf_token %}
             <div class="alertes-actions">
-                <button type="submit" name="delete_selected" value="1" class="btn btn-danger" id="delete-selected" disabled>Supprimer la sélection</button>
-                <button type="submit" name="delete_all" value="1" class="btn btn-danger" id="delete-all">Supprimer toutes les notifications</button>
-                <span class="action-info">Sélectionnez des alertes pour les supprimer individuellement ou videz toutes les notifications.</span>
+                <button type="submit" name="delete_selected" value="1" class="btn btn-danger" id="delete-selected" disabled>Marquer la sélection comme traitée</button>
+                <button type="submit" name="delete_all" value="1" class="btn btn-danger" id="delete-all">Marquer toutes les notifications comme traitées</button>
+                <span class="action-info">Sélectionnez des alertes pour les marquer comme traitées ou traitez toutes les notifications.</span>
             </div>
 
             <div class="alertes-grid-header">

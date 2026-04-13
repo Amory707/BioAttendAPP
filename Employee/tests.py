@@ -277,6 +277,54 @@ class EmployeeAppTests(TestCase):
 		self.assertEqual(len(alertes), 1)
 		self.assertEqual(alertes[0].statut, "NOUVELLE")
 
+	def test_alerte_list_post_marks_selected_alertes_as_traitees(self):
+		user = self._create_user("alert-user-selected")
+		self.client.force_login(user)
+
+		alert1 = Alerte.objects.create(
+			utilisateur=user,
+			type="RETARD",
+			description="Retard detecte",
+			statut="NOUVELLE",
+		)
+		alert2 = Alerte.objects.create(
+			utilisateur=user,
+			type="ABSENCE",
+			description="Absence justifiee",
+			statut="NOUVELLE",
+		)
+
+		response = self.client.post(
+			reverse("Employee:alerte_list"),
+			{"delete_selected": "1", "selected_alertes": [str(alert1.id)]},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertEqual(Alerte.objects.get(pk=alert1.pk).statut, "TRAITEE")
+		self.assertEqual(Alerte.objects.get(pk=alert2.pk).statut, "NOUVELLE")
+
+	def test_alerte_list_post_marks_all_alertes_as_traitees(self):
+		user = self._create_user("alert-user-all")
+		self.client.force_login(user)
+
+		Alerte.objects.create(
+			utilisateur=user,
+			type="RETARD",
+			description="Retard detecte",
+			statut="NOUVELLE",
+		)
+		Alerte.objects.create(
+			utilisateur=user,
+			type="ABSENCE",
+			description="Absence justifiee",
+			statut="VUE",
+		)
+
+		response = self.client.post(reverse("Employee:alerte_list"), {"delete_all": "1"})
+
+		self.assertEqual(response.status_code, 302)
+		self.assertEqual(Alerte.objects.filter(statut="TRAITEE").count(), 2)
+
 	def test_delete_utilisateur_post_removes_employee(self):
 		request_user = self._create_user("deleter")
 		target_user = self._create_user("target")
