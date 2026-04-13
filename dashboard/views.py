@@ -12,23 +12,19 @@ from accounts.access import ADMIN_SPACE, EMPLOYEE_SPACE, get_active_space, set_a
 from accounts.models import Utilisateur
 
 from alerts.models import Alerte
-from attendance.models import Pointage
 
+from attendance.models import Pointage
 
 def _deny_and_logout(request):
     messages.error(request, "Accès refusé : votre compte n'a pas les droits plateforme.")
     logout(request)
     return redirect('login')
 
-
 def _redirect_to_active_space(request):
     active_space = get_active_space(request)
-    if active_space == EMPLOYEE_SPACE:
-        return redirect('dashboard:employee_home')
-    if active_space == ADMIN_SPACE:
-        return redirect('dashboard:index')
+    if active_space == EMPLOYEE_SPACE: return redirect('dashboard:employee_home')
+    if active_space == ADMIN_SPACE: return redirect('dashboard:index')
     return _deny_and_logout(request)
-
 
 def _employee_queryset_for_dashboard():
     return (
@@ -40,11 +36,9 @@ def _employee_queryset_for_dashboard():
 
 @login_required(login_url='login')
 def dashboard(request):
-    if get_active_space(request) == EMPLOYEE_SPACE:
-        return redirect('dashboard:employee_home')
+    if get_active_space(request) == EMPLOYEE_SPACE: return redirect('dashboard:employee_home')
 
-    if not request.user.is_platform_admin:
-        return _deny_and_logout(request)
+    if not request.user.is_platform_admin: return _deny_and_logout(request)
 
     today = timezone.localdate()
     start_week = today - timedelta(days=6)
@@ -62,6 +56,7 @@ def dashboard(request):
         .distinct()
         .count()
     )
+
     today_absent_count = max(total_employees - today_present_count, 0)
 
     not_recognized_today = Alerte.objects.filter(
@@ -83,6 +78,7 @@ def dashboard(request):
             .annotate(total=Count('utilisateur', distinct=True))
         )
     }
+
     weekly_unknown_map = {
         item['jour']: item['total']
         for item in (
@@ -110,11 +106,7 @@ def dashboard(request):
             'unrecorded': unrecorded,
         })
 
-    recent_checkins = (
-        Pointage.objects.select_related('utilisateur')
-        .filter(utilisateur__in=employee_qs)
-        .order_by('-horodatage')[:10]
-    )
+    recent_checkins = (Pointage.objects.select_related('utilisateur').filter(utilisateur__in=employee_qs).order_by('-horodatage')[:10])
 
     context = {
         'user': request.user,
@@ -125,15 +117,13 @@ def dashboard(request):
         'weekly_stats': weekly_stats,
         'recent_checkins': recent_checkins,
     }
-    return render(request, 'dashboard.html', context)
 
+    return render(request, 'dashboard.html', context)
 
 @login_required(login_url='login')
 def employee_home(request):
-    if get_active_space(request) == ADMIN_SPACE:
-        return redirect('dashboard:index')
-    if not user_can_access_employee_space(request.user):
-        return _deny_and_logout(request)
+    if get_active_space(request) == ADMIN_SPACE: return redirect('dashboard:index')
+    if not user_can_access_employee_space(request.user): return _deny_and_logout(request)
 
     pointages_qs = Pointage.objects.filter(utilisateur=request.user)
     alertes_qs = Alerte.objects.filter(utilisateur=request.user)
@@ -146,26 +136,24 @@ def employee_home(request):
         'recent_pointages': pointages_qs.order_by('-horodatage')[:8],
         'recent_alertes': alertes_qs.order_by('-date_creation')[:8],
     }
-    return render(request, 'dashboard/employee_home.html', context)
 
+    return render(request, 'dashboard/employee_home.html', context)
 
 @login_required(login_url='login')
 def employee_pointages(request):
-    if get_active_space(request) == ADMIN_SPACE:
-        return redirect('dashboard:index')
-    if not user_can_access_employee_space(request.user):
-        return _deny_and_logout(request)
+
+    if get_active_space(request) == ADMIN_SPACE: return redirect('dashboard:index')
+
+    if not user_can_access_employee_space(request.user): return _deny_and_logout(request)
 
     type_filtre = request.GET.get('type', '').strip()
     statut_filtre = request.GET.get('statut', '').strip()
 
     pointages = Pointage.objects.filter(utilisateur=request.user)
 
-    if type_filtre:
-        pointages = pointages.filter(type=type_filtre)
+    if type_filtre: pointages = pointages.filter(type=type_filtre)
 
-    if statut_filtre:
-        pointages = pointages.filter(statut=statut_filtre)
+    if statut_filtre: pointages = pointages.filter(statut=statut_filtre)
 
     context = {
         'pointages': pointages.order_by('-horodatage'),
@@ -174,15 +162,15 @@ def employee_pointages(request):
         'choix_type': Pointage.TYPE_CHOICES,
         'choix_statut': Pointage.STATUT_CHOICES,
     }
-    return render(request, 'dashboard/employee_pointages.html', context)
 
+    return render(request, 'dashboard/employee_pointages.html', context)
 
 @login_required(login_url='login')
 def employee_alertes(request):
-    if get_active_space(request) == ADMIN_SPACE:
-        return redirect('dashboard:index')
-    if not user_can_access_employee_space(request.user):
-        return _deny_and_logout(request)
+
+    if get_active_space(request) == ADMIN_SPACE: return redirect('dashboard:index')
+
+    if not user_can_access_employee_space(request.user): return _deny_and_logout(request)
 
     statut_filtre = request.GET.get('statut', '').strip()
 
@@ -195,16 +183,15 @@ def employee_alertes(request):
         'statut_filtre': statut_filtre,
         'choix_statut': Alerte.STATUT_CHOICES,
     }
+
     return render(request, 'dashboard/employee_alertes.html', context)
 
 def logout_view(request):
     logout(request)
     return redirect('login')  
 
-
 @login_required(login_url='login')
 def switch_space(request, space):
     chosen_space = set_active_space(request, space)
-    if chosen_space != space:
-        messages.error(request, "Cet espace n'est pas disponible pour votre compte.")
+    if chosen_space != space: messages.error(request, "Cet espace n'est pas disponible pour votre compte.")
     return _redirect_to_active_space(request)

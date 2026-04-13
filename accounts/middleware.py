@@ -18,16 +18,17 @@ class ThreadLocalMiddleware:
         return response
 
     @classmethod
-    def get_current_request(cls):
-        return getattr(cls._thread_locals, 'request', None)
+    def get_current_request(cls): return getattr(cls._thread_locals, 'request', None)
+
 from django.shortcuts import render
 
 class EmployeeAdminAccessMiddleware:
     """
-    Block /admin/ pages for users with role 'employé' who are not staff.
+    Bloquez l'accès aux pages /admin/ pour les utilisateurs ayant le rôle « employé » qui ne font pas partie du personnel.
 
-    If an authenticated user has role 'employé' and tries to access any URL
-    under /admin/ while not being staff, show a friendly access-denied page.
+    Si un utilisateur authentifié ayant le rôle « employé » tente d'accéder à une URL
+
+    sous /admin/ sans être membre du personnel, affichez un message d'accès refusé.
     """
     def __init__(self, get_response):
         self.get_response = get_response
@@ -35,11 +36,13 @@ class EmployeeAdminAccessMiddleware:
     def __call__(self, request):
         path = request.path
         user = getattr(request, 'user', None)
+
         if path.startswith('/admin/') and user and user.is_authenticated:
             try:
                 is_employe = getattr(user, 'is_employe', False)
             except Exception:
                 is_employe = False
-            if is_employe and not user.is_staff:
-                return render(request, 'access_denied_employee.html', status=403)
+
+            if is_employe and not user.is_staff: return render(request, 'access_denied_employee.html', status=403)
+        
         return self.get_response(request)

@@ -25,19 +25,20 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Utilisateur
+
 from alerts.models import Alerte
+
 from attendance.models import Pointage
 
 logger = logging.getLogger(__name__)
 
 EMBEDDING_SIZE = 512 # Config
 
-
 class DeviceApiAuthMixin:
+
     def _extract_api_key(self, request):
         auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            return auth_header[7:].strip()
+        if auth_header.startswith("Bearer "): return auth_header[7:].strip()
 
         return request.headers.get("X-API-Key", "").strip()
 
@@ -45,11 +46,9 @@ class DeviceApiAuthMixin:
         provided_key = self._extract_api_key(request)
         expected_key = getattr(settings, "SECRET_KEY", "")
 
-        if not provided_key or not expected_key:
-            return False
+        if not provided_key or not expected_key: return False
 
         return secrets.compare_digest(provided_key, expected_key)
-
 
 class FaceIdentifyView(DeviceApiAuthMixin, APIView):
 
@@ -59,25 +58,21 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
             value = 1.0 - float(distance)
         except (TypeError, ValueError):
             return 0.0
+        
         return max(0.0, min(1.0, value))
 
     @staticmethod
     def _next_pointage_type_for_pointeuse(utilisateur):
-        last_pointage = (
-            Pointage.objects.select_for_update()
-            .filter(utilisateur=utilisateur, origine=Pointage.ORIGINE_POINTEUSE)
-            .order_by("-horodatage", "-id")
-            .first()
-        )
+        last_pointage = (Pointage.objects.select_for_update().filter(utilisateur=utilisateur, origine=Pointage.ORIGINE_POINTEUSE).order_by("-horodatage", "-id").first())
 
-        if last_pointage is None or last_pointage.type == "SORTIE":
-            return "ENTREE"
+        if last_pointage is None or last_pointage.type == "SORTIE": return "ENTREE"
+
         return "SORTIE"
 
     @staticmethod
     def _create_unknown_user_alert(best_distance=None):
-        if best_distance is None:
-            description = "Tentative de pointage avec un visage non reconnu (aucune correspondance)."
+        if best_distance is None: description = "Tentative de pointage avec un visage non reconnu (aucune correspondance)."
+        
         else:
             description = (
                 "Tentative de pointage avec un visage non reconnu "
@@ -94,10 +89,12 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
     @staticmethod
     def _create_recognition_failure_alert(utilisateur, distance):
         username = getattr(utilisateur, "username", "inconnu")
+
         description = (
             "Tentative de pointage en echec de reconnaissance "
             f"(utilisateur candidat={username}, distance={distance:.4f})."
         )
+
         Alerte.objects.create(
             utilisateur=None,
             pointage=None,
@@ -126,27 +123,18 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
 
         fraud_detected = request.data.get("fraud_detected", False)
         fraud_reason = request.data.get("fraud_reason", "Tentative de fraude detectee (photo imprimee, video ou autre).")
+        
         if fraud_detected:
             logger.warning("Tentative de fraude signalee par la pointeuse: %s", fraud_reason)
             self._create_fraud_alert(fraud_reason)
-            return Response(
-                {"matched": False, "error": "Tentative de fraude detectee."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            
+            return Response({"matched": False, "error": "Tentative de fraude detectee."}, status=status.HTTP_403_FORBIDDEN)
 
         embedding_raw = request.data.get("embedding")
 
-        if embedding_raw is None:
-            return Response(
-                {"matched": False, "error": "Le champ 'embedding' est requis."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if embedding_raw is None: return Response({"matched": False, "error": "Le champ 'embedding' est requis."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not isinstance(embedding_raw, list):
-            return Response(
-                {"matched": False, "error": "'embedding' doit être une liste de floats."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if not isinstance(embedding_raw, list): return Response({"matched": False, "error": "'embedding' doit être une liste de floats."}, status=status.HTTP_400_BAD_REQUEST)
 
         if len(embedding_raw) != EMBEDDING_SIZE:
             return Response(
@@ -162,11 +150,9 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
 
         try:
             embedding = [float(v) for v in embedding_raw]
+
         except (TypeError, ValueError):
-            return Response(
-                {"matched": False, "error": "'embedding' doit contenir uniquement des nombres."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({"matched": False, "error": "'embedding' doit contenir uniquement des nombres."}, status=status.HTTP_400_BAD_REQUEST)
 
         threshold = getattr(settings, "FACE_MATCH_THRESHOLD", 0.5)
 
@@ -179,40 +165,17 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
             )
         except Exception:
             logger.exception("Erreur lors de la requête pgvector dans FaceIdentifyView")
-            return Response(
-                {"matched": False, "error": "Erreur interne du serveur."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return Response({"matched": False, "error": "Erreur interne du serveur."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         if match is None:
-            logger.info(
-                "Aucune correspondance faciale (meilleure distance : %s)",
-                getattr(match, "distance", "N/A"),
-            )
+            logger.info("Aucune correspondance faciale (meilleure distance : %s)", getattr(match, "distance", "N/A"))
             self._create_unknown_user_alert(getattr(match, "distance", None))
-            return Response(
-                {"matched": False, "error": "Aucun visage correspondant trouvé."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            
+            return Response({"matched": False, "error": "Aucun visage correspondant trouvé."}, status=status.HTTP_404_NOT_FOUND)
 
         if match.distance > threshold:
-            logger.info(
-                "Correspondance rejetee (utilisateur=%s, distance=%.4f, seuil=%.4f)",
-                getattr(match, "username", "inconnu"),
-                match.distance,
-                threshold,
-            )
             self._create_recognition_failure_alert(match, match.distance)
-            return Response(
-                {"matched": False, "error": "Aucun visage correspondant trouvé."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        logger.info(
-            "Visage reconnu : %s (distance cosinus : %.4f)",
-            match.username,
-            match.distance,
-        )
+            return Response({"matched": False, "error": "Aucun visage correspondant trouvé."}, status=status.HTTP_404_NOT_FOUND)
 
         with transaction.atomic():
             pointage_type = self._next_pointage_type_for_pointeuse(match)
@@ -240,11 +203,13 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
 
 
 class FrontEventView(DeviceApiAuthMixin, APIView):
+
     EVENT_TYPE_MAP = {
         "unknown_user": "UTILISATEUR_INCONNU",
         "recognition_failed": "ECHEC_RECONNAISSANCE",
         "spoof_attempt": "TENTATIVE_FRAUDE",
     }
+
     EVENT_STATUS_MAP = {
         "error": "ERROR",
         "rejected": "REJECTED",
@@ -320,14 +285,6 @@ class FrontEventView(DeviceApiAuthMixin, APIView):
             event_status=self.EVENT_STATUS_MAP[event_status],
             device_name=device_name.strip(),
             details=details,
-        )
-
-        logger.info(
-            "Evenement borne journalise: type=%s status=%s device=%s alert_id=%s",
-            event_type,
-            event_status,
-            device_name,
-            alerte.id,
         )
 
         return Response(

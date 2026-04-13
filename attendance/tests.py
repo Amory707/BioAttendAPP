@@ -5,13 +5,13 @@ from django.test import TestCase
 from django.utils import timezone
 
 from accounts.models import Role, RoleUtilisateur, Utilisateur
-from alerts.models import Alerte
-from attendance.models import Pointage
 
+from alerts.models import Alerte
+
+from attendance.models import Pointage
 
 class AttendanceAppTests(TestCase):
 	def tearDown(self):
-		# Nettoyage explicite demande: suppression de tout ajout en base.
 		Alerte.objects.all().delete()
 		Pointage.objects.all().delete()
 		RoleUtilisateur.objects.all().delete()

@@ -6,11 +6,12 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import Role, RoleUtilisateur, Utilisateur
+
 from alerts.models import Alerte
+
 from attendance.models import Pointage
 
 from .views import FiltreBiometrique, _validate_photo_uploads
-
 
 @override_settings(SECRET_KEY='test-api-secret')
 class EmployeeAppTests(TestCase):

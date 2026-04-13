@@ -11,7 +11,6 @@ from django.core.exceptions import PermissionDenied
 def _generate_username(first_name, last_name):
     """Génère un username unique à partir du prénom et du nom."""
     base = (first_name + last_name).lower()
-    # Supprimer les accents
     base = unicodedata.normalize('NFD', base)
     base = ''.join(c for c in base if unicodedata.category(c) != 'Mn')
     base = re.sub(r'[^a-z0-9]', '', base) or 'user'
@@ -36,7 +35,7 @@ class UtilisateurCreationForm(forms.ModelForm):
         user = super().save(commit=False)
         username = _generate_username(user.first_name, user.last_name)
         user.username = username
-        user.set_password(username)  # mot de passe par défaut = nom d'utilisateur
+        user.set_password(username)  
         if commit:
             user.save()
         return user
@@ -61,7 +60,6 @@ class UtilisateurAdminWithInline(UserAdmin):
     search_fields = ('username', 'email', 'first_name', 'last_name')
     list_filter = ('departement', 'is_active', 'is_staff')
 
-    # Formulaire de création : prénom, nom, email uniquement
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
@@ -69,7 +67,6 @@ class UtilisateurAdminWithInline(UserAdmin):
         }),
     )
 
-    # Formulaire de modification : on garde username visible mais en lecture seule
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         ('Informations personnelles', {'fields': ('first_name', 'last_name', 'email')}),
@@ -82,7 +79,6 @@ class UtilisateurAdminWithInline(UserAdmin):
     inlines = (RoleUtilisateurInline,)
 
     def response_add(self, request, obj, post_url_continue=None):
-        # Contourner la redirection de UserAdmin vers le formulaire de changement de mot de passe
         from django.contrib.admin.options import ModelAdmin
         return ModelAdmin.response_add(self, request, obj, post_url_continue)
 
