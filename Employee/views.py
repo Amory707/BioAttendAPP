@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+
 import csv
 import json
 from urllib.parse import urlencode
@@ -15,7 +16,9 @@ from django.utils import timezone
 from django.utils.html import escape
 
 from accounts.models import Role, Utilisateur
+
 from alerts.models import Alerte
+
 from attendance.models import Pointage
 
 from .forms import UtilisateurUnifiedForm
@@ -27,14 +30,14 @@ try:
     import insightface
     import numpy as np
     from PIL import Image, ImageOps
+
 except ImportError:
     insightface = None
 
 
 def _compute_face_embeddings(photo_files):
-    """Traite jusqu'a 5 images, valide une identite unique et retourne (embedding_moyen, indice_surete)."""
-    if insightface is None:
-        raise ImportError("insightface n'est pas installé. Exécutez pip install insightface")
+    """Traite les images, valide une identite unique et retourne (embedding_moyen, indice_surete)."""
+    if insightface is None: raise ImportError("insightface n'est pas installé. Exécutez pip install insightface")
 
     app = insightface.app.FaceAnalysis(allowed_modules=['detection', 'recognition'])
     app.prepare(ctx_id=-1, det_size=(640, 640), det_thresh=0.35)
@@ -46,16 +49,19 @@ def _compute_face_embeddings(photo_files):
         pil_image = ImageOps.exif_transpose(Image.open(photo_file)).convert('RGB')
         img_array = np.array(pil_image)
         faces = app.get(img_array)
+
         if not faces:
             raise ValueError(
                 f"Aucun visage détecté dans la photo n°{idx} ({photo_file.name}). "
                 "Veuillez remplacer cette image par une photo claire du visage."
             )
+        
         if len(faces) > 1:
             raise ValueError(
                 f"La photo n°{idx} ({photo_file.name}) contient plusieurs visages. "
                 "Veuillez fournir une image avec un seul visage."
             )
+        
         embeddings.append(faces[0].embedding)
 
     if not embeddings:
@@ -78,17 +84,14 @@ def _compute_face_embeddings(photo_files):
             pairwise_similarities.append(similarity)
 
     if pairwise_similarities:
-        if min(pairwise_similarities) < similarity_threshold:
-            raise ValueError(
-                "Les visages televerses semblent appartenir a des personnes differentes."
-            )
+        if min(pairwise_similarities) < similarity_threshold: raise ValueError("Les visages televerses semblent appartenir a des personnes differentes.")
+        
         avg_similarity = sum(pairwise_similarities) / len(pairwise_similarities)
         indice_surete = round(max(0.0, min(100.0, avg_similarity * 100.0)), 2)
-    else:
-        indice_surete = None
+
+    else: indice_surete = None
 
     return np.mean(embeddings, axis=0), indice_surete
-
 
 def _validate_photo_uploads(photo_files):
     if len(photo_files) > MAX_UPLOAD_IMAGE_COUNT:
@@ -160,13 +163,9 @@ def _filtered_pointages_queryset(request, utilisateur=None, active_tab='pointage
     date_fin = _safe_parse_date(date_fin_raw)
 
     base_pointages = Pointage.objects.select_related('utilisateur')
-    if utilisateur is not None:
-        base_pointages = base_pointages.filter(utilisateur=utilisateur)
-
-    if date_debut:
-        base_pointages = base_pointages.filter(horodatage__date__gte=date_debut)
-    if date_fin:
-        base_pointages = base_pointages.filter(horodatage__date__lte=date_fin)
+    if utilisateur is not None: base_pointages = base_pointages.filter(utilisateur=utilisateur)
+    if date_debut: base_pointages = base_pointages.filter(horodatage__date__gte=date_debut)
+    if date_fin: base_pointages = base_pointages.filter(horodatage__date__lte=date_fin)
 
     filtered_pointages = base_pointages
     if search and utilisateur is None:
@@ -175,13 +174,10 @@ def _filtered_pointages_queryset(request, utilisateur=None, active_tab='pointage
             | Q(utilisateur__last_name__icontains=search)
             | Q(utilisateur__username__icontains=search)
         )
-    if type_filtre:
-        filtered_pointages = filtered_pointages.filter(type=type_filtre)
-    if statut_filtre:
-        filtered_pointages = filtered_pointages.filter(statut=statut_filtre)
 
-    if active_tab == 'pointage':
-        filtered_pointages = filtered_pointages.filter(statut='VALIDE')
+    if type_filtre: filtered_pointages = filtered_pointages.filter(type=type_filtre)
+    if statut_filtre: filtered_pointages = filtered_pointages.filter(statut=statut_filtre)
+    if active_tab == 'pointage': filtered_pointages = filtered_pointages.filter(statut='VALIDE')
 
     return {
         'base_pointages': base_pointages,
@@ -195,14 +191,17 @@ def _filtered_pointages_queryset(request, utilisateur=None, active_tab='pointage
         'date_fin': date_fin,
     }
 
-
 def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
+
     filtered_data = _filtered_pointages_queryset(request, utilisateur=utilisateur, active_tab=active_tab)
     base_pointages = filtered_data['base_pointages']
     filtered_pointages = filtered_data['filtered_pointages']
+    
     search = filtered_data['search']
+    
     type_filtre = filtered_data['type_filtre']
     statut_filtre = filtered_data['statut_filtre']
+    
     date_debut_raw = filtered_data['date_debut_raw']
     date_fin_raw = filtered_data['date_fin_raw']
     date_debut = filtered_data['date_debut']
@@ -213,6 +212,7 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
     total_sorties = base_pointages.filter(type='SORTIE').count()
     total_valides = base_pointages.filter(statut='VALIDE').count()
     total_invalides = base_pointages.filter(statut='NON_VALIDE').count()
+    
     confiance_moyenne = base_pointages.aggregate(moyenne=Avg('score_confiance'))['moyenne']
     confiance_moyenne = round(confiance_moyenne or 0.0, 2)
     taux_validation = round((total_valides / total) * 100, 2) if total else 0.0
@@ -232,9 +232,7 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
 
     for summary in user_summaries:
         summary.moyenne_confiance = round(summary.moyenne_confiance or 0.0, 2)
-        summary.taux_validation = round(
-            (summary.total_valides / summary.total_pointages) * 100, 2
-        ) if summary.total_pointages else 0.0
+        summary.taux_validation = round((summary.total_valides / summary.total_pointages) * 100, 2) if summary.total_pointages else 0.0
 
     daily_rows = list(
         base_pointages
@@ -269,6 +267,7 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
     }
     hourly_max = max(hourly_rows.values(), default=0)
     hourly_chart = []
+
     for hour in range(24):
         value = hourly_rows.get(hour, 0)
         width = int((value / hourly_max) * 100) if hourly_max else 0
@@ -287,10 +286,9 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
                 type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
             )
         )
-    if date_debut:
-        alerts_qs = alerts_qs.filter(date_creation__date__gte=date_debut)
-    if date_fin:
-        alerts_qs = alerts_qs.filter(date_creation__date__lte=date_fin)
+
+    if date_debut: alerts_qs = alerts_qs.filter(date_creation__date__gte=date_debut)
+    if date_fin: alerts_qs = alerts_qs.filter(date_creation__date__lte=date_fin)
 
     alert_totales = alerts_qs.count()
     alertes_echec_reco = alerts_qs.filter(type='ECHEC_RECONNAISSANCE').count()
@@ -307,28 +305,19 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
     if recent_total:
         recent_invalid = recent_pointages.filter(statut='NON_VALIDE').count()
         failure_rate = (recent_invalid / recent_total) * 100
-        if failure_rate <= 5:
-            tendance_label = 'Tres bon'
-        elif failure_rate <= 12:
-            tendance_label = 'Correct'
-        else:
-            tendance_label = 'A surveiller'
+        if failure_rate <= 5: tendance_label = 'Tres bon'
+        elif failure_rate <= 12: tendance_label = 'Correct'
+        else: tendance_label = 'A surveiller'
 
-    # === DONNÉES POUR CHART.JS (Analytique) ===
-    # Confiance moyenne au fil des jours
     confidence_timeline_data = list(
-        base_pointages
-        .annotate(jour=TruncDate('horodatage'))
-        .values('jour')
-        .annotate(confiance=Avg('score_confiance'))
-        .order_by('jour')
+        base_pointages.annotate(jour=TruncDate('horodatage')).values('jour').annotate(confiance=Avg('score_confiance')).order_by('jour')
     )
+
     confidence_timeline = {
         'labels': [item['jour'].strftime('%d/%m') for item in confidence_timeline_data if item['jour']],
         'data': [round(item['confiance'] or 0.0, 2) for item in confidence_timeline_data]
     }
     
-    # Volume journalier (Entrées, Sorties, Échecs)
     daily_chart_data_chart = {
         'labels': [item['label'] for item in daily_chart],
         'entrees': [item['entrees'] for item in daily_chart],
@@ -336,13 +325,11 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'invalides': [item['invalides'] for item in daily_chart],
     }
     
-    # Distribution horaire
     hourly_chart_data_chart = {
         'labels': [item['label'] for item in hourly_chart],
         'data': [item['total'] for item in hourly_chart],
     }
     
-    # Types d'alertes
     alert_types_data = {
         'labels': ['Échec reco', 'Utilisateur inconnu', 'Tentative fraude', 'Retard', 'Absence', 'Double pointage'],
         'data': [alertes_echec_reco, alertes_inconnu, alertes_fraude, alertes_retard, alertes_absence, alertes_double_pointage],
@@ -356,6 +343,7 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         ('ECHEC_RECONNAISSANCE', 'Echec reconnaissance'),
         ('TENTATIVE_FRAUDE', 'Tentative de fraude'),
     ]
+
     valid_problem_types = {value for value, _ in problem_type_choices}
     valid_problem_statuses = {value for value, _ in Alerte.STATUT_CHOICES}
 
@@ -367,17 +355,13 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
             | Q(utilisateur__last_name__icontains=problem_q)
             | Q(utilisateur__username__icontains=problem_q)
         )
-    if problem_type in valid_problem_types:
-        problem_alerts = problem_alerts.filter(type=problem_type)
-    if problem_status in valid_problem_statuses:
-        problem_alerts = problem_alerts.filter(statut=problem_status)
+    if problem_type in valid_problem_types: problem_alerts = problem_alerts.filter(type=problem_type)
+    if problem_status in valid_problem_statuses: problem_alerts = problem_alerts.filter(statut=problem_status)
 
     problem_alerts = problem_alerts.select_related('utilisateur').order_by('-date_creation')
 
-    if utilisateur is None:
-        pointage_export_url = reverse('Employee:pointage_export_csv')
-    else:
-        pointage_export_url = reverse('Employee:pointage_export_utilisateur_csv', kwargs={'utilisateur_id': utilisateur.pk})
+    if utilisateur is None: pointage_export_url = reverse('Employee:pointage_export_csv')
+    else: pointage_export_url = reverse('Employee:pointage_export_utilisateur_csv', kwargs={'utilisateur_id': utilisateur.pk})
 
     return {
         'active_tab': active_tab,
@@ -410,7 +394,6 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'pointage_export_url': pointage_export_url,
         'choix_type': Pointage.TYPE_CHOICES,
         'choix_statut': Pointage.STATUT_CHOICES,
-        # JSON pour Chart.js
         'confidence_timeline_json': json.dumps(confidence_timeline),
         'daily_chart_json': json.dumps(daily_chart_data_chart),
         'hourly_chart_json': json.dumps(hourly_chart_data_chart),
@@ -425,25 +408,20 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'problem_status_choices': Alerte.STATUT_CHOICES,
     }
 
-
 @login_required(login_url='login')
 def exporter_pointages_csv(request, utilisateur_id=None):
     utilisateur = None
-    if utilisateur_id is not None:
-        utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
+    if utilisateur_id is not None: utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
 
     active_tab = request.GET.get('tab', 'pointage').strip().lower()
-    if active_tab not in {'pointage', 'analytique', 'problemes'}:
-        active_tab = 'pointage'
+    if active_tab not in {'pointage', 'analytique', 'problemes'}: active_tab = 'pointage'
 
     filtered_data = _filtered_pointages_queryset(request, utilisateur=utilisateur, active_tab=active_tab)
     pointages = filtered_data['filtered_pointages']
 
     response = HttpResponse(content_type='text/csv')
-    if utilisateur is None:
-        filename = 'pointages_export.csv'
-    else:
-        filename = f'pointages_{utilisateur.username}.csv'
+    if utilisateur is None: filename = 'pointages_export.csv'
+    else: filename = f'pointages_{utilisateur.username}.csv'
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
     writer = csv.writer(response)
@@ -472,7 +450,6 @@ def exporter_pointages_csv(request, utilisateur_id=None):
 
     return response
 
-
 @login_required(login_url='login')
 def utilisateur_list(request):
     recherche = request.GET.get('q', '').strip()
@@ -490,14 +467,11 @@ def utilisateur_list(request):
             | Q(email__icontains=recherche)
         )
 
-    if departement:
-        utilisateurs = utilisateurs.filter(departement=departement)
+    if departement: utilisateurs = utilisateurs.filter(departement=departement)
 
-    if biometrie:
-        utilisateurs = FiltreBiometrique.filtrer_queryset(utilisateurs, biometrie)
+    if biometrie: utilisateurs = FiltreBiometrique.filtrer_queryset(utilisateurs, biometrie)
 
-    if date_debut:
-        utilisateurs = utilisateurs.filter(date_debut=date_debut)
+    if date_debut: utilisateurs = utilisateurs.filter(date_debut=date_debut)
 
     order_field = SORT_FIELDS.get(tri, 'username')
     utilisateurs = utilisateurs.order_by(order_field).prefetch_related('pointages', 'roles')
@@ -514,8 +488,8 @@ def utilisateur_list(request):
         .distinct()
         .exclude(departement__isnull=True),
     }
-    return render(request, 'utilisateur/utilisateur_list.html', context)
 
+    return render(request, 'utilisateur/utilisateur_list.html', context)
 
 @login_required(login_url='login')
 def utilisateur_detail(request, utilisateur_id):
@@ -531,6 +505,7 @@ def utilisateur_detail(request, utilisateur_id):
         'dernier_pointage': dernier_pointage,
         'has_embedding': utilisateur.embedding_facial is not None,
     }
+
     return render(request, 'utilisateur/utilisateur_detail.html', context)
 
 
@@ -556,14 +531,32 @@ def statistiques_problemes(request):
 def statistiques_utilisateur(request, utilisateur_id):
     utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
     active_tab = request.GET.get('tab', 'pointage').strip().lower()
-    if active_tab not in {'pointage', 'analytique', 'problemes'}:
-        active_tab = 'pointage'
+    if active_tab not in {'pointage', 'analytique', 'problemes'}: active_tab = 'pointage'
     context = _build_statistics_context(request, utilisateur=utilisateur, active_tab=active_tab)
     return render(request, 'utilisateur/statistiques.html', context)
 
 
 @login_required(login_url='login')
 def alerte_list(request):
+    if request.method == 'POST':
+        if request.POST.get('delete_all') == '1':
+            Alerte.objects.all().update(statut='TRAITEE')
+            messages.success(request, 'Toutes les alertes ont été marquées comme traitées.')
+            return redirect('Employee:alerte_list')
+
+        if request.POST.get('delete_selected') == '1':
+            selected_ids = request.POST.getlist('selected_alertes')
+            if selected_ids:
+                Alerte.objects.filter(id__in=selected_ids).update(statut='TRAITEE')
+                messages.success(request, 'Alertes sélectionnées marquées comme traitées.')
+            
+            else: messages.info(request, 'Aucune alerte sélectionnée pour être traitée.')
+            
+            return redirect('Employee:alerte_list')
+
+        messages.info(request, 'Aucune action valide pour les alertes.')
+        return redirect('Employee:alerte_list')
+
     recherche = request.GET.get('q', '').strip()
     categorie_filtre = request.GET.get('categorie', '').strip()
 
@@ -631,15 +624,16 @@ def alerte_list(request):
         'categorie_filtre': categorie_filtre,
         'recherche': recherche,
     }
-    return render(request, 'utilisateur/alerte_list.html', context)
 
+    return render(request, 'utilisateur/alerte_list.html', context)
 
 @login_required(login_url='login')
 def create_utilisateur(request):
     if request.method == 'POST':
         photos = request.FILES.getlist('photos')
         form = UtilisateurUnifiedForm(
-            request.POST, request.FILES,
+            request.POST,
+            request.FILES,
             editing_self=True, request_user=request.user,
         )
         if form.is_valid():
@@ -670,12 +664,11 @@ def create_utilisateur(request):
             form.save_roles(utilisateur)
             messages.success(request, 'Employé créé avec succès.')
             return redirect('Employee:utilisateur_list')
-    else:
-        form = UtilisateurUnifiedForm(editing_self=True, request_user=request.user)
+    else: form = UtilisateurUnifiedForm(editing_self=True, request_user=request.user)
+    
     return render(request, 'utilisateur/utilisateur_form.html', {
         'form': form, 'action': 'Créer', 'editing_self': True, 'has_embedding': False,
     })
-
 
 @login_required(login_url='login')
 def update_utilisateur(request, utilisateur_id):
@@ -690,6 +683,7 @@ def update_utilisateur(request, utilisateur_id):
             editing_self=editing_self,
             request_user=request.user,
         )
+
         if form.is_valid():
             upload_error = _validate_photo_uploads(photos)
             if upload_error:
@@ -711,6 +705,7 @@ def update_utilisateur(request, utilisateur_id):
                         'editing_self': editing_self, 'utilisateur': utilisateur,
                         'has_embedding': utilisateur.embedding_facial is not None,
                     })
+                
                 if embedding is None:
                     form.add_error(None, 'Aucun visage détecté dans les photos fournies. Veuillez utiliser des photos claires du visage.')
                     return render(request, 'utilisateur/utilisateur_form.html', {
@@ -718,10 +713,13 @@ def update_utilisateur(request, utilisateur_id):
                         'editing_self': editing_self, 'utilisateur': utilisateur,
                         'has_embedding': utilisateur.embedding_facial is not None,
                     })
+                
                 utilisateur_obj.embedding_facial = embedding
                 utilisateur_obj.indice_surete = indice_surete
                 utilisateur_obj.save(update_fields=['embedding_facial', 'indice_surete'])
+
             messages.success(request, 'Employé mis à jour avec succès.')
+
             return redirect('Employee:utilisateur_list')
     else:
         form = UtilisateurUnifiedForm(
@@ -729,6 +727,7 @@ def update_utilisateur(request, utilisateur_id):
             editing_self=editing_self,
             request_user=request.user,
         )
+
     return render(request, 'utilisateur/utilisateur_form.html', {
         'form': form,
         'action': 'Modifier',
@@ -736,7 +735,6 @@ def update_utilisateur(request, utilisateur_id):
         'utilisateur': utilisateur,
         'has_embedding': utilisateur.embedding_facial is not None,
     })
-
 
 @login_required(login_url='login')
 def delete_utilisateur(request, utilisateur_id):
@@ -775,6 +773,5 @@ def exporter_csv(request):
 def badge_presence(utilisateur):
     today = date.today()
     dernier = Pointage.objects.filter(utilisateur=utilisateur, horodatage__date=today).last()
-    if dernier and dernier.type == 'ENTREE':
-        return format_html('<b style="background: #d4edda; color: #155724; padding: 5px; border-radius: 5px;">Présent</b>')
+    if dernier and dernier.type == 'ENTREE': return format_html('<b style="background: #d4edda; color: #155724; padding: 5px; border-radius: 5px;">Présent</b>')
     return format_html('<b style="background: #f8d7da; color: #721c24; padding: 5px; border-radius: 5px;">Absent</b>')

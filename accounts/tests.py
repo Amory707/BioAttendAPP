@@ -12,7 +12,6 @@ from accounts.models import Role, RoleUtilisateur, Utilisateur
 
 class AccountsAppTests(TestCase):
 	def tearDown(self):
-		# Nettoyage explicite demande: suppression de tout ajout en base.
 		Session.objects.all().delete()
 		RoleUtilisateur.objects.all().delete()
 		Utilisateur.objects.all().delete()

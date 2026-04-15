@@ -6,16 +6,16 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import Role, RoleUtilisateur, Utilisateur
+
 from alerts.models import Alerte
+
 from attendance.models import Pointage
 
 from .views import FiltreBiometrique, _validate_photo_uploads
 
-
 @override_settings(SECRET_KEY='test-api-secret')
 class EmployeeAppTests(TestCase):
 	def tearDown(self):
-		# Nettoyage explicite demande: suppression de tout ajout en base.
 		Alerte.objects.all().delete()
 		Pointage.objects.all().delete()
 		RoleUtilisateur.objects.all().delete()
@@ -347,6 +347,54 @@ class EmployeeAppTests(TestCase):
 			Alerte.objects.filter(type="TENTATIVE_FRAUDE").count(),
 			1,
 		)
+
+	def test_alerte_list_post_marks_selected_alertes_as_traitees(self):
+		user = self._create_user("alert-user-selected")
+		self.client.force_login(user)
+
+		alert1 = Alerte.objects.create(
+			utilisateur=user,
+			type="RETARD",
+			description="Retard detecte",
+			statut="NOUVELLE",
+		)
+		alert2 = Alerte.objects.create(
+			utilisateur=user,
+			type="ABSENCE",
+			description="Absence justifiee",
+			statut="NOUVELLE",
+		)
+
+		response = self.client.post(
+			reverse("Employee:alerte_list"),
+			{"delete_selected": "1", "selected_alertes": [str(alert1.id)]},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertEqual(Alerte.objects.get(pk=alert1.pk).statut, "TRAITEE")
+		self.assertEqual(Alerte.objects.get(pk=alert2.pk).statut, "NOUVELLE")
+
+	def test_alerte_list_post_marks_all_alertes_as_traitees(self):
+		user = self._create_user("alert-user-all")
+		self.client.force_login(user)
+
+		Alerte.objects.create(
+			utilisateur=user,
+			type="RETARD",
+			description="Retard detecte",
+			statut="NOUVELLE",
+		)
+		Alerte.objects.create(
+			utilisateur=user,
+			type="ABSENCE",
+			description="Absence justifiee",
+			statut="VUE",
+		)
+
+		response = self.client.post(reverse("Employee:alerte_list"), {"delete_all": "1"})
+
+		self.assertEqual(response.status_code, 302)
+		self.assertEqual(Alerte.objects.filter(statut="TRAITEE").count(), 2)
 
 	def test_delete_utilisateur_post_removes_employee(self):
 		request_user = self._create_user("deleter")

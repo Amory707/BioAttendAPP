@@ -5,15 +5,17 @@ from pgvector.django import VectorField
 
 
 class Utilisateur(AbstractUser):
-    """
-    Modèle UTILISATEUR selon le MLD
-    Extend AbstractUser de Django pour l'authentification native
-    """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     embedding_facial = VectorField(dimensions=512, null=True, blank=True)
+
     indice_surete = models.FloatField(null=True, blank=True)
+
     departement = models.CharField(max_length=50, blank=True, null=True)
+
     date_debut = models.DateField(null=True, blank=True)
+
     date_fin = models.DateField(blank=True, null=True)
     
     roles = models.ManyToManyField(
@@ -47,18 +49,12 @@ class Utilisateur(AbstractUser):
     @property
     def is_platform_admin(self):
         """Retourne True si l'utilisateur a un accès plateforme admin."""
-        return (
-            self.roles.filter(nom__iexact='admin').exists()
-            or self.roles.filter(nom__iexact='acces_total').exists()
-            or (self.is_superuser and self.username == 'bioattend')
-        )
-
+        return (self.roles.filter(nom__iexact='admin').exists() or self.roles.filter(nom__iexact='acces_total').exists() or (self.is_superuser and self.username == 'bioattend'))
 
 class Role(models.Model):
-    """
-    Modèle RÔLE selon le MLD
-    """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     nom = models.CharField(
         max_length=30,
         choices=[('employé', 'employé'), ('admin', 'admin'), ('acces_total', 'acces_total')],
@@ -73,15 +69,15 @@ class Role(models.Model):
 
 
 class RoleUtilisateur(models.Model):
-    """
-    Table associative RÔLE_UTILISATEUR selon le MLD
-    """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     role = models.ForeignKey(
         Role,
         on_delete=models.CASCADE,
         related_name='role_utilisateurs',
     )
+
     utilisateur = models.ForeignKey(
         Utilisateur,
         on_delete=models.CASCADE,
@@ -109,8 +105,8 @@ class RoleUtilisateur(models.Model):
             if has_django_admin_role:
                 perms = list(Permission.objects.all())
                 self.utilisateur.user_permissions.set(perms)
-            else:
-                self.utilisateur.user_permissions.clear()
+
+            else: self.utilisateur.user_permissions.clear()
 
     def save(self, *args, **kwargs):
         try:
@@ -124,8 +120,7 @@ class RoleUtilisateur(models.Model):
             req = ThreadLocalMiddleware.get_current_request()
             if req is not None:
                 user = getattr(req, 'user', None)
-                if not (getattr(user, 'is_superuser', False) and getattr(user, 'username', '') == 'bioattend'):
-                    raise PermissionDenied("Seulement 'bioattend' peut attribuer le rôle admindjango.")
+                if not (getattr(user, 'is_superuser', False) and getattr(user, 'username', '') == 'bioattend'): raise PermissionDenied("Seulement 'bioattend' peut attribuer le rôle admindjango.")
 
         super().save(*args, **kwargs)
         self._sync_django_admin_access()

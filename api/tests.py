@@ -18,7 +18,6 @@ class FaceIdentifyApiTests(TestCase):
 	API_KEY = "test-api-secret"
 
 	def tearDown(self):
-		# Nettoyage explicite demande: suppression de tout ajout en base.
 		Alerte.objects.all().delete()
 		Pointage.objects.all().delete()
 		RoleUtilisateur.objects.all().delete()
@@ -63,7 +62,6 @@ class FaceIdentifyApiTests(TestCase):
 		with image_path.open("rb") as image_file:
 			content = image_file.read()
 
-		# Derive un vecteur de 512 floats deterministe depuis le fichier image.
 		values = []
 		counter = 0
 		while len(values) < 512:
@@ -196,7 +194,6 @@ class FaceIdentifyApiTests(TestCase):
 			auth_mode="x-api-key",
 		)
 
-		# Auth valide: la requete passe la couche auth et echoue ensuite sur la taille.
 		self.assertEqual(response.status_code, 400)
 		self.assertIn("512", response.json()["error"])
 

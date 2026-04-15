@@ -4,9 +4,7 @@ import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
 
-env = environ.Env(
-    DEBUG=(bool, False)
-)
+env = environ.Env(DEBUG=(bool, False))
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -16,17 +14,16 @@ SECRET_KEY = env('SECRET_KEY', default='')
 DEBUG = env.bool('DEBUG', default=False)
 
 if not SECRET_KEY:
-    if DEBUG:
-        SECRET_KEY = 'django-insecure-test-key'
-    else:
-        raise ImproperlyConfigured(
-            'La variable d\'environnement SECRET_KEY est requise et ne peut pas être vide.'
-        )
+
+    if DEBUG: SECRET_KEY = 'django-insecure-test-key'
+    else: raise ImproperlyConfigured('La variable d\'environnement SECRET_KEY est requise et ne peut pas être vide.')
 
 ALLOWED_HOSTS = ['*']
+
 if not DEBUG:
 
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
     CSRF_TRUSTED_ORIGINS = [
         'https://*.138.199.195.144.sslip.io',
         'https://138.199.195.144.sslip.io'
@@ -34,7 +31,9 @@ if not DEBUG:
     
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
 else:
+
     CSRF_TRUSTED_ORIGINS = [
         "https://*.github.dev",
         "https://*.app.github.dev",
@@ -51,7 +50,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "pgvector",
     "rest_framework",
-    "accounts",
+    "accounts.apps.AccountsConfig",
     "attendance",
     "alerts",
     "core",
@@ -116,9 +115,7 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = '/media/'

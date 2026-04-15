@@ -3,13 +3,14 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import Role, RoleUtilisateur, Utilisateur
+
 from alerts.models import Alerte
+
 from attendance.models import Pointage
 
-
 class CoreAppTests(TestCase):
+	
 	def tearDown(self):
-		# Nettoyage explicite demande: suppression de tout ajout en base.
 		Session.objects.all().delete()
 		Alerte.objects.all().delete()
 		Pointage.objects.all().delete()
