@@ -253,29 +253,100 @@ class EmployeeAppTests(TestCase):
 		self.assertContains(response, "Echec rattache utilisateur")
 		self.assertEqual(len(response.context["problem_alerts"]), 2)
 
-	def test_alerte_list_filters_by_status(self):
+	def test_alerte_list_filters_by_category(self):
 		user = self._create_user("alert-user")
 		self.client.force_login(user)
 
 		Alerte.objects.create(
 			utilisateur=user,
-			type="RETARD",
-			description="Retard detecte",
+			type="UTILISATEUR_INCONNU",
+			description="Utilisateur non reconnu",
 			statut="NOUVELLE",
 		)
 		Alerte.objects.create(
 			utilisateur=user,
-			type="ABSENCE",
-			description="Absence justifiee",
+			type="TENTATIVE_FRAUDE",
+			description="Liveness negatif",
 			statut="VUE",
 		)
 
-		response = self.client.get(reverse("Employee:alerte_list"), {"statut": "NOUVELLE"})
+		response = self.client.get(reverse("Employee:alerte_list"), {"categorie": "UTILISATEUR_INCONNU"})
 
 		self.assertEqual(response.status_code, 200)
 		alertes = list(response.context["alertes"])
 		self.assertEqual(len(alertes), 1)
-		self.assertEqual(alertes[0].statut, "NOUVELLE")
+		self.assertEqual(alertes[0].type, "UTILISATEUR_INCONNU")
+
+	def test_alerte_list_delete_selected_removes_only_alerts(self):
+		user = self._create_user("alert-delete")
+		self.client.force_login(user)
+
+		pointage = Pointage.objects.create(
+			utilisateur=user,
+			statut="VALIDE",
+			horodatage=timezone.now(),
+			type="ENTREE",
+			score_confiance=0.91,
+		)
+		alerte_a_supprimer = Alerte.objects.create(
+			utilisateur=user,
+			pointage=pointage,
+			type="UTILISATEUR_INCONNU",
+			description="Test suppression cible",
+			statut="NOUVELLE",
+		)
+		alerte_a_garder = Alerte.objects.create(
+			utilisateur=user,
+			type="TENTATIVE_FRAUDE",
+			description="Test conservation",
+			statut="NOUVELLE",
+		)
+
+		response = self.client.post(
+			reverse("Employee:alerte_list"),
+			{
+				"action": "delete_selected",
+				"selected_alert_ids": [str(alerte_a_supprimer.pk)],
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertFalse(Alerte.objects.filter(pk=alerte_a_supprimer.pk).exists())
+		self.assertTrue(Alerte.objects.filter(pk=alerte_a_garder.pk).exists())
+		self.assertTrue(Pointage.objects.filter(pk=pointage.pk).exists())
+		self.assertTrue(Utilisateur.objects.filter(pk=user.pk).exists())
+
+	def test_alerte_list_delete_all_respects_current_filter(self):
+		user = self._create_user("alert-delete-all")
+		self.client.force_login(user)
+
+		Alerte.objects.create(
+			utilisateur=user,
+			type="UTILISATEUR_INCONNU",
+			description="A supprimer",
+			statut="NOUVELLE",
+		)
+		Alerte.objects.create(
+			utilisateur=user,
+			type="TENTATIVE_FRAUDE",
+			description="A conserver",
+			statut="NOUVELLE",
+		)
+
+		response = self.client.post(
+			reverse("Employee:alerte_list") + "?categorie=UTILISATEUR_INCONNU",
+			{"action": "delete_all"},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertEqual(
+			Alerte.objects.filter(type="UTILISATEUR_INCONNU").count(),
+			0,
+		)
+		self.assertEqual(
+			Alerte.objects.filter(type="TENTATIVE_FRAUDE").count(),
+			1,
+		)
 
 	def test_delete_utilisateur_post_removes_employee(self):
 		request_user = self._create_user("deleter")

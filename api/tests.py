@@ -120,20 +120,21 @@ class FaceIdentifyApiTests(TestCase):
 
 		self.assertEqual(response.status_code, 403)
 		self.assertEqual(response.json()["matched"], False)
-		self.assertEqual(Alerte.objects.filter(type="TENTATIVE_FRAUDE").count(), 1)
-		alerte = Alerte.objects.filter(type="TENTATIVE_FRAUDE").first()
-		self.assertIsNone(alerte.utilisateur)
-		self.assertIn("Photo imprimee", alerte.description)
+		self.assertEqual(Pointage.objects.filter(incident_type="TENTATIVE_FRAUDE").count(), 1)
+		pointage = Pointage.objects.filter(incident_type="TENTATIVE_FRAUDE").first()
+		self.assertIsNone(pointage.utilisateur)
+		self.assertEqual(pointage.statut, "NON_VALIDE")
+		self.assertEqual(pointage.origine, Pointage.ORIGINE_POINTEUSE)
 
 	def test_identify_returns_404_when_no_match(self):
 		response = self._mock_queryset_chain(first_result=None)
 
 		self.assertEqual(response.status_code, 404)
 		self.assertEqual(response.json()["matched"], False)
-		self.assertEqual(Alerte.objects.filter(type="UTILISATEUR_INCONNU").count(), 1)
-		alerte = Alerte.objects.filter(type="UTILISATEUR_INCONNU").first()
-		self.assertIsNotNone(alerte)
-		self.assertIn("non reconnu", alerte.description.lower())
+		self.assertEqual(Pointage.objects.filter(incident_type="UTILISATEUR_INCONNU").count(), 1)
+		pointage = Pointage.objects.filter(incident_type="UTILISATEUR_INCONNU").first()
+		self.assertIsNotNone(pointage)
+		self.assertEqual(pointage.statut, "NON_VALIDE")
 
 	@override_settings(FACE_MATCH_THRESHOLD=0.5)
 	def test_identify_returns_404_when_distance_above_threshold(self):
@@ -147,9 +148,11 @@ class FaceIdentifyApiTests(TestCase):
 
 		self.assertEqual(response.status_code, 404)
 		self.assertIn("Aucun visage", response.json()["error"])
-		self.assertEqual(Alerte.objects.filter(type="ECHEC_RECONNAISSANCE").count(), 1)
-		self.assertEqual(Alerte.objects.filter(type="UTILISATEUR_INCONNU").count(), 0)
-		self.assertIsNone(Alerte.objects.filter(type="ECHEC_RECONNAISSANCE").first().utilisateur)
+		self.assertEqual(Pointage.objects.filter(incident_type="ECHEC_RECONNAISSANCE").count(), 1)
+		self.assertEqual(Pointage.objects.filter(incident_type="UTILISATEUR_INCONNU").count(), 0)
+		pointage = Pointage.objects.filter(incident_type="ECHEC_RECONNAISSANCE").first()
+		self.assertIsNone(pointage.utilisateur)
+		self.assertEqual(pointage.details["candidate_username"], "far-user")
 
 	@override_settings(FACE_MATCH_THRESHOLD=0.5)
 	def test_identify_returns_200_when_match_found(self):
@@ -292,6 +295,7 @@ class FrontEventApiTests(TestCase):
 
 	def tearDown(self):
 		Alerte.objects.all().delete()
+		Pointage.objects.all().delete()
 
 	def _url(self):
 		return reverse("api:front-events")
@@ -363,10 +367,11 @@ class FrontEventApiTests(TestCase):
 		self.assertEqual(payload["event_type"], "spoof_attempt")
 		self.assertEqual(payload["status"], "blocked")
 
-		alerte = Alerte.objects.get(id=payload["event_id"])
-		self.assertEqual(alerte.type, "TENTATIVE_FRAUDE")
-		self.assertEqual(alerte.event_status, "BLOCKED")
-		self.assertEqual(alerte.device_name, "bioattend-pi")
-		self.assertEqual(alerte.details["stage"], "liveness")
-		self.assertEqual(alerte.details["liveness_score"], 0.12)
-		self.assertEqual(alerte.description, "Tentative d'usurpation détectée par la liveness")
+		pointage = Pointage.objects.get(id=payload["event_id"])
+		self.assertEqual(pointage.incident_type, "TENTATIVE_FRAUDE")
+		self.assertEqual(pointage.device_name, "bioattend-pi")
+		self.assertEqual(pointage.details["status"], "BLOCKED")
+		self.assertEqual(pointage.details["stage"], "liveness")
+		self.assertEqual(pointage.details["liveness_score"], 0.12)
+		self.assertEqual(pointage.statut, "NON_VALIDE")
+		self.assertEqual(pointage.origine, Pointage.ORIGINE_POINTEUSE)

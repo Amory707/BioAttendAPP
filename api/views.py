@@ -25,7 +25,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Utilisateur
-from alerts.models import Alerte
 from attendance.models import Pointage
 
 logger = logging.getLogger(__name__)
@@ -75,7 +74,24 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
         return "SORTIE"
 
     @staticmethod
-    def _create_unknown_user_alert(best_distance=None):
+    def _create_incident_pointage(incident_type, description, score_confiance=0.0, utilisateur=None, details=None, device_name=''):
+        if details is None:
+            details = {}
+
+        Pointage.objects.create(
+            utilisateur=utilisateur,
+            statut='NON_VALIDE',
+            horodatage=timezone.now(),
+            type='ENTREE',
+            score_confiance=score_confiance,
+            origine=Pointage.ORIGINE_POINTEUSE,
+            incident_type=incident_type,
+            device_name=device_name,
+            details=details,
+        )
+
+    @classmethod
+    def _create_unknown_user_event(cls, best_distance=None):
         if best_distance is None:
             description = "Tentative de pointage avec un visage non reconnu (aucune correspondance)."
         else:
@@ -84,34 +100,35 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
                 f"(meilleure distance={best_distance:.4f})."
             )
 
-        Alerte.objects.create(
-            utilisateur=None,
-            pointage=None,
-            type="UTILISATEUR_INCONNU",
+        cls._create_incident_pointage(
+            incident_type='UTILISATEUR_INCONNU',
             description=description,
+            score_confiance=0.0,
+            details={'best_distance': best_distance},
         )
 
-    @staticmethod
-    def _create_recognition_failure_alert(utilisateur, distance):
+    @classmethod
+    def _create_recognition_failure_event(cls, utilisateur, distance):
         username = getattr(utilisateur, "username", "inconnu")
+        utilisateur_associe = utilisateur if isinstance(utilisateur, Utilisateur) else None
         description = (
             "Tentative de pointage en echec de reconnaissance "
             f"(utilisateur candidat={username}, distance={distance:.4f})."
         )
-        Alerte.objects.create(
-            utilisateur=None,
-            pointage=None,
-            type="ECHEC_RECONNAISSANCE",
+        cls._create_incident_pointage(
+            incident_type='ECHEC_RECONNAISSANCE',
             description=description,
+            score_confiance=cls._score_confiance_from_distance(distance),
+            utilisateur=utilisateur_associe,
+            details={'candidate_username': username, 'distance': float(distance)},
         )
 
-    @staticmethod
-    def _create_fraud_alert(reason="Tentative de fraude detectee (photo imprimee, video ou autre)."):
-        Alerte.objects.create(
-            utilisateur=None,
-            pointage=None,
-            type="TENTATIVE_FRAUDE",
+    @classmethod
+    def _create_fraud_event(cls, reason="Tentative de fraude detectee (photo imprimee, video ou autre)."):
+        cls._create_incident_pointage(
+            incident_type='TENTATIVE_FRAUDE',
             description=reason,
+            score_confiance=0.0,
         )
 
     def post(self, request):
@@ -128,7 +145,7 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
         fraud_reason = request.data.get("fraud_reason", "Tentative de fraude detectee (photo imprimee, video ou autre).")
         if fraud_detected:
             logger.warning("Tentative de fraude signalee par la pointeuse: %s", fraud_reason)
-            self._create_fraud_alert(fraud_reason)
+            self._create_fraud_event(fraud_reason)
             return Response(
                 {"matched": False, "error": "Tentative de fraude detectee."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -189,7 +206,7 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
                 "Aucune correspondance faciale (meilleure distance : %s)",
                 getattr(match, "distance", "N/A"),
             )
-            self._create_unknown_user_alert(getattr(match, "distance", None))
+            self._create_unknown_user_event(getattr(match, "distance", None))
             return Response(
                 {"matched": False, "error": "Aucun visage correspondant trouvé."},
                 status=status.HTTP_404_NOT_FOUND,
@@ -202,7 +219,7 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
                 match.distance,
                 threshold,
             )
-            self._create_recognition_failure_alert(match, match.distance)
+            self._create_recognition_failure_event(match, match.distance)
             return Response(
                 {"matched": False, "error": "Aucun visage correspondant trouvé."},
                 status=status.HTTP_404_NOT_FOUND,
@@ -312,28 +329,33 @@ class FrontEventView(DeviceApiAuthMixin, APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        alerte = Alerte.objects.create(
+        pointage = Pointage.objects.create(
             utilisateur=None,
-            pointage=None,
-            type=self.EVENT_TYPE_MAP[event_type],
-            description=message.strip(),
-            event_status=self.EVENT_STATUS_MAP[event_status],
+            statut='NON_VALIDE',
+            horodatage=timezone.now(),
+            type='ENTREE',
+            score_confiance=0.0,
+            origine=Pointage.ORIGINE_POINTEUSE,
+            incident_type=self.EVENT_TYPE_MAP[event_type],
             device_name=device_name.strip(),
-            details=details,
+            details={
+                'status': self.EVENT_STATUS_MAP[event_status],
+                **details,
+            },
         )
 
         logger.info(
-            "Evenement borne journalise: type=%s status=%s device=%s alert_id=%s",
+            "Evenement borne journalise: type=%s status=%s device=%s pointage_id=%s",
             event_type,
             event_status,
             device_name,
-            alerte.id,
+            pointage.id,
         )
 
         return Response(
             {
                 "logged": True,
-                "event_id": str(alerte.id),
+                "event_id": str(pointage.id),
                 "event_type": event_type,
                 "status": event_status,
             },

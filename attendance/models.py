@@ -16,11 +16,18 @@ class Pointage(models.Model):
         (ORIGINE_MANUEL, 'Manuel'),
         (ORIGINE_POINTEUSE, 'Pointeuse'),
     ]
+    INCIDENT_CHOICES = [
+        ('UTILISATEUR_INCONNU', 'UTILISATEUR_INCONNU'),
+        ('ECHEC_RECONNAISSANCE', 'ECHEC_RECONNAISSANCE'),
+        ('TENTATIVE_FRAUDE', 'TENTATIVE_FRAUDE'),
+    ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     utilisateur = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='pointages',
     )
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES)
@@ -28,6 +35,9 @@ class Pointage(models.Model):
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     score_confiance = models.FloatField()
     origine = models.CharField(max_length=20, choices=ORIGINE_CHOICES, default=ORIGINE_MANUEL)
+    incident_type = models.CharField(max_length=50, choices=INCIDENT_CHOICES, blank=True)
+    device_name = models.CharField(max_length=100, blank=True)
+    details = models.JSONField(default=dict, blank=True)
 
     class Meta:
         db_table = 'pointage'
