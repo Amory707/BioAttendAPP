@@ -59,9 +59,11 @@ def dashboard(request):
 
     today_absent_count = max(total_employees - today_present_count, 0)
 
-    not_recognized_today = Alerte.objects.filter(
-        date_creation__date=today,
-        type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
+    not_recognized_today = Pointage.objects.filter(
+        horodatage__date=today,
+        origine=Pointage.ORIGINE_POINTEUSE,
+        statut='NON_VALIDE',
+        incident_type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
     ).count()
 
     weekly_present_map = {
@@ -82,12 +84,14 @@ def dashboard(request):
     weekly_unknown_map = {
         item['jour']: item['total']
         for item in (
-            Alerte.objects.filter(
-                date_creation__date__gte=start_week,
-                date_creation__date__lte=today,
-                type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
+            Pointage.objects.filter(
+                horodatage__date__gte=start_week,
+                horodatage__date__lte=today,
+                origine=Pointage.ORIGINE_POINTEUSE,
+                statut='NON_VALIDE',
+                incident_type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
             )
-            .annotate(jour=TruncDate('date_creation'))
+            .annotate(jour=TruncDate('horodatage'))
             .values('jour')
             .annotate(total=Count('id'))
         )

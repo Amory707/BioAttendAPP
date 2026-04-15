@@ -56,7 +56,7 @@ function initWeeklyChart() {
                     borderRadius: 6,
                 },
                 {
-                    label: 'Non reconnus',
+                    label: 'Incidents biométriques',
                     data: weeklyStats.map(d => d.unrecorded),
                     backgroundColor: dashboardColors.gray,
                     borderRadius: 6,

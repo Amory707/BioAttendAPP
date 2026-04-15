@@ -70,23 +70,32 @@ class DashboardAppTests(TestCase):
 			horodatage=timezone.now(),
 			score_confiance=0.91,
 		)
-		Alerte.objects.create(
+		Pointage.objects.create(
 			utilisateur=None,
-			type="UTILISATEUR_INCONNU",
-			description="Visage non reconnu",
-			statut="NOUVELLE",
+			statut="NON_VALIDE",
+			type="ENTREE",
+			horodatage=timezone.now(),
+			score_confiance=0.0,
+			origine=Pointage.ORIGINE_POINTEUSE,
+			incident_type="UTILISATEUR_INCONNU",
 		)
-		Alerte.objects.create(
+		Pointage.objects.create(
 			utilisateur=employee_two,
-			type="ECHEC_RECONNAISSANCE",
-			description="Distance faciale trop elevee",
-			statut="NOUVELLE",
+			statut="NON_VALIDE",
+			type="ENTREE",
+			horodatage=timezone.now(),
+			score_confiance=0.18,
+			origine=Pointage.ORIGINE_POINTEUSE,
+			incident_type="ECHEC_RECONNAISSANCE",
 		)
-		Alerte.objects.create(
+		Pointage.objects.create(
 			utilisateur=None,
-			type="TENTATIVE_FRAUDE",
-			description="Tentative avec photo imprimee detectee",
-			statut="NOUVELLE",
+			statut="NON_VALIDE",
+			type="ENTREE",
+			horodatage=timezone.now(),
+			score_confiance=0.0,
+			origine=Pointage.ORIGINE_POINTEUSE,
+			incident_type="TENTATIVE_FRAUDE",
 		)
 
 		response = self.client.get(reverse("dashboard:index"))

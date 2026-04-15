@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 
 import csv
 import json
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -557,22 +558,71 @@ def alerte_list(request):
         return redirect('Employee:alerte_list')
 
     recherche = request.GET.get('q', '').strip()
-    statut_filtre = request.GET.get('statut', '')
+    categorie_filtre = request.GET.get('categorie', '').strip()
+
+    categories_autorisees = [
+        ('UTILISATEUR_INCONNU', 'Utilisateur inconnu'),
+        ('ECHEC_RECONNAISSANCE', 'Visage non detecte'),
+        ('TENTATIVE_FRAUDE', 'Tentative de fraude'),
+    ]
+    types_autorises = {value for value, _ in categories_autorisees}
+
+    if categorie_filtre and categorie_filtre not in types_autorises:
+        categorie_filtre = ''
 
     alertes = Alerte.objects.select_related('utilisateur', 'pointage')
+    alertes = alertes.filter(type__in=types_autorises)
 
     if recherche:
         alertes = alertes.filter(
-            Q(utilisateur__last_name__icontains=recherche)
+            Q(utilisateur__first_name__icontains=recherche)
+            | Q(utilisateur__username__icontains=recherche)
+            | Q(utilisateur__last_name__icontains=recherche)
             | Q(description__icontains=recherche)
         )
 
-    if statut_filtre:
-        alertes = alertes.filter(statut=statut_filtre)
+    if categorie_filtre:
+        alertes = alertes.filter(type=categorie_filtre)
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '').strip()
+        if action == 'delete_selected':
+            selected_ids = request.POST.getlist('selected_alert_ids')
+            if selected_ids:
+                deleted_count, _ = alertes.filter(id__in=selected_ids).delete()
+                if deleted_count:
+                    messages.success(request, f"{deleted_count} alerte(s) supprimee(s).")
+                else:
+                    messages.warning(request, "Aucune alerte correspondante a supprimer.")
+            else:
+                messages.warning(request, "Selectionnez au moins une alerte a supprimer.")
+        elif action == 'delete_all':
+            deleted_count, _ = alertes.delete()
+            if deleted_count:
+                messages.success(request, f"{deleted_count} alerte(s) supprimee(s).")
+            else:
+                messages.info(request, "Aucune alerte a supprimer avec les filtres actuels.")
+        else:
+            messages.error(request, "Action de suppression invalide.")
+
+        query_params = {}
+        if recherche:
+            query_params['q'] = recherche
+        if categorie_filtre:
+            query_params['categorie'] = categorie_filtre
+
+        redirect_url = reverse('Employee:alerte_list')
+        if query_params:
+            redirect_url = f"{redirect_url}?{urlencode(query_params)}"
+        return redirect(redirect_url)
+
+    alertes = alertes.order_by('-date_creation')
 
     context = {
         'alertes': alertes,
-        'choix_statut': [('NOUVELLE', 'Nouvelle'), ('VUE', 'Vue'), ('TRAITEE', 'Traitée')],
+        'choix_categorie': categories_autorisees,
+        'categorie_filtre': categorie_filtre,
+        'recherche': recherche,
     }
 
     return render(request, 'utilisateur/alerte_list.html', context)
