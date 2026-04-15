@@ -9,8 +9,8 @@ def topbar_alert_count(request):
     
     if not user or not user.is_authenticated: return {"topbar_alert_count": 0}
 
-    if get_active_space(request) == EMPLOYEE_SPACE or (getattr(user, "is_employe", False) and not getattr(user, "is_platform_admin", False)): count = Alerte.objects.filter(utilisateur=user).exclude(statut="TRAITEE").count()
+    if get_active_space(request) == EMPLOYEE_SPACE or (getattr(user, "is_employe", False) and not getattr(user, "is_platform_admin", False)): count = Alerte.objects.filter(utilisateur=user, masquee=False).exclude(statut="TRAITEE").count()
     
-    else: count = Alerte.objects.exclude(statut="TRAITEE").count()
+    else: count = Alerte.objects.filter(masquee=False).exclude(statut="TRAITEE").count()
 
     return {"topbar_alert_count": count}

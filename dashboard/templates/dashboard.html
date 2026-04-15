@@ -2,6 +2,27 @@
 {% load static %}
 {% block extra_css %}
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <style>
+        #dashboard-page .stat-card.stat-total {
+            background: linear-gradient(135deg, #7C8594 0%, #5B6472 100%) !important;
+            color: #fff !important;
+        }
+
+        #dashboard-page .stat-card.stat-danger {
+            background: linear-gradient(135deg, #C97A63 0%, #B86452 100%) !important;
+            color: #fff !important;
+        }
+
+        #dashboard-page .stat-card.stat-total .stat-title,
+        #dashboard-page .stat-card.stat-total .stat-value,
+        #dashboard-page .stat-card.stat-total .stat-icon,
+        #dashboard-page .stat-card.stat-danger .stat-title,
+        #dashboard-page .stat-card.stat-danger .stat-value,
+        #dashboard-page .stat-card.stat-danger .stat-icon,
+        #dashboard-page .stat-card.stat-danger div {
+            color: #fff !important;
+        }
+    </style>
 {% endblock %}
 {% block title %}Dashboard - BioAttend{% endblock %}
 {% block content %}
@@ -30,13 +51,14 @@
             </div>
             <div class="stat-value">{{ today_absent_count }}</div>
         </div>
-        <div class="stat-card stat-danger">
+        <a href="{% url 'Employee:statistiques_problemes' %}" class="stat-card stat-danger" style="text-decoration: none; color: inherit; display: block;">
             <div class="stat-header">
-                <h3 class="stat-title">Incidents biométriques</h3>
-                <i class="fas fa-exclamation-triangle stat-icon"></i>
+                <h3 class="stat-title">Incidents sécurité</h3>
+                <i class="fas fa-shield-halved stat-icon"></i>
             </div>
             <div class="stat-value">{{ not_recognized_today }}</div>
-        </div>
+            <div style="margin-top: 8px; font-size: 12px; opacity: .85;">Voir le détail sécurité</div>
+        </a>
     </div>
     <div class="charts-section">
         <div class="charts-container">

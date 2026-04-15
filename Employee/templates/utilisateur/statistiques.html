@@ -32,33 +32,49 @@
     }
     .kpi-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-        gap: var(--spacing-md);
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
         margin-bottom: var(--spacing-lg);
     }
     .kpi-card {
         background: var(--color-bg-white);
         border-radius: var(--radius-md);
         box-shadow: var(--shadow-sm);
-        padding: var(--spacing-md);
+        padding: 12px 14px;
+    }
+    .kpi-card.security-total {
+        background: #F8FAFC;
+        border-left: 4px solid #64748B;
+    }
+    .kpi-card.security-failure {
+        background: #FEF2F2;
+        border-left: 4px solid #DC2626;
+    }
+    .kpi-card.security-unknown {
+        background: #FFF7ED;
+        border-left: 4px solid #D97706;
+    }
+    .kpi-card.security-fraud {
+        background: #FDF2F8;
+        border-left: 4px solid #BE185D;
     }
     .kpi-title {
-        font-size: var(--font-size-xs);
+        font-size: 11px;
         color: var(--color-text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
         font-weight: 700;
     }
     .kpi-value {
-        font-size: 24px;
-        font-weight: 700;
+        font-size: 18px;
+        font-weight: 800;
         color: var(--color-text-primary);
     }
     .kpi-meta {
-        margin-top: 6px;
+        margin-top: 4px;
         color: var(--color-text-secondary);
-        font-size: var(--font-size-xs);
+        font-size: 12px;
     }
     .panel {
         background: var(--color-bg-white);
@@ -104,12 +120,25 @@
         cursor: pointer;
         font-weight: 600;
     }
-    .filters .btn-export {
+    .filters .btn-export,
+    .panel-export-link {
         background: linear-gradient(135deg, #16a085 0%, #0f8f74 100%);
-        color: #fff;
+        color: #fff !important;
+        border: none;
     }
-    .filters .btn-export:hover {
+    .filters .btn-export:hover,
+    .panel-export-link:hover {
         background: linear-gradient(135deg, #138d75 0%, #0b7d65 100%);
+    }
+    .panel-export-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+        border-radius: var(--radius-sm);
+        padding: 8px 10px;
+        font-size: var(--font-size-sm);
+        font-weight: 700;
     }
     .table-wrap {
         overflow-x: auto;
@@ -754,22 +783,22 @@
 
     {% if active_tab == 'problemes' %}
         <div class="kpi-grid">
-            <div class="kpi-card">
+            <div class="kpi-card security-total">
                 <div class="kpi-title">Total sécurité</div>
                 <div class="kpi-value">{{ alertes_echec_reco|add:alertes_inconnu|add:alertes_fraude }}</div>
                 <div class="kpi-meta">Échec reco + inconnu + fraude</div>
             </div>
-            <div class="kpi-card">
+            <div class="kpi-card security-failure">
                 <div class="kpi-title">Échecs reco</div>
                 <div class="kpi-value">{{ alertes_echec_reco }}</div>
                 <div class="kpi-meta">Reconnaissance en échec</div>
             </div>
-            <div class="kpi-card">
+            <div class="kpi-card security-unknown">
                 <div class="kpi-title">Utilisateurs inconnus</div>
                 <div class="kpi-value">{{ alertes_inconnu }}</div>
                 <div class="kpi-meta">Visages non référencés</div>
             </div>
-            <div class="kpi-card">
+            <div class="kpi-card security-fraud">
                 <div class="kpi-title">Tentatives fraude</div>
                 <div class="kpi-value">{{ alertes_fraude }}</div>
                 <div class="kpi-meta">Photos, vidéos ou autre</div>
@@ -779,11 +808,9 @@
         <div class="panel">
             <div class="panel-header">
                 <div class="panel-title">Journal sécurité de reconnaissance</div>
-                <div class="chips">
-                    <span class="chip bad">Échecs reco: {{ alertes_echec_reco }}</span>
-                    <span class="chip warn">Utilisateurs inconnus: {{ alertes_inconnu }}</span>
-                    <span class="chip danger">Tentatives fraude: {{ alertes_fraude }}</span>
-                </div>
+                <a href="{% url 'Employee:alerte_export_csv' %}?source=security{% if is_user_scope %}&utilisateur_id={{ scope_utilisateur.pk }}{% endif %}{% if problem_q %}&problem_q={{ problem_q|urlencode }}{% endif %}{% if problem_type %}&problem_type={{ problem_type }}{% endif %}{% if problem_status %}&problem_status={{ problem_status }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="panel-export-link">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </a>
             </div>
 
             <form method="GET" class="filters">
@@ -815,7 +842,6 @@
                             <th>Date / Heure</th>
                             <th>Type</th>
                             <th>Statut</th>
-                            <th>Utilisateur</th>
                             <th>Description</th>
                         </tr>
                     </thead>
@@ -825,26 +851,15 @@
                                 <td>{{ alerte.date_creation|date:"d/m/Y H:i" }}</td>
                                 <td>
                                     <span class="chip {% if alerte.type == 'ECHEC_RECONNAISSANCE' %}bad{% elif alerte.type == 'TENTATIVE_FRAUDE' %}danger{% else %}warn{% endif %}">
-                                        {{ alerte.type }}
+                                        {{ alerte.get_type_display }}
                                     </span>
                                 </td>
                                 <td>{{ alerte.statut }}</td>
-                                <td>
-                                    {% if alerte.utilisateur %}
-                                        {% if is_user_scope %}
-                                            {{ alerte.utilisateur.first_name }} {{ alerte.utilisateur.last_name }}
-                                        {% else %}
-                                            <a href="{% url 'Employee:statistiques_utilisateur' alerte.utilisateur_id %}?tab=problemes">{{ alerte.utilisateur.first_name }} {{ alerte.utilisateur.last_name }}</a>
-                                        {% endif %}
-                                    {% else %}
-                                        Inconnu (non rattaché)
-                                    {% endif %}
-                                </td>
                                 <td>{{ alerte.description }}</td>
                             </tr>
                         {% empty %}
                             <tr>
-                                <td colspan="5" class="empty">Aucun problème trouvé pour les filtres sélectionnés.</td>
+                                <td colspan="4" class="empty">Aucun problème trouvé pour les filtres sélectionnés.</td>
                             </tr>
                         {% endfor %}
                     </tbody>

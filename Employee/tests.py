@@ -218,8 +218,8 @@ class EmployeeAppTests(TestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, "Journal sécurité de reconnaissance")
-		self.assertContains(response, "UTILISATEUR_INCONNU")
-		self.assertContains(response, "ECHEC_RECONNAISSANCE")
+		self.assertContains(response, "Utilisateur inconnu")
+		self.assertContains(response, "Visage non détecté")
 		self.assertEqual(len(response.context["problem_alerts"]), 2)
 
 	def test_statistiques_utilisateur_problemes_includes_unassigned_device_alerts(self):
@@ -277,7 +277,7 @@ class EmployeeAppTests(TestCase):
 		self.assertEqual(len(alertes), 1)
 		self.assertEqual(alertes[0].type, "UTILISATEUR_INCONNU")
 
-	def test_alerte_list_delete_selected_removes_only_alerts(self):
+	def test_alerte_list_delete_selected_archives_without_removing_db_rows(self):
 		user = self._create_user("alert-delete")
 		self.client.force_login(user)
 
@@ -288,14 +288,14 @@ class EmployeeAppTests(TestCase):
 			type="ENTREE",
 			score_confiance=0.91,
 		)
-		alerte_a_supprimer = Alerte.objects.create(
+		alerte_a_masquer = Alerte.objects.create(
 			utilisateur=user,
 			pointage=pointage,
 			type="UTILISATEUR_INCONNU",
 			description="Test suppression cible",
 			statut="NOUVELLE",
 		)
-		alerte_a_garder = Alerte.objects.create(
+		alerte_visible = Alerte.objects.create(
 			utilisateur=user,
 			type="TENTATIVE_FRAUDE",
 			description="Test conservation",
@@ -306,27 +306,34 @@ class EmployeeAppTests(TestCase):
 			reverse("Employee:alerte_list"),
 			{
 				"action": "delete_selected",
-				"selected_alert_ids": [str(alerte_a_supprimer.pk)],
+				"selected_alert_ids": [str(alerte_a_masquer.pk)],
 			},
 		)
 
 		self.assertEqual(response.status_code, 302)
-		self.assertFalse(Alerte.objects.filter(pk=alerte_a_supprimer.pk).exists())
-		self.assertTrue(Alerte.objects.filter(pk=alerte_a_garder.pk).exists())
+		alerte_a_masquer.refresh_from_db()
+		self.assertTrue(Alerte.objects.filter(pk=alerte_a_masquer.pk).exists())
+		self.assertEqual(alerte_a_masquer.statut, "TRAITEE")
+		self.assertTrue(alerte_a_masquer.masquee)
+		self.assertTrue(Alerte.objects.filter(pk=alerte_visible.pk).exists())
 		self.assertTrue(Pointage.objects.filter(pk=pointage.pk).exists())
 		self.assertTrue(Utilisateur.objects.filter(pk=user.pk).exists())
+
+		listing = self.client.get(reverse("Employee:alerte_list"))
+		self.assertNotContains(listing, "Test suppression cible")
+		self.assertContains(listing, "Test conservation")
 
 	def test_alerte_list_delete_all_respects_current_filter(self):
 		user = self._create_user("alert-delete-all")
 		self.client.force_login(user)
 
-		Alerte.objects.create(
+		alerte_inconnue = Alerte.objects.create(
 			utilisateur=user,
 			type="UTILISATEUR_INCONNU",
 			description="A supprimer",
 			statut="NOUVELLE",
 		)
-		Alerte.objects.create(
+		alerte_fraude = Alerte.objects.create(
 			utilisateur=user,
 			type="TENTATIVE_FRAUDE",
 			description="A conserver",
@@ -339,14 +346,11 @@ class EmployeeAppTests(TestCase):
 		)
 
 		self.assertEqual(response.status_code, 302)
-		self.assertEqual(
-			Alerte.objects.filter(type="UTILISATEUR_INCONNU").count(),
-			0,
-		)
-		self.assertEqual(
-			Alerte.objects.filter(type="TENTATIVE_FRAUDE").count(),
-			1,
-		)
+		alerte_inconnue.refresh_from_db()
+		alerte_fraude.refresh_from_db()
+		self.assertTrue(alerte_inconnue.masquee)
+		self.assertEqual(alerte_inconnue.statut, "TRAITEE")
+		self.assertFalse(alerte_fraude.masquee)
 
 	def test_alerte_list_post_marks_selected_alertes_as_traitees(self):
 		user = self._create_user("alert-user-selected")
@@ -415,8 +419,10 @@ class EmployeeAppTests(TestCase):
 		response = self.client.get(reverse("Employee:exporter_csv"))
 
 		self.assertEqual(response.status_code, 200)
-		self.assertEqual(response["Content-Type"], "text/csv")
-		content = response.content.decode("utf-8")
+		self.assertIn("text/csv", response["Content-Type"])
+		self.assertIn("charset=utf-8", response["Content-Type"])
+		self.assertTrue(response.content.startswith(b"\xef\xbb\xbf"))
+		content = response.content.decode("utf-8-sig")
 		self.assertIn("ID,Nom,Pr\u00e9nom,Email,D\u00e9partement", content)
 		self.assertIn("Iris", content)
 
@@ -443,8 +449,10 @@ class EmployeeAppTests(TestCase):
 		response = self.client.get(reverse("Employee:pointage_export_csv"), {"tab": "pointage"})
 
 		self.assertEqual(response.status_code, 200)
-		self.assertEqual(response["Content-Type"], "text/csv")
-		content = response.content.decode("utf-8")
+		self.assertIn("text/csv", response["Content-Type"])
+		self.assertIn("charset=utf-8", response["Content-Type"])
+		self.assertTrue(response.content.startswith(b"\xef\xbb\xbf"))
+		content = response.content.decode("utf-8-sig")
 		self.assertIn("ID Pointage,Date Heure,Username,Nom,Prenom,Type,Statut,Score IA", content)
 		self.assertIn("VALIDE", content)
 		self.assertNotIn("NON_VALIDE", content)
@@ -479,3 +487,78 @@ class EmployeeAppTests(TestCase):
 		content = response.content.decode("utf-8")
 		self.assertIn("target-scope", content)
 		self.assertNotIn("other-scope", content)
+
+	def test_alerte_export_csv_returns_filtered_security_alerts(self):
+		user = self._create_user("csv-alert-admin")
+		self.client.force_login(user)
+
+		Alerte.objects.create(
+			utilisateur=None,
+			type="UTILISATEUR_INCONNU",
+			description="Visage inconnu en entree",
+			statut="NOUVELLE",
+			device_name="borne-a",
+		)
+		Alerte.objects.create(
+			utilisateur=None,
+			type="TENTATIVE_FRAUDE",
+			description="Photo detectee",
+			statut="NOUVELLE",
+			device_name="borne-b",
+		)
+
+		response = self.client.get(
+			reverse("Employee:alerte_export_csv"),
+			{"categorie": "UTILISATEUR_INCONNU"},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertIn("text/csv", response["Content-Type"])
+		self.assertIn("charset=utf-8", response["Content-Type"])
+		self.assertTrue(response.content.startswith(b"\xef\xbb\xbf"))
+		content = response.content.decode("utf-8-sig")
+		self.assertIn("Date,Type,Statut,Source,Description", content)
+		self.assertIn("Visage inconnu en entree", content)
+		self.assertNotIn("Photo detectee", content)
+
+	def test_archiving_notification_does_not_remove_security_history(self):
+		admin = self._create_user("notif-separate-admin")
+		self.client.force_login(admin)
+
+		alerte = Alerte.objects.create(
+			utilisateur=None,
+			type="UTILISATEUR_INCONNU",
+			description="Incident conserve dans securite",
+			statut="NOUVELLE",
+		)
+
+		response = self.client.post(
+			reverse("Employee:alerte_list"),
+			{"action": "delete_selected", "selected_alert_ids": [str(alerte.pk)]},
+		)
+		self.assertEqual(response.status_code, 302)
+
+		security_response = self.client.get(reverse("Employee:statistiques_problemes"))
+		self.assertEqual(security_response.status_code, 200)
+		self.assertContains(security_response, "Incident conserve dans securite")
+
+	def test_security_export_csv_includes_problem_history(self):
+		user = self._create_user("security-export-admin")
+		self.client.force_login(user)
+
+		Alerte.objects.create(
+			utilisateur=None,
+			type="TENTATIVE_FRAUDE",
+			description="Incident export securite",
+			statut="TRAITEE",
+			masquee=True,
+		)
+
+		response = self.client.get(
+			reverse("Employee:alerte_export_csv"),
+			{"source": "security", "problem_type": "TENTATIVE_FRAUDE"},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		content = response.content.decode("utf-8")
+		self.assertIn("Incident export securite", content)

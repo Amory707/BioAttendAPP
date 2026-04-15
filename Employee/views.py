@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 import csv
 import json
@@ -25,6 +25,7 @@ from .forms import UtilisateurUnifiedForm
 
 MAX_UPLOAD_IMAGE_COUNT = 5
 MAX_TOTAL_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
+SECURITY_ALERT_TYPES = tuple(Alerte.SECURITY_TYPES)
 
 try:
     import insightface
@@ -152,6 +153,143 @@ def _safe_parse_date(value):
         return None
 
 
+def _safe_parse_time(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, '%H:%M').time()
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_csv_response(filename):
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response.write('\ufeff')
+    writer = csv.writer(response)
+    return response, writer
+
+
+def _security_alert_categories():
+    return [
+        ('UTILISATEUR_INCONNU', 'Utilisateur inconnu'),
+        ('ECHEC_RECONNAISSANCE', 'Visage non détecté'),
+        ('TENTATIVE_FRAUDE', 'Tentative de fraude'),
+    ]
+
+
+def _sync_security_alerts(utilisateur=None, date_debut=None, date_fin=None):
+    incident_qs = Pointage.objects.select_related('utilisateur').filter(
+        origine=Pointage.ORIGINE_POINTEUSE,
+        statut='NON_VALIDE',
+        incident_type__in=SECURITY_ALERT_TYPES,
+    )
+
+    if utilisateur is not None:
+        incident_qs = incident_qs.filter(Q(utilisateur=utilisateur) | Q(utilisateur__isnull=True))
+
+    if date_debut:
+        incident_qs = incident_qs.filter(horodatage__date__gte=date_debut)
+    if date_fin:
+        incident_qs = incident_qs.filter(horodatage__date__lte=date_fin)
+
+    for pointage in incident_qs:
+        details = pointage.details if isinstance(pointage.details, dict) else {}
+        Alerte.create_or_update_for_incident(
+            pointage.incident_type,
+            details.get('message') or Alerte.default_description_for_incident(pointage.incident_type),
+            pointage=pointage,
+            utilisateur=pointage.utilisateur,
+            event_status=details.get('status', ''),
+            device_name=pointage.device_name,
+            details=details,
+        )
+
+
+def _filtered_security_alerts_queryset(request, include_hidden=False):
+    categorie_filtre = request.GET.get('categorie', '').strip()
+    date_debut_raw = request.GET.get('date_debut', '').strip()
+    date_fin_raw = request.GET.get('date_fin', '').strip()
+    date_debut = _safe_parse_date(date_debut_raw)
+    date_fin = _safe_parse_date(date_fin_raw)
+    categories_autorisees = _security_alert_categories()
+    types_autorises = {value for value, _ in categories_autorisees}
+
+    _sync_security_alerts(date_debut=date_debut, date_fin=date_fin)
+
+    if categorie_filtre and categorie_filtre not in types_autorises:
+        categorie_filtre = ''
+
+    alertes = Alerte.objects.select_related('utilisateur', 'pointage').all()
+    if not include_hidden:
+        alertes = alertes.filter(masquee=False)
+
+    if categorie_filtre:
+        alertes = alertes.filter(type=categorie_filtre)
+    if date_debut:
+        alertes = alertes.filter(date_creation__date__gte=date_debut)
+    if date_fin:
+        alertes = alertes.filter(date_creation__date__lte=date_fin)
+
+    return {
+        'alertes': alertes.order_by('-date_creation'),
+        'choix_categorie': categories_autorisees,
+        'categorie_filtre': categorie_filtre,
+        'date_debut': date_debut_raw,
+        'date_fin': date_fin_raw,
+    }
+
+
+def _filtered_problem_alerts_queryset(request, utilisateur=None):
+    problem_q = request.GET.get('problem_q', '').strip()
+    problem_type = request.GET.get('problem_type', '').strip()
+    problem_status = request.GET.get('problem_status', '').strip()
+    date_debut_raw = request.GET.get('date_debut', '').strip()
+    date_fin_raw = request.GET.get('date_fin', '').strip()
+    date_debut = _safe_parse_date(date_debut_raw)
+    date_fin = _safe_parse_date(date_fin_raw)
+
+    problem_type_choices = _security_alert_categories()
+    valid_problem_types = {value for value, _ in problem_type_choices}
+    valid_problem_statuses = {value for value, _ in Alerte.STATUT_CHOICES}
+
+    _sync_security_alerts(utilisateur=utilisateur, date_debut=date_debut, date_fin=date_fin)
+
+    alerts_qs = Alerte.objects.all()
+    if utilisateur is not None:
+        alerts_qs = alerts_qs.filter(
+            Q(utilisateur=utilisateur)
+            | Q(utilisateur__isnull=True, type__in=SECURITY_ALERT_TYPES)
+        )
+
+    if date_debut:
+        alerts_qs = alerts_qs.filter(date_creation__date__gte=date_debut)
+    if date_fin:
+        alerts_qs = alerts_qs.filter(date_creation__date__lte=date_fin)
+
+    problem_alerts = alerts_qs.filter(type__in=valid_problem_types)
+    if problem_q:
+        problem_alerts = problem_alerts.filter(
+            Q(description__icontains=problem_q)
+            | Q(utilisateur__first_name__icontains=problem_q)
+            | Q(utilisateur__last_name__icontains=problem_q)
+            | Q(utilisateur__username__icontains=problem_q)
+        )
+    if problem_type in valid_problem_types:
+        problem_alerts = problem_alerts.filter(type=problem_type)
+    if problem_status in valid_problem_statuses:
+        problem_alerts = problem_alerts.filter(statut=problem_status)
+
+    return {
+        'problem_alerts': problem_alerts.select_related('utilisateur').order_by('-date_creation'),
+        'problem_q': problem_q,
+        'problem_type': problem_type,
+        'problem_status': problem_status,
+        'problem_type_choices': problem_type_choices,
+        'problem_status_choices': Alerte.STATUT_CHOICES,
+    }
+
+
 def _filtered_pointages_queryset(request, utilisateur=None, active_tab='pointage'):
     search = request.GET.get('q', '').strip()
     type_filtre = request.GET.get('type', '').strip()
@@ -277,13 +415,15 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
             'width': max(width, 4) if value else 0,
         })
 
+    _sync_security_alerts(utilisateur=utilisateur, date_debut=date_debut, date_fin=date_fin)
+
     alerts_qs = Alerte.objects.all()
     if utilisateur is not None:
         alerts_qs = alerts_qs.filter(
             Q(utilisateur=utilisateur)
             | Q(
                 utilisateur__isnull=True,
-                type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
+                type__in=SECURITY_ALERT_TYPES,
             )
         )
 
@@ -335,30 +475,7 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'data': [alertes_echec_reco, alertes_inconnu, alertes_fraude, alertes_retard, alertes_absence, alertes_double_pointage],
     }
 
-    problem_q = request.GET.get('problem_q', '').strip()
-    problem_type = request.GET.get('problem_type', '').strip()
-    problem_status = request.GET.get('problem_status', '').strip()
-    problem_type_choices = [
-        ('UTILISATEUR_INCONNU', 'Utilisateur inconnu'),
-        ('ECHEC_RECONNAISSANCE', 'Echec reconnaissance'),
-        ('TENTATIVE_FRAUDE', 'Tentative de fraude'),
-    ]
-
-    valid_problem_types = {value for value, _ in problem_type_choices}
-    valid_problem_statuses = {value for value, _ in Alerte.STATUT_CHOICES}
-
-    problem_alerts = alerts_qs.filter(type__in=valid_problem_types)
-    if problem_q:
-        problem_alerts = problem_alerts.filter(
-            Q(description__icontains=problem_q)
-            | Q(utilisateur__first_name__icontains=problem_q)
-            | Q(utilisateur__last_name__icontains=problem_q)
-            | Q(utilisateur__username__icontains=problem_q)
-        )
-    if problem_type in valid_problem_types: problem_alerts = problem_alerts.filter(type=problem_type)
-    if problem_status in valid_problem_statuses: problem_alerts = problem_alerts.filter(statut=problem_status)
-
-    problem_alerts = problem_alerts.select_related('utilisateur').order_by('-date_creation')
+    problem_filters = _filtered_problem_alerts_queryset(request, utilisateur=utilisateur)
 
     if utilisateur is None: pointage_export_url = reverse('Employee:pointage_export_csv')
     else: pointage_export_url = reverse('Employee:pointage_export_utilisateur_csv', kwargs={'utilisateur_id': utilisateur.pk})
@@ -400,12 +517,12 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'alert_types_json': json.dumps(alert_types_data),
         'confidence_timeline': confidence_timeline,
         'alert_types_data': alert_types_data,
-        'problem_alerts': problem_alerts[:200],
-        'problem_q': problem_q,
-        'problem_type': problem_type,
-        'problem_status': problem_status,
-        'problem_type_choices': problem_type_choices,
-        'problem_status_choices': Alerte.STATUT_CHOICES,
+        'problem_alerts': problem_filters['problem_alerts'][:200],
+        'problem_q': problem_filters['problem_q'],
+        'problem_type': problem_filters['problem_type'],
+        'problem_status': problem_filters['problem_status'],
+        'problem_type_choices': problem_filters['problem_type_choices'],
+        'problem_status_choices': problem_filters['problem_status_choices'],
     }
 
 @login_required(login_url='login')
@@ -419,12 +536,9 @@ def exporter_pointages_csv(request, utilisateur_id=None):
     filtered_data = _filtered_pointages_queryset(request, utilisateur=utilisateur, active_tab=active_tab)
     pointages = filtered_data['filtered_pointages']
 
-    response = HttpResponse(content_type='text/csv')
     if utilisateur is None: filename = 'pointages_export.csv'
     else: filename = f'pointages_{utilisateur.username}.csv'
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-
-    writer = csv.writer(response)
+    response, writer = _build_csv_response(filename)
     writer.writerow([
         'ID Pointage',
         'Date Heure',
@@ -437,12 +551,13 @@ def exporter_pointages_csv(request, utilisateur_id=None):
     ])
 
     for pointage in pointages:
+        utilisateur_associe = pointage.utilisateur
         writer.writerow([
             pointage.pk,
             pointage.horodatage.strftime('%Y-%m-%d %H:%M:%S') if pointage.horodatage else '',
-            pointage.utilisateur.username,
-            pointage.utilisateur.last_name,
-            pointage.utilisateur.first_name,
+            getattr(utilisateur_associe, 'username', ''),
+            getattr(utilisateur_associe, 'last_name', ''),
+            getattr(utilisateur_associe, 'first_name', ''),
             pointage.type,
             pointage.statut,
             pointage.score_confiance,
@@ -538,94 +653,90 @@ def statistiques_utilisateur(request, utilisateur_id):
 
 @login_required(login_url='login')
 def alerte_list(request):
-    if request.method == 'POST':
-        if request.POST.get('delete_all') == '1':
-            Alerte.objects.all().update(statut='TRAITEE')
-            messages.success(request, 'Toutes les alertes ont été marquées comme traitées.')
-            return redirect('Employee:alerte_list')
-
-        if request.POST.get('delete_selected') == '1':
-            selected_ids = request.POST.getlist('selected_alertes')
-            if selected_ids:
-                Alerte.objects.filter(id__in=selected_ids).update(statut='TRAITEE')
-                messages.success(request, 'Alertes sélectionnées marquées comme traitées.')
-            
-            else: messages.info(request, 'Aucune alerte sélectionnée pour être traitée.')
-            
-            return redirect('Employee:alerte_list')
-
-        messages.info(request, 'Aucune action valide pour les alertes.')
-        return redirect('Employee:alerte_list')
-
-    recherche = request.GET.get('q', '').strip()
-    categorie_filtre = request.GET.get('categorie', '').strip()
-
-    categories_autorisees = [
-        ('UTILISATEUR_INCONNU', 'Utilisateur inconnu'),
-        ('ECHEC_RECONNAISSANCE', 'Visage non detecte'),
-        ('TENTATIVE_FRAUDE', 'Tentative de fraude'),
-    ]
-    types_autorises = {value for value, _ in categories_autorisees}
-
-    if categorie_filtre and categorie_filtre not in types_autorises:
-        categorie_filtre = ''
-
-    alertes = Alerte.objects.select_related('utilisateur', 'pointage')
-    alertes = alertes.filter(type__in=types_autorises)
-
-    if recherche:
-        alertes = alertes.filter(
-            Q(utilisateur__first_name__icontains=recherche)
-            | Q(utilisateur__username__icontains=recherche)
-            | Q(utilisateur__last_name__icontains=recherche)
-            | Q(description__icontains=recherche)
-        )
-
-    if categorie_filtre:
-        alertes = alertes.filter(type=categorie_filtre)
+    filtered_context = _filtered_security_alerts_queryset(request)
+    alertes = filtered_context['alertes']
 
     if request.method == 'POST':
         action = request.POST.get('action', '').strip()
+        if not action and request.POST.get('delete_selected') == '1':
+            action = 'delete_selected'
+        if not action and request.POST.get('delete_all') == '1':
+            action = 'delete_all'
+
         if action == 'delete_selected':
-            selected_ids = request.POST.getlist('selected_alert_ids')
+            selected_ids = request.POST.getlist('selected_alert_ids') or request.POST.getlist('selected_alertes')
             if selected_ids:
-                deleted_count, _ = alertes.filter(id__in=selected_ids).delete()
-                if deleted_count:
-                    messages.success(request, f"{deleted_count} alerte(s) supprimee(s).")
+                updated_count = alertes.filter(id__in=selected_ids).update(statut='TRAITEE', masquee=True)
+                if updated_count:
+                    messages.success(request, f"{updated_count} alerte(s) archivee(s) sans suppression de la base.")
                 else:
-                    messages.warning(request, "Aucune alerte correspondante a supprimer.")
+                    messages.warning(request, "Aucune alerte correspondante a archiver.")
             else:
-                messages.warning(request, "Selectionnez au moins une alerte a supprimer.")
+                messages.warning(request, "Selectionnez au moins une alerte a retirer de la vue.")
         elif action == 'delete_all':
-            deleted_count, _ = alertes.delete()
-            if deleted_count:
-                messages.success(request, f"{deleted_count} alerte(s) supprimee(s).")
+            updated_count = alertes.update(statut='TRAITEE', masquee=True)
+            if updated_count:
+                messages.success(request, f"{updated_count} alerte(s) archivee(s) sans suppression de la base.")
             else:
-                messages.info(request, "Aucune alerte a supprimer avec les filtres actuels.")
+                messages.info(request, "Aucune alerte a archiver avec les filtres actuels.")
         else:
-            messages.error(request, "Action de suppression invalide.")
+            messages.error(request, "Action d'archivage invalide.")
 
         query_params = {}
-        if recherche:
-            query_params['q'] = recherche
-        if categorie_filtre:
-            query_params['categorie'] = categorie_filtre
+        if filtered_context['categorie_filtre']:
+            query_params['categorie'] = filtered_context['categorie_filtre']
+        if filtered_context['date_debut']:
+            query_params['date_debut'] = filtered_context['date_debut']
+        if filtered_context['date_fin']:
+            query_params['date_fin'] = filtered_context['date_fin']
 
         redirect_url = reverse('Employee:alerte_list')
         if query_params:
             redirect_url = f"{redirect_url}?{urlencode(query_params)}"
         return redirect(redirect_url)
 
-    alertes = alertes.order_by('-date_creation')
-
     context = {
-        'alertes': alertes,
-        'choix_categorie': categories_autorisees,
-        'categorie_filtre': categorie_filtre,
-        'recherche': recherche,
+        **filtered_context,
+        'resume_total': alertes.count(),
+        'resume_inconnu': alertes.filter(type='UTILISATEUR_INCONNU').count(),
+        'resume_echec': alertes.filter(type='ECHEC_RECONNAISSANCE').count(),
+        'resume_fraude': alertes.filter(type='TENTATIVE_FRAUDE').count(),
     }
 
     return render(request, 'utilisateur/alerte_list.html', context)
+
+
+@login_required(login_url='login')
+def exporter_alertes_csv(request):
+    source = request.GET.get('source', '').strip().lower()
+
+    if source == 'security':
+        utilisateur = None
+        utilisateur_id = request.GET.get('utilisateur_id', '').strip()
+        if utilisateur_id:
+            utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
+
+        filtered_context = _filtered_problem_alerts_queryset(request, utilisateur=utilisateur)
+        alertes = filtered_context['problem_alerts']
+        filename = 'securite_export.csv'
+    else:
+        filtered_context = _filtered_security_alerts_queryset(request)
+        alertes = filtered_context['alertes']
+        filename = 'notifications_export.csv'
+
+    response, writer = _build_csv_response(filename)
+    writer.writerow(['Date', 'Type', 'Statut', 'Source', 'Description'])
+
+    for alerte in alertes:
+        writer.writerow([
+            alerte.date_creation.strftime('%Y-%m-%d %H:%M:%S') if alerte.date_creation else '',
+            alerte.get_type_display(),
+            alerte.statut,
+            alerte.device_name or 'Système',
+            alerte.description,
+        ])
+
+    return response
 
 @login_required(login_url='login')
 def create_utilisateur(request):
@@ -755,9 +866,7 @@ def role_list(request):
 @login_required(login_url='login')
 def exporter_csv(request):
     utilisateurs = Utilisateur.objects.all()
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="utilisateurs_bioattend.csv"'
-    writer = csv.writer(response)
+    response, writer = _build_csv_response('utilisateurs_bioattend.csv')
     writer.writerow(['ID', 'Nom', 'Prénom', 'Email', 'Département'])
     for utilisateur in utilisateurs:
         writer.writerow([

@@ -22,6 +22,30 @@
         color: var(--color-text-secondary);
         font-size: var(--font-size-sm);
     }
+    .alertes-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+    }
+    .alert-summary-card {
+        background: linear-gradient(135deg, rgba(74, 144, 226, 0.08), rgba(74, 144, 226, 0.02));
+        border: 1px solid rgba(74, 144, 226, 0.15);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-md);
+    }
+    .alert-summary-card .label {
+        font-size: var(--font-size-xs);
+        text-transform: uppercase;
+        letter-spacing: .4px;
+        color: var(--color-text-secondary);
+    }
+    .alert-summary-card .value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: var(--color-text-primary);
+        margin-top: 6px;
+    }
     .alertes-filter {
         display: flex;
         gap: var(--spacing-sm);
@@ -29,30 +53,53 @@
         border-bottom: 1px solid #f0f0f0;
         flex-wrap: wrap;
         background: var(--color-bg-light);
+        align-items: end;
+    }
+    .alertes-filter .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 220px;
+        flex: 1;
+    }
+    .alertes-filter label {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .4px;
     }
     .alertes-filter input,
     .alertes-filter select,
-    .alertes-filter button {
-        padding: 8px 10px;
+    .alertes-filter button,
+    .alertes-filter a {
+        padding: 10px 12px;
         border: 1px solid #ddd;
         border-radius: var(--radius-sm);
         font-size: var(--font-size-sm);
     }
-    .alertes-filter button {
-        background: var(--color-primary);
-        color: #fff;
-        border: none;
-        font-weight: 600;
-        cursor: pointer;
+    .alertes-filter a {
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        background: #fff;
+        color: var(--color-text-primary);
     }
     .alertes-actions {
         display: flex;
         gap: var(--spacing-sm);
         align-items: center;
-        justify-content: flex-end;
+        justify-content: space-between;
         padding: var(--spacing-md) var(--spacing-lg);
         border-bottom: 1px solid #f0f0f0;
         background: #fff;
+        flex-wrap: wrap;
+    }
+    .alertes-actions-info {
+        color: var(--color-text-secondary);
+        font-size: var(--font-size-sm);
     }
     .btn-danger-soft {
         background: #fff1f0;
@@ -65,7 +112,7 @@
     .alertes-grid-header,
     .alertes-grid-row {
         display: grid;
-        grid-template-columns: 48px 1.2fr 1.8fr 1.4fr 1fr;
+        grid-template-columns: 48px 1.1fr 2.3fr 1fr 1.2fr 0.9fr;
         gap: var(--spacing-md);
         padding: var(--spacing-md) var(--spacing-lg);
         align-items: center;
@@ -86,23 +133,48 @@
     .alertes-grid-row:last-child {
         border-bottom: none;
     }
-    .alerte-id {
-        color: var(--color-text-secondary);
-        font-family: monospace;
-        font-size: 12px;
-    }
-    .alerte-type {
-        font-weight: 700;
-        color: var(--color-text-primary);
-    }
     .alertes-checkbox-cell {
         display: flex;
         justify-content: center;
     }
-    .alerte-user,
+    .alerte-type-badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-weight: 700;
+        width: fit-content;
+        font-size: 12px;
+    }
+    .alerte-type-badge.inconnu { background: #FFF7E6; color: #B26A00; }
+    .alerte-type-badge.echec { background: #FEF2F2; color: #B91C1C; }
+    .alerte-type-badge.fraude { background: #FDF2F8; color: #BE185D; }
+    .alerte-type-badge.neutre { background: #EEF2FF; color: #4338CA; }
+    .alerte-description {
+        color: var(--color-text-primary);
+        line-height: 1.4;
+    }
+    .alerte-source,
     .alerte-date,
     .alerte-statut {
         color: var(--color-text-secondary);
+    }
+    .alerte-statut {
+        font-weight: 700;
+    }
+    @media (max-width: 960px) {
+        .alertes-grid-header,
+        .alertes-grid-row {
+            grid-template-columns: 42px 1fr 1.8fr;
+        }
+        .alertes-grid-header div:nth-child(4),
+        .alertes-grid-header div:nth-child(5),
+        .alertes-grid-header div:nth-child(6),
+        .alertes-grid-row div:nth-child(4),
+        .alertes-grid-row div:nth-child(5),
+        .alertes-grid-row div:nth-child(6) {
+            display: none;
+        }
     }
 </style>
 {% endblock %}
@@ -111,41 +183,78 @@
 <section class="page active">
     <div class="alertes-page-header">
         <div>
-            <h1 class="alertes-page-title">Journal des alertes</h1>
-            <p class="alertes-page-subtitle">Filtrer et supprimer uniquement les alertes de reconnaissance.</p>
+            <h1 class="alertes-page-title">Notifications</h1>
+        </div>
+    </div>
+
+    <div class="alertes-summary">
+        <div class="alert-summary-card">
+            <div class="label">Total visible</div>
+            <div class="value">{{ resume_total }}</div>
+        </div>
+        <div class="alert-summary-card">
+            <div class="label">Utilisateurs inconnus</div>
+            <div class="value">{{ resume_inconnu }}</div>
+        </div>
+        <div class="alert-summary-card">
+            <div class="label">Visages non détectés</div>
+            <div class="value">{{ resume_echec }}</div>
+        </div>
+        <div class="alert-summary-card">
+            <div class="label">Tentatives de fraude</div>
+            <div class="value">{{ resume_fraude }}</div>
         </div>
     </div>
 
     <div class="recent-table">
         <form method="GET" class="alertes-filter">
-            <input type="text" name="q" value="{{ recherche }}" placeholder="Rechercher par nom ou description">
-            <select name="categorie">
-                <option value="">Toutes les categories</option>
-                {% for value, label in choix_categorie %}
-                    <option value="{{ value }}" {% if categorie_filtre == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
+            <div class="field" style="max-width: 260px;">
+                <label for="alert-category">Type d'erreur</label>
+                <select id="alert-category" name="categorie">
+                    <option value="">Tous</option>
+                    {% for value, label in choix_categorie %}
+                        <option value="{{ value }}" {% if categorie_filtre == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field" style="max-width: 180px;">
+                <label for="date-debut">Date début</label>
+                <input id="date-debut" type="date" name="date_debut" value="{{ date_debut }}">
+            </div>
+            <div class="field" style="max-width: 180px;">
+                <label for="date-fin">Date fin</label>
+                <input id="date-fin" type="date" name="date_fin" value="{{ date_fin }}">
+            </div>
             <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filtrer</button>
+            {% if categorie_filtre or date_debut or date_fin %}
+                <a href="{% url 'Employee:alerte_list' %}">
+                    <i class="fas fa-rotate-left"></i> Réinitialiser
+                </a>
+            {% endif %}
         </form>
 
         <form method="POST" action="{% url 'Employee:alerte_list' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}">
             {% csrf_token %}
             <div class="alertes-actions">
-                <button type="submit" name="action" value="delete_selected" class="btn btn-danger-soft" onclick="return confirm('Supprimer les alertes selectionnees ?');">
-                    Supprimer la selection
-                </button>
-                <button type="submit" name="action" value="delete_all" class="btn btn-danger" onclick="return confirm('Supprimer toutes les alertes correspondant au filtre actuel ?');">
-                    Supprimer toutes les alertes
-                </button>
+                <div class="alertes-actions-info"></div>
+                <div style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
+                    <button type="submit" name="action" value="delete_selected" class="btn btn-danger-soft" onclick="return confirm('Retirer les alertes sélectionnées de la vue ?');">
+                        Retirer la sélection
+                    </button>
+                    <button type="submit" name="action" value="delete_all" class="btn btn-danger" onclick="return confirm('Retirer toutes les alertes affichées de la vue ?');">
+                        Tout retirer
+                    </button>
+                </div>
             </div>
 
             <div class="alertes-grid-header">
                 <div class="alertes-checkbox-cell">
-                    <input type="checkbox" id="selectAllAlerts" aria-label="Tout selectionner">
+                    <input type="checkbox" id="selectAllAlerts" aria-label="Tout sélectionner">
                 </div>
                 <div>Type</div>
-                <div>Utilisateur</div>
-                <div>Date de Creation</div>
+                <div>Description</div>
+                <div>Source</div>
+                <div>Date</div>
                 <div>Statut</div>
             </div>
 
@@ -153,22 +262,21 @@
                 {% for alerte in alertes %}
                     <div class="alertes-grid-row">
                         <div class="alertes-checkbox-cell">
-                            <input type="checkbox" name="selected_alert_ids" value="{{ alerte.id }}" class="alert-select-item" aria-label="Selectionner l'alerte {{ alerte.id }}">
+                            <input type="checkbox" name="selected_alert_ids" value="{{ alerte.id }}" class="alert-select-item" aria-label="Sélectionner l'alerte {{ alerte.id }}">
                         </div>
-                        <div class="alerte-type">{{ alerte.get_type_display }}</div>
-                        <div class="alerte-user">
-                            {% if alerte.utilisateur %}
-                                {{ alerte.utilisateur.first_name }} {{ alerte.utilisateur.last_name }}
-                            {% else %}
-                                Utilisateur inconnu
-                            {% endif %}
+                        <div>
+                            <span class="alerte-type-badge {% if alerte.type == 'UTILISATEUR_INCONNU' %}inconnu{% elif alerte.type == 'ECHEC_RECONNAISSANCE' %}echec{% elif alerte.type == 'TENTATIVE_FRAUDE' %}fraude{% else %}neutre{% endif %}">
+                                {{ alerte.get_type_display }}
+                            </span>
                         </div>
+                        <div class="alerte-description">{{ alerte.description }}</div>
+                        <div class="alerte-source">{{ alerte.device_name|default:'Système' }}</div>
                         <div class="alerte-date">{{ alerte.date_creation|date:'d/m/Y H:i' }}</div>
                         <div class="alerte-statut">{{ alerte.statut }}</div>
                     </div>
                 {% empty %}
                     <div style="padding: var(--spacing-xl); color: var(--color-text-secondary); text-align: center;">
-                        Aucune alerte pour le moment.
+                        Aucune alerte de sécurité à afficher pour le moment.
                     </div>
                 {% endfor %}
             </div>

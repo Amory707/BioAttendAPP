@@ -123,6 +123,9 @@ class FaceIdentifyApiTests(TestCase):
 		self.assertIsNone(pointage.utilisateur)
 		self.assertEqual(pointage.statut, "NON_VALIDE")
 		self.assertEqual(pointage.origine, Pointage.ORIGINE_POINTEUSE)
+		alerte = Alerte.objects.get(type="TENTATIVE_FRAUDE")
+		self.assertEqual(alerte.pointage_id, pointage.id)
+		self.assertIn("Photo imprimee detectee", alerte.description)
 
 	def test_identify_returns_404_when_no_match(self):
 		response = self._mock_queryset_chain(first_result=None)
@@ -133,6 +136,8 @@ class FaceIdentifyApiTests(TestCase):
 		pointage = Pointage.objects.filter(incident_type="UTILISATEUR_INCONNU").first()
 		self.assertIsNotNone(pointage)
 		self.assertEqual(pointage.statut, "NON_VALIDE")
+		alerte = Alerte.objects.get(type="UTILISATEUR_INCONNU")
+		self.assertEqual(alerte.pointage_id, pointage.id)
 
 	@override_settings(FACE_MATCH_THRESHOLD=0.5)
 	def test_identify_returns_404_when_distance_above_threshold(self):
@@ -151,6 +156,8 @@ class FaceIdentifyApiTests(TestCase):
 		pointage = Pointage.objects.filter(incident_type="ECHEC_RECONNAISSANCE").first()
 		self.assertIsNone(pointage.utilisateur)
 		self.assertEqual(pointage.details["candidate_username"], "far-user")
+		alerte = Alerte.objects.get(type="ECHEC_RECONNAISSANCE")
+		self.assertEqual(alerte.pointage_id, pointage.id)
 
 	@override_settings(FACE_MATCH_THRESHOLD=0.5)
 	def test_identify_returns_200_when_match_found(self):
@@ -372,3 +379,9 @@ class FrontEventApiTests(TestCase):
 		self.assertEqual(pointage.details["liveness_score"], 0.12)
 		self.assertEqual(pointage.statut, "NON_VALIDE")
 		self.assertEqual(pointage.origine, Pointage.ORIGINE_POINTEUSE)
+
+		alerte = Alerte.objects.get(pointage=pointage)
+		self.assertEqual(alerte.type, "TENTATIVE_FRAUDE")
+		self.assertEqual(alerte.device_name, "bioattend-pi")
+		self.assertEqual(alerte.event_status, "BLOCKED")
+		self.assertIn("liveness", alerte.details["stage"])

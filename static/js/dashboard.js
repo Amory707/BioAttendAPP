@@ -56,7 +56,7 @@ function initWeeklyChart() {
                     borderRadius: 6,
                 },
                 {
-                    label: 'Incidents biométriques',
+                    label: 'Incidents sécurité',
                     data: weeklyStats.map(d => d.unrecorded),
                     backgroundColor: dashboardColors.gray,
                     borderRadius: 6,
