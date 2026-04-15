@@ -25,6 +25,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Utilisateur
+from alerts.models import Alerte
 from attendance.models import Pointage
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,12 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
         if details is None:
             details = {}
 
-        Pointage.objects.create(
+        incident_details = {
+            **details,
+            'message': description,
+        }
+
+        pointage = Pointage.objects.create(
             utilisateur=utilisateur,
             statut='NON_VALIDE',
             horodatage=timezone.now(),
@@ -87,8 +93,18 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
             origine=Pointage.ORIGINE_POINTEUSE,
             incident_type=incident_type,
             device_name=device_name,
-            details=details,
+            details=incident_details,
         )
+
+        Alerte.create_or_update_for_incident(
+            incident_type,
+            description,
+            pointage=pointage,
+            utilisateur=utilisateur,
+            device_name=device_name,
+            details=incident_details,
+        )
+        return pointage
 
     @classmethod
     def _create_unknown_user_event(cls, best_distance=None):
@@ -340,8 +356,18 @@ class FrontEventView(DeviceApiAuthMixin, APIView):
             device_name=device_name.strip(),
             details={
                 'status': self.EVENT_STATUS_MAP[event_status],
+                'message': message.strip(),
                 **details,
             },
+        )
+
+        Alerte.create_or_update_for_incident(
+            self.EVENT_TYPE_MAP[event_type],
+            message.strip(),
+            pointage=pointage,
+            event_status=self.EVENT_STATUS_MAP[event_status],
+            device_name=device_name.strip(),
+            details=pointage.details,
         )
 
         logger.info(

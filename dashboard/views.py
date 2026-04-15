@@ -130,7 +130,7 @@ def employee_home(request):
     if not user_can_access_employee_space(request.user): return _deny_and_logout(request)
 
     pointages_qs = Pointage.objects.filter(utilisateur=request.user)
-    alertes_qs = Alerte.objects.filter(utilisateur=request.user)
+    alertes_qs = Alerte.objects.filter(utilisateur=request.user, masquee=False)
 
     context = {
         'user': request.user,
@@ -178,7 +178,7 @@ def employee_alertes(request):
 
     statut_filtre = request.GET.get('statut', '').strip()
 
-    alertes = Alerte.objects.filter(utilisateur=request.user)
+    alertes = Alerte.objects.filter(utilisateur=request.user, masquee=False)
     if statut_filtre:
         alertes = alertes.filter(statut=statut_filtre)
 

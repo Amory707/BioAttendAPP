@@ -51,6 +51,17 @@ class DashboardAppTests(TestCase):
 		self.assertEqual(response.context["user"].pk, user.pk)
 		self.assertContains(response, "Portail employé")
 
+	def test_dashboard_shows_security_navigation_link(self):
+		admin = self._create_user("admin-security-link")
+		self._assign_role(admin, "admin")
+		self.client.force_login(admin)
+
+		response = self.client.get(reverse("dashboard:index"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Incidents sécurité")
+		self.assertContains(response, reverse("Employee:statistiques_problemes"))
+
 	def test_dashboard_uses_real_metrics_in_context(self):
 		admin = self._create_user("admin-metrics")
 		employee_one = self._create_user("employee-one",)
