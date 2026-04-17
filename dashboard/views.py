@@ -1,5 +1,7 @@
+import csv
 from datetime import timedelta
 
+from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -14,6 +16,7 @@ from accounts.models import Utilisateur
 from alerts.models import Alerte
 
 from attendance.models import Pointage
+from attendance.utils import summarize_work_time
 
 def _deny_and_logout(request):
     messages.error(request, "Accès refusé : votre compte n'a pas les droits plateforme.")
@@ -131,6 +134,7 @@ def employee_home(request):
 
     pointages_qs = Pointage.objects.filter(utilisateur=request.user)
     alertes_qs = Alerte.objects.filter(utilisateur=request.user, masquee=False)
+    work_stats = summarize_work_time(pointages_qs)
 
     context = {
         'user': request.user,
@@ -139,6 +143,10 @@ def employee_home(request):
         'alertes_non_traitees': alertes_qs.exclude(statut='TRAITEE').count(),
         'recent_pointages': pointages_qs.order_by('-horodatage')[:8],
         'recent_alertes': alertes_qs.order_by('-date_creation')[:8],
+        'worked_time_today': work_stats['today_duration_display'],
+        'worked_time_week': work_stats['week_duration_display'],
+        'completed_work_sessions': work_stats['today_sessions'],
+        'completed_work_sessions_today': work_stats['today_sessions'],
     }
 
     return render(request, 'dashboard/employee_home.html', context)
@@ -168,6 +176,59 @@ def employee_pointages(request):
     }
 
     return render(request, 'dashboard/employee_pointages.html', context)
+
+@login_required(login_url='login')
+def employee_prestations(request):
+
+    if get_active_space(request) == ADMIN_SPACE: return redirect('dashboard:index')
+
+    if not user_can_access_employee_space(request.user): return _deny_and_logout(request)
+
+    work_stats = summarize_work_time(Pointage.objects.filter(utilisateur=request.user))
+    history = work_stats['daily_breakdown'][:31]
+    chart_data = {
+        'labels': [item['label'] for item in reversed(history)],
+        'data': [round(item['duration'].total_seconds() / 3600, 2) for item in reversed(history)],
+    }
+
+    context = {
+        'worked_time_today': work_stats['today_duration_display'],
+        'worked_time_week': work_stats['week_duration_display'],
+        'completed_work_sessions': work_stats['today_sessions'],
+        'completed_work_sessions_today': work_stats['today_sessions'],
+        'daily_work_history': history,
+        'work_hours_chart_data': chart_data,
+        'work_hours_chart_json': chart_data,
+    }
+
+    return render(request, 'dashboard/employee_prestations.html', context)
+
+@login_required(login_url='login')
+def employee_work_hours_csv(request):
+
+    if get_active_space(request) == ADMIN_SPACE: return redirect('dashboard:index')
+
+    if not user_can_access_employee_space(request.user): return _deny_and_logout(request)
+
+    work_stats = summarize_work_time(Pointage.objects.filter(utilisateur=request.user))
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="heures_prestées.csv"'
+    response.write('\ufeff')
+
+    writer = csv.writer(response)
+    writer.writerow(['Date', 'Première entrée', 'Dernière sortie', 'Sessions', 'Temps travaillé'])
+
+    for day in work_stats['daily_breakdown']:
+        writer.writerow([
+            day['label'],
+            day['first_entry_display'],
+            day['last_exit_display'],
+            day['sessions'],
+            day['duration_display'],
+        ])
+
+    return response
 
 @login_required(login_url='login')
 def employee_alertes(request):

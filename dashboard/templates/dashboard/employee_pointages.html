@@ -28,41 +28,46 @@
         <h1>Mes pointages</h1>
     </div>
 
-    <div class="recent-table">
-        <form method="GET" class="filter-row">
-            <select name="type">
-                <option value="">Tous les types</option>
-                {% for value, label in choix_type %}
-                    <option value="{{ value }}" {% if type_filtre == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-            <select name="statut">
-                <option value="">Tous les statuts</option>
-                {% for value, label in choix_statut %}
-                    <option value="{{ value }}" {% if statut_filtre == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-primary">Filtrer</button>
-        </form>
-
-        <div class="table-header">
-            <div class="table-col name-col">Horodatage</div>
-            <div class="table-col time-col">Type</div>
-            <div class="table-col status-col">Statut</div>
+    <div class="recent-section">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>Détail des pointages</h2>
         </div>
+        <div class="recent-table">
+            <form method="GET" class="filter-row">
+                <select name="type">
+                    <option value="">Tous les types</option>
+                    {% for value, label in choix_type %}
+                        <option value="{{ value }}" {% if type_filtre == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <select name="statut">
+                    <option value="">Tous les statuts</option>
+                    {% for value, label in choix_statut %}
+                        <option value="{{ value }}" {% if statut_filtre == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary">Filtrer</button>
+            </form>
 
-        <div class="table-body">
-            {% for p in pointages %}
-                <div class="table-row">
-                    <div class="table-col name-col">{{ p.horodatage|date:'d/m/Y H:i' }}</div>
-                    <div class="table-col time-col">{{ p.get_type_display }}</div>
-                    <div class="table-col status-col">{{ p.get_statut_display }}</div>
-                </div>
-            {% empty %}
-                <div style="padding: var(--spacing-lg); color: var(--color-text-secondary);">
-                    Aucun pointage à afficher.
-                </div>
-            {% endfor %}
+            <div class="table-header">
+                <div class="table-col name-col">Horodatage</div>
+                <div class="table-col time-col">Type</div>
+                <div class="table-col status-col">Statut</div>
+            </div>
+
+            <div class="table-body">
+                {% for p in pointages %}
+                    <div class="table-row">
+                        <div class="table-col name-col">{{ p.horodatage|date:'d/m/Y H:i' }}</div>
+                        <div class="table-col time-col">{{ p.get_type_display }}</div>
+                        <div class="table-col status-col">{{ p.get_statut_display }}</div>
+                    </div>
+                {% empty %}
+                    <div style="padding: var(--spacing-lg); color: var(--color-text-secondary);">
+                        Aucun pointage à afficher.
+                    </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
 </section>
