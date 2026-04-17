@@ -20,6 +20,7 @@ from accounts.models import Role, Utilisateur
 from alerts.models import Alerte
 
 from attendance.models import Pointage
+from attendance.utils import summarize_work_time
 
 from .forms import UtilisateurUnifiedForm
 
@@ -329,6 +330,71 @@ def _filtered_pointages_queryset(request, utilisateur=None, active_tab='pointage
         'date_fin': date_fin,
     }
 
+
+def _build_prestations_history_rows(base_pointages, include_employee=False):
+    valid_pointages = (
+        base_pointages.filter(statut='VALIDE', utilisateur__isnull=False)
+        .select_related('utilisateur')
+        .exclude(horodatage__isnull=True)
+        .order_by('utilisateur_id', 'horodatage')
+    )
+
+    open_entries = {}
+    rows_map = {}
+
+    for pointage in valid_pointages:
+        user_id = pointage.utilisateur_id
+        if not user_id:
+            continue
+
+        current_entry = open_entries.get(user_id)
+
+        if pointage.type == 'ENTREE':
+            if current_entry is None:
+                open_entries[user_id] = pointage
+            continue
+
+        if pointage.type == 'SORTIE' and current_entry is not None:
+            if pointage.horodatage > current_entry.horodatage:
+                local_entry = timezone.localtime(current_entry.horodatage) if timezone.is_aware(current_entry.horodatage) else current_entry.horodatage
+                local_exit = timezone.localtime(pointage.horodatage) if timezone.is_aware(pointage.horodatage) else pointage.horodatage
+                work_day = local_entry.date()
+                row_key = (user_id, work_day) if include_employee else work_day
+                row = rows_map.setdefault(
+                    row_key,
+                    {
+                        'date': work_day,
+                        'label': work_day.strftime('%d/%m/%Y'),
+                        'employee_id': user_id,
+                        'employee_name': f"{pointage.utilisateur.first_name} {pointage.utilisateur.last_name}".strip() or pointage.utilisateur.username,
+                        'duration': timedelta(),
+                        'first_entry': None,
+                        'first_entry_display': '--',
+                        'last_exit': None,
+                        'last_exit_display': '--',
+                        'sessions': 0,
+                    },
+                )
+
+                row['duration'] += (pointage.horodatage - current_entry.horodatage)
+                row['sessions'] += 1
+
+                if row['first_entry'] is None or local_entry < row['first_entry']:
+                    row['first_entry'] = local_entry
+                    row['first_entry_display'] = local_entry.strftime('%H:%M')
+
+                if row['last_exit'] is None or local_exit > row['last_exit']:
+                    row['last_exit'] = local_exit
+                    row['last_exit_display'] = local_exit.strftime('%H:%M')
+
+            open_entries[user_id] = None
+
+    rows = sorted(rows_map.values(), key=lambda item: (item['date'], item['employee_name']), reverse=True)
+    for row in rows:
+        row['duration_display'] = f"{int(row['duration'].total_seconds() // 3600)}h{int((row['duration'].total_seconds() % 3600) // 60):02d}"
+
+    return rows
+
 def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
 
     filtered_data = _filtered_pointages_queryset(request, utilisateur=utilisateur, active_tab=active_tab)
@@ -354,6 +420,9 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
     confiance_moyenne = base_pointages.aggregate(moyenne=Avg('score_confiance'))['moyenne']
     confiance_moyenne = round(confiance_moyenne or 0.0, 2)
     taux_validation = round((total_valides / total) * 100, 2) if total else 0.0
+    work_stats = summarize_work_time(base_pointages)
+    prestations_history = _build_prestations_history_rows(base_pointages, include_employee=utilisateur is None)[:200]
+    prestations_daily_totals = work_stats['daily_breakdown']
 
     users_scope = Utilisateur.objects.all()
     if utilisateur is not None:
@@ -368,9 +437,33 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         ).order_by('-total_pointages', 'last_name', 'first_name')
     )
 
+    user_duration_display_map = work_stats['user_duration_display_map']
+    user_duration_map = work_stats['user_duration_map']
+
     for summary in user_summaries:
         summary.moyenne_confiance = round(summary.moyenne_confiance or 0.0, 2)
         summary.taux_validation = round((summary.total_valides / summary.total_pointages) * 100, 2) if summary.total_pointages else 0.0
+        summary.temps_travail_display = user_duration_display_map.get(summary.pk, '0h00')
+        duration = user_duration_map.get(summary.pk, timedelta())
+        summary.temps_travail_heures = round(duration.total_seconds() / 3600, 2) if duration else 0.0
+
+    if utilisateur is None:
+        top_employees = [summary for summary in user_summaries if summary.temps_travail_heures > 0]
+        top_employees.sort(key=lambda item: item.temps_travail_heures, reverse=True)
+        top_employees = top_employees[:10]
+        prestations_chart_data = {
+            'labels': [f"{item.first_name} {item.last_name}".strip() or item.username for item in top_employees],
+            'data': [item.temps_travail_heures for item in top_employees],
+        }
+        prestations_chart_title = 'Heures prestées par employé'
+        prestations_chart_type = 'bar'
+    else:
+        prestations_chart_data = {
+            'labels': [item['label'] for item in reversed(prestations_daily_totals)],
+            'data': [round(item['duration'].total_seconds() / 3600, 2) for item in reversed(prestations_daily_totals)],
+        }
+        prestations_chart_title = 'Graphique des heures prestées'
+        prestations_chart_type = 'line'
 
     daily_rows = list(
         base_pointages
@@ -480,6 +573,9 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
     if utilisateur is None: pointage_export_url = reverse('Employee:pointage_export_csv')
     else: pointage_export_url = reverse('Employee:pointage_export_utilisateur_csv', kwargs={'utilisateur_id': utilisateur.pk})
 
+    if utilisateur is None: prestations_export_url = reverse('Employee:prestations_export_csv')
+    else: prestations_export_url = reverse('Employee:prestations_export_utilisateur_csv', kwargs={'utilisateur_id': utilisateur.pk})
+
     return {
         'active_tab': active_tab,
         'scope_utilisateur': utilisateur,
@@ -492,6 +588,16 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'total_invalides': total_invalides,
         'confiance_moyenne': confiance_moyenne,
         'taux_validation': taux_validation,
+        'worked_time_today': work_stats['today_duration_display'],
+        'worked_time_week': work_stats['week_duration_display'],
+        'worked_time_total': work_stats['total_duration_display'],
+        'worked_time_average': work_stats['average_duration_display'],
+        'completed_work_sessions': work_stats['completed_sessions'],
+        'completed_work_sessions_today': work_stats['today_sessions'],
+        'prestations_history': prestations_history,
+        'prestations_chart_json': json.dumps(prestations_chart_data),
+        'prestations_chart_title': prestations_chart_title,
+        'prestations_chart_type': prestations_chart_type,
         'alert_totales': alert_totales,
         'alertes_echec_reco': alertes_echec_reco,
         'alertes_inconnu': alertes_inconnu,
@@ -509,6 +615,7 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'date_debut': date_debut_raw,
         'date_fin': date_fin_raw,
         'pointage_export_url': pointage_export_url,
+        'prestations_export_url': prestations_export_url,
         'choix_type': Pointage.TYPE_CHOICES,
         'choix_statut': Pointage.STATUT_CHOICES,
         'confidence_timeline_json': json.dumps(confidence_timeline),
@@ -531,7 +638,7 @@ def exporter_pointages_csv(request, utilisateur_id=None):
     if utilisateur_id is not None: utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
 
     active_tab = request.GET.get('tab', 'pointage').strip().lower()
-    if active_tab not in {'pointage', 'analytique', 'problemes'}: active_tab = 'pointage'
+    if active_tab not in {'pointage', 'prestations', 'analytique', 'problemes'}: active_tab = 'pointage'
 
     filtered_data = _filtered_pointages_queryset(request, utilisateur=utilisateur, active_tab=active_tab)
     pointages = filtered_data['filtered_pointages']
@@ -562,6 +669,47 @@ def exporter_pointages_csv(request, utilisateur_id=None):
             pointage.statut,
             pointage.score_confiance,
         ])
+
+    return response
+
+
+@login_required(login_url='login')
+def exporter_prestations_csv(request, utilisateur_id=None):
+    utilisateur = None
+    if utilisateur_id is not None:
+        utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
+
+    filtered_data = _filtered_pointages_queryset(request, utilisateur=utilisateur, active_tab='prestations')
+    prestations_history = _build_prestations_history_rows(
+        filtered_data['base_pointages'],
+        include_employee=utilisateur is None,
+    )
+
+    if utilisateur is None:
+        filename = 'prestations_export.csv'
+    else:
+        filename = f'prestations_{utilisateur.username}.csv'
+
+    response, writer = _build_csv_response(filename)
+    headers = ['Date']
+    if utilisateur is None:
+        headers.append('Employe')
+    headers.extend(['Premiere entree', 'Derniere sortie', 'Sessions', 'Heures prestees'])
+    writer.writerow(headers)
+
+    for day in prestations_history:
+        row = [
+            day['label'],
+        ]
+        if utilisateur is None:
+            row.append(day['employee_name'])
+        row.extend([
+            day['first_entry_display'],
+            day['last_exit_display'],
+            day['sessions'],
+            day['duration_display'],
+        ])
+        writer.writerow(row)
 
     return response
 
@@ -631,6 +779,12 @@ def pointage_list(request):
 
 
 @login_required(login_url='login')
+def statistiques_prestations(request):
+    context = _build_statistics_context(request, active_tab='prestations')
+    return render(request, 'utilisateur/statistiques.html', context)
+
+
+@login_required(login_url='login')
 def statistiques_analytique(request):
     context = _build_statistics_context(request, active_tab='analytique')
     return render(request, 'utilisateur/statistiques.html', context)
@@ -646,7 +800,7 @@ def statistiques_problemes(request):
 def statistiques_utilisateur(request, utilisateur_id):
     utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
     active_tab = request.GET.get('tab', 'pointage').strip().lower()
-    if active_tab not in {'pointage', 'analytique', 'problemes'}: active_tab = 'pointage'
+    if active_tab not in {'pointage', 'prestations', 'analytique', 'problemes'}: active_tab = 'pointage'
     context = _build_statistics_context(request, utilisateur=utilisateur, active_tab=active_tab)
     return render(request, 'utilisateur/statistiques.html', context)
 

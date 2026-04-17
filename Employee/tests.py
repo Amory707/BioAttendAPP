@@ -177,6 +177,68 @@ class EmployeeAppTests(TestCase):
 		self.assertContains(response, "Performance par employé")
 		self.assertContains(response, reverse("Employee:statistiques_utilisateur", kwargs={"utilisateur_id": target.pk}))
 
+	def test_statistiques_show_prestations_tab_before_pointage(self):
+		user = self._create_user("stats-tabs-admin")
+		self.client.force_login(user)
+
+		response = self.client.get(reverse("Employee:pointage_list"))
+
+		self.assertEqual(response.status_code, 200)
+		content = response.content.decode("utf-8")
+		self.assertTrue(content.find("Prestations") < content.find("Pointage"))
+
+	def test_statistiques_prestations_general_view_uses_employee_focused_chart(self):
+		user = self._create_user("stats-prestations-general-admin")
+		target_one = self._create_user("stats-prestations-emp-one", first_name="Mila", last_name="Clock")
+		target_two = self._create_user("stats-prestations-emp-two", first_name="Noa", last_name="Time")
+		self.client.force_login(user)
+
+		now = timezone.now().replace(hour=8, minute=0, second=0, microsecond=0)
+		Pointage.objects.create(utilisateur=target_one, statut="VALIDE", type="ENTREE", horodatage=now, score_confiance=0.93)
+		Pointage.objects.create(utilisateur=target_one, statut="VALIDE", type="SORTIE", horodatage=now.replace(hour=17, minute=0), score_confiance=0.91)
+		Pointage.objects.create(utilisateur=target_two, statut="VALIDE", type="ENTREE", horodatage=now.replace(hour=9, minute=0), score_confiance=0.92)
+		Pointage.objects.create(utilisateur=target_two, statut="VALIDE", type="SORTIE", horodatage=now.replace(hour=15, minute=0), score_confiance=0.90)
+
+		response = self.client.get(reverse("Employee:statistiques_prestations"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Heures prestées par employé")
+		self.assertContains(response, "Mila Clock")
+		self.assertContains(response, "Noa Time")
+		self.assertIn("Mila Clock", response.context["prestations_chart_json"])
+
+	def test_statistiques_prestations_renders_history_chart_and_csv(self):
+		user = self._create_user("stats-prestations-admin")
+		target = self._create_user("stats-prestations-target", first_name="Mila", last_name="Clock")
+		self.client.force_login(user)
+
+		now = timezone.now().replace(hour=8, minute=0, second=0, microsecond=0)
+		Pointage.objects.create(
+			utilisateur=target,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=now,
+			score_confiance=0.93,
+		)
+		Pointage.objects.create(
+			utilisateur=target,
+			statut="VALIDE",
+			type="SORTIE",
+			horodatage=now.replace(hour=17, minute=30),
+			score_confiance=0.91,
+		)
+
+		response = self.client.get(reverse("Employee:statistiques_prestations"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Historique des heures prestées")
+		self.assertContains(response, "Graphique des heures prestées")
+		self.assertContains(response, "prestationsChart")
+		self.assertContains(response, reverse("Employee:prestations_export_csv"))
+		self.assertContains(response, "Employé")
+		self.assertContains(response, "Mila Clock")
+		self.assertContains(response, "Sessions validées aujourd'hui")
+
 	def test_statistiques_utilisateur_shows_person_scope(self):
 		user = self._create_user("scope-admin")
 		target = self._create_user("scope-target", first_name="Rita", last_name="Data")

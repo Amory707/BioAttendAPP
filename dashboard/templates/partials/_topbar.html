@@ -18,6 +18,10 @@
                     <i class="fas fa-home"></i>
                     <span class="nav-label">Ma vue employé</span>
                 </a>
+                <a href="{% url 'dashboard:employee_prestations' %}" class="nav-item {% if '/dashboard/employe/prestations' in request.path %}active{% endif %}">
+                    <i class="fas fa-clock"></i>
+                    <span class="nav-label">Mes prestations</span>
+                </a>
                 <a href="{% url 'dashboard:employee_pointages' %}" class="nav-item {% if '/dashboard/employe/pointages' in request.path %}active{% endif %}">
                     <i class="fas fa-fingerprint"></i>
                     <span class="nav-label">Mes pointages</span>

@@ -1,0 +1,129 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Mes prestations - BioAttend{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <style>
+        .history-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            gap: var(--spacing-lg);
+        }
+        .chart-card-custom {
+            background: var(--color-bg-light);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            border: 1px solid rgba(0,0,0,.06);
+            min-height: 360px;
+        }
+        .chart-wrap-fixed {
+            position: relative;
+            height: 280px;
+        }
+        .history-note {
+            margin: 4px 0 0;
+            color: var(--color-text-secondary);
+        }
+        @media (max-width: 980px) {
+            .history-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<section class="page active">
+    <div class="page-header">
+        <h1>Mes prestations</h1>
+    </div>
+
+    <div class="stats-grid" style="margin-bottom: var(--spacing-lg);">
+        <div class="stat-card total-employees">
+            <div class="stat-header">
+                <h3 class="stat-title">Aujourd'hui</h3>
+                <i class="fas fa-business-time stat-icon"></i>
+            </div>
+            <div class="stat-value">{{ worked_time_today }}</div>
+        </div>
+        <div class="stat-card present-today">
+            <div class="stat-header">
+                <h3 class="stat-title">Cette semaine</h3>
+                <i class="fas fa-calendar-week stat-icon"></i>
+            </div>
+            <div class="stat-value">{{ worked_time_week }}</div>
+        </div>
+        <div class="stat-card absent-today">
+            <div class="stat-header">
+                <h3 class="stat-title">Sessions validées aujourd'hui</h3>
+                <i class="fas fa-check-double stat-icon"></i>
+            </div>
+            <div class="stat-value">{{ completed_work_sessions_today }}</div>
+        </div>
+    </div>
+
+    <div class="history-grid">
+        <div class="recent-section">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <div>
+                    <h2>Historique des heures prestées</h2>
+                    <p class="history-note">{{ completed_work_sessions_today }} session{{ completed_work_sessions_today|pluralize }} validée{{ completed_work_sessions_today|pluralize }} aujourd'hui.</p>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-primary chart-export-btn" data-chart-id="workHoursChart" data-file-name="heures_prestees">
+                        <i class="fas fa-image"></i> Exporter le graphe
+                    </button>
+                    <a href="{% url 'dashboard:employee_work_hours_csv' %}" class="btn btn-primary">
+                        <i class="fas fa-file-csv"></i> Télécharger CSV
+                    </a>
+                </div>
+            </div>
+
+            <div class="recent-table">
+                <div class="table-header" style="grid-template-columns: 1.2fr .9fr .9fr .7fr .9fr;">
+                    <div class="table-col">Date</div>
+                    <div class="table-col">Entrée</div>
+                    <div class="table-col">Sortie</div>
+                    <div class="table-col">Nb</div>
+                    <div class="table-col">Heures</div>
+                </div>
+                <div class="table-body">
+                    {% for day in daily_work_history %}
+                        <div class="table-row" style="grid-template-columns: 1.2fr .9fr .9fr .7fr .9fr;">
+                            <div class="table-col">{{ day.label }}</div>
+                            <div class="table-col">{{ day.first_entry_display }}</div>
+                            <div class="table-col">{{ day.last_exit_display }}</div>
+                            <div class="table-col">{{ day.sessions }}</div>
+                            <div class="table-col"><strong>{{ day.duration_display }}</strong></div>
+                        </div>
+                    {% empty %}
+                        <div style="padding: var(--spacing-lg); color: var(--color-text-secondary);">
+                            Aucune prestation calculable pour le moment.
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-card-custom">
+            <div class="section-header" style="padding: 0 0 var(--spacing-md);">
+                <div>
+                    <h2>Graphique des heures prestées</h2>
+                    <p class="history-note">Vue des derniers jours travaillés.</p>
+                </div>
+            </div>
+            <div class="chart-wrap-fixed">
+                <canvas id="workHoursChart"></canvas>
+            </div>
+        </div>
+    </div>
+</section>
+{{ work_hours_chart_data|json_script:'employee-work-hours-data' }}
+{% endblock %}
+
+{% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{% static 'js/dashboard.js' %}"></script>
+{% endblock %}
