@@ -26,6 +26,10 @@
                     <i class="fas fa-fingerprint"></i>
                     <span class="nav-label">Mes pointages</span>
                 </a>
+                <a href="{% url 'schedule:home' %}" class="nav-item {% if '/schedule/' in request.path %}active{% endif %}">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span class="nav-label">Emploi du temps</span>
+                </a>
             {% else %}
                 <a href="{% url 'dashboard:index' %}" class="nav-item {% if '/dashboard/' in request.path or request.path == '/dashboard' or request.path == '/' %}active{% endif %}">
                     <i class="fas fa-home"></i>
@@ -38,6 +42,10 @@
                 <a href="{% url 'Employee:pointage_list' %}" class="nav-item {% if '/Employee/pointages/' in request.path %}active{% endif %}">
                     <i class="fas fa-chart-bar"></i>
                     <span class="nav-label">Statistiques</span>
+                </a>
+                <a href="{% url 'schedule:home' %}" class="nav-item {% if '/schedule/' in request.path %}active{% endif %}">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span class="nav-label">Emploi du temps</span>
                 </a>
             {% endif %}
         </nav>

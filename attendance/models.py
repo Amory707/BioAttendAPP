@@ -23,7 +23,7 @@ class Pointage(models.Model):
 
     utilisateur = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name='pointages',

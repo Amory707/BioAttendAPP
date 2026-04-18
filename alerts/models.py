@@ -22,6 +22,9 @@ class Alerte(models.Model):
     TYPE_CHOICES = [
         ('RETARD', 'Retard'),
         ('ABSENCE', 'Absence'),
+        ('DEPART_ANTICIPE', 'Départ anticipé'),
+        ('JOURNEE_COURTE', 'Journée trop courte'),
+        ('DEMANDE_PLANNING', 'Demande planning'),
         ('UTILISATEUR_INCONNU', 'Utilisateur inconnu'),
         ('ECHEC_RECONNAISSANCE', 'Visage non détecté'),
         ('TENTATIVE_FRAUDE', 'Tentative de fraude'),

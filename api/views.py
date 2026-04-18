@@ -27,6 +27,7 @@ from rest_framework.views import APIView
 from accounts.models import Utilisateur
 from alerts.models import Alerte
 from attendance.models import Pointage
+from schedule.services import build_pointage_feedback
 
 logger = logging.getLogger(__name__)
 
@@ -258,6 +259,8 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
                 origine=Pointage.ORIGINE_POINTEUSE,
             )
 
+        punctuality_feedback = build_pointage_feedback(pointage)
+
         return Response(
             {
                 "matched": True,
@@ -267,6 +270,9 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
                 "distance": round(float(match.distance), 6),
                 "pointage_id": str(pointage.id),
                 "pointage_type": pointage.type,
+                "schedule_feedback": punctuality_feedback.get("messages", []),
+                "schedule_flags": punctuality_feedback.get("flags", []),
+                "worked_duration_display": punctuality_feedback.get("worked_duration_display", "0h00"),
             },
             status=status.HTTP_200_OK,
         )
