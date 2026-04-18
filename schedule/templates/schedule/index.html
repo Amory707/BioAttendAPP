@@ -1,0 +1,223 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Emploi du temps - BioAttend{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<style>
+    .schedule-grid { display: grid; grid-template-columns: 360px 1fr; gap: 1rem; }
+    .schedule-card { background: #fff; border: 1px solid #e6e8ef; border-radius: 16px; padding: 1rem; box-shadow: 0 6px 18px rgba(15, 23, 42, .05); }
+    .schedule-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; margin-bottom: 1rem; }
+    .schedule-stat { background: linear-gradient(135deg, #f8fafc, #eef6ff); border-radius: 14px; padding: .85rem; }
+    .schedule-stat .value { font-size: 1.4rem; font-weight: 700; }
+    .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; gap: .75rem; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: .35rem; }
+    .calendar-day-name, .calendar-cell { border-radius: 12px; padding: .5rem; min-height: 105px; }
+    .calendar-day-name { background: #f3f6fb; font-weight: 600; text-align: center; }
+    .calendar-cell { background: #fbfcfe; border: 1px solid #edf1f7; }
+    .calendar-cell.other-month { opacity: .45; }
+    .calendar-cell.today { border: 2px solid #2563eb; }
+    .calendar-date { font-weight: 700; margin-bottom: .35rem; }
+    .event-chip { display: inline-block; width: 100%; margin-top: .2rem; padding: .2rem .45rem; border-radius: 999px; font-size: .78rem; }
+    .event-conge { background: #dcfce7; color: #166534; }
+    .event-absence { background: #fee2e2; color: #991b1b; }
+    .event-holiday { background: #dbeafe; color: #1d4ed8; }
+    .event-retard { background: #f3e8ff; color: #6b21a8; }
+    .legend { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; }
+    .legend .event-chip { width: auto; margin: 0; }
+    .form-group { margin-bottom: .75rem; }
+    .form-group label { display: block; margin-bottom: .25rem; font-weight: 600; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; border: 1px solid #dbe3ef; border-radius: 10px; padding: .65rem .8rem; }
+    .inline-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+    .status-pill { display: inline-block; padding: .25rem .5rem; border-radius: 999px; font-size: .78rem; font-weight: 600; }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-approved { background: #dcfce7; color: #166534; }
+    .status-rejected { background: #fee2e2; color: #991b1b; }
+    .feature-banner { margin-bottom: 1rem; padding: .9rem 1rem; border-radius: 12px; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+    .requests-table { width: 100%; border-collapse: collapse; }
+    .requests-table th, .requests-table td { padding: .6rem; border-bottom: 1px solid #edf1f7; vertical-align: top; text-align: left; }
+    @media (max-width: 980px) { .schedule-grid { grid-template-columns: 1fr; } .schedule-stats { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page active">
+    <div class="page-header">
+        <h1>Emploi du temps</h1>
+        <p>{% if admin_view %}Gestion RH des congés, maladies, absences et retards.{% else %}Soumettez vos demandes et consultez votre calendrier.{% endif %}</p>
+    </div>
+
+    {% for message in messages %}
+        <div class="feature-banner" style="background:{% if message.tags == 'success' %}#ecfdf5{% else %}#fff7ed{% endif %}; color:{% if message.tags == 'success' %}#166534{% else %}#9a3412{% endif %}; border-color:{% if message.tags == 'success' %}#bbf7d0{% else %}#fed7aa{% endif %};">
+            {{ message }}
+        </div>
+    {% endfor %}
+
+    {% if not features_enabled %}
+        <div class="feature-banner">
+            Le module est actuellement désactivé. Les formulaires et les contrôles automatiques sont suspendus.
+        </div>
+    {% endif %}
+
+    <div class="schedule-stats">
+        <div class="schedule-stat">
+            <div>Demandes en attente</div>
+            <div class="value">{{ pending_count }}</div>
+        </div>
+        <div class="schedule-stat">
+            <div>Absences / congés du mois</div>
+            <div class="value">{{ approved_absence_count }}</div>
+        </div>
+        <div class="schedule-stat">
+            <div>Jours fériés du mois</div>
+            <div class="value">{{ holiday_count }}</div>
+        </div>
+    </div>
+
+    <div class="schedule-grid">
+        <div class="schedule-card">
+            {% if admin_view %}
+                <form method="post" action="{% url 'schedule:toggle' %}" style="margin-bottom: 1rem;">
+                    {% csrf_token %}
+                    <div class="toggle-row">
+                        <div>
+                            <strong>Interrupteur global</strong>
+                            <div style="color:#64748b; font-size:.9rem;">Active ou désactive tout le module.</div>
+                        </div>
+                        <label>
+                            <input type="checkbox" name="is_enabled" {% if features_enabled %}checked{% endif %} onchange="this.form.submit()">
+                            Actif
+                        </label>
+                    </div>
+                </form>
+            {% endif %}
+
+            <h2>{% if admin_view %}Nouvelle entrée RH{% else %}Soumettre une demande{% endif %}</h2>
+            <form method="post" action="{% url 'schedule:submit' %}">
+                {% csrf_token %}
+                {% for field in schedule_form %}
+                    {% if field.is_hidden %}
+                        {{ field }}
+                    {% else %}
+                        <div class="form-group">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                <button type="submit" class="btn btn-primary" {% if not features_enabled %}disabled{% endif %}>
+                    {% if admin_view %}Enregistrer{% else %}Envoyer au RH{% endif %}
+                </button>
+            </form>
+
+            <hr style="margin: 1rem 0; border: none; border-top: 1px solid #edf1f7;">
+
+            <h3>{% if admin_view %}Demandes à traiter{% else %}Mes demandes en attente{% endif %}</h3>
+            {% if pending_requests %}
+                <table class="requests-table">
+                    <thead>
+                        <tr>
+                            {% if admin_view %}<th>Employé</th>{% endif %}
+                            <th>Type</th>
+                            <th>Période</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in pending_requests %}
+                            <tr>
+                                {% if admin_view %}<td>{{ item.utilisateur.get_full_name|default:item.utilisateur.username }}</td>{% endif %}
+                                <td>{{ item.get_category_display }}</td>
+                                <td>{{ item.start_at|date:'d/m H:i' }} → {{ item.end_at|date:'d/m H:i' }}</td>
+                                <td>
+                                    {% if admin_view %}
+                                        <div class="inline-actions">
+                                            <form method="post" action="{% url 'schedule:approve' item.id %}">{% csrf_token %}<button class="btn btn-primary" type="submit">Approuver</button></form>
+                                            <form method="post" action="{% url 'schedule:reject' item.id %}">{% csrf_token %}<button class="btn btn-secondary" type="submit">Refuser</button></form>
+                                        </div>
+                                    {% else %}
+                                        <span class="status-pill status-pending">En attente</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color:#64748b;">Aucune demande en attente.</p>
+            {% endif %}
+        </div>
+
+        <div class="schedule-card">
+            <div class="calendar-header">
+                <div>
+                    <h2 style="margin:0;">{{ month_label }}</h2>
+                    <div class="legend">
+                        <span class="event-chip event-conge">Congé</span>
+                        <span class="event-chip event-absence">Absence / maladie</span>
+                        <span class="event-chip event-holiday">Jour férié</span>
+                    </div>
+                </div>
+                <div class="inline-actions">
+                    <a class="btn btn-secondary" href="?month={{ previous_month }}">← Mois précédent</a>
+                    <a class="btn btn-secondary" href="?month={{ next_month }}">Mois suivant →</a>
+                    <a class="btn btn-primary" href="{% url 'schedule:export_csv' %}?month={{ month_param }}">Exporter CSV</a>
+                </div>
+            </div>
+
+            <div class="calendar-grid">
+                <div class="calendar-day-name">Lun</div>
+                <div class="calendar-day-name">Mar</div>
+                <div class="calendar-day-name">Mer</div>
+                <div class="calendar-day-name">Jeu</div>
+                <div class="calendar-day-name">Ven</div>
+                <div class="calendar-day-name">Sam</div>
+                <div class="calendar-day-name">Dim</div>
+
+                {% for week in calendar_weeks %}
+                    {% for day in week %}
+                        <div class="calendar-cell {% if not day.is_current_month %}other-month{% endif %} {% if day.is_today %}today{% endif %}">
+                            <div class="calendar-date">{{ day.date|date:'d' }}</div>
+                            {% for event in day.events %}
+                                <span class="event-chip {{ event.class }}">{{ event.label }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+
+            <hr style="margin: 1rem 0; border: none; border-top: 1px solid #edf1f7;">
+            <h3>Historique récent</h3>
+            <table class="requests-table">
+                <thead>
+                    <tr>
+                        {% if admin_view %}<th>Employé</th>{% endif %}
+                        <th>Type</th>
+                        <th>Période</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in recent_requests %}
+                        <tr>
+                            {% if admin_view %}<td>{{ item.utilisateur.get_full_name|default:item.utilisateur.username }}</td>{% endif %}
+                            <td>{{ item.get_category_display }}</td>
+                            <td>{{ item.start_at|date:'d/m/Y H:i' }} → {{ item.end_at|date:'d/m/Y H:i' }}</td>
+                            <td>
+                                <span class="status-pill {% if item.status == 'APPROVED' %}status-approved{% elif item.status == 'REJECTED' %}status-rejected{% else %}status-pending{% endif %}">
+                                    {{ item.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="4" style="color:#64748b;">Aucun historique disponible.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

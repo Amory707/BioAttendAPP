@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "dashboard",
     "Employee",
     "api",
+    "schedule",
 ]
 
 MIDDLEWARE = [

@@ -16,6 +16,7 @@ djangorestframework==3.17.1
 easydict==1.13
 flatbuffers==25.12.19
 fonttools==4.62.1
+holidays
 idna==3.11
 ImageIO==2.37.3
 insightface==0.7.3
