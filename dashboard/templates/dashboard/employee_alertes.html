@@ -1,7 +1,7 @@
 {% extends 'dashboard/base.html' %}
 {% load static %}
 
-{% block title %}Mes alertes - BioAttend{% endblock %}
+{% block title %}Mes incidents - BioAttend{% endblock %}
 
 {% block extra_css %}
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
@@ -29,13 +29,13 @@
 {% block content %}
 <section class="page active">
     <div class="page-header">
-        <h1>Mes alertes</h1>
+        <h1>Mes incidents sécurité</h1>
     </div>
 
     <div class="recent-table">
         <form method="GET" class="filter-row">
             <select name="statut">
-                <option value="">Tous les statuts</option>
+                <option value="">Tous les types</option>
                 {% for value, label in choix_statut %}
                     <option value="{{ value }}" {% if statut_filtre == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
@@ -47,20 +47,20 @@
             <div class="table-col name-col">Date</div>
             <div class="table-col time-col">Type</div>
             <div class="table-col description-col">Description</div>
-            <div class="table-col status-col">Statut</div>
+            <div class="table-col status-col">État</div>
         </div>
 
         <div class="table-body">
-            {% for alerte in alertes %}
+            {% for incident in alertes %}
                 <div class="table-row" style="grid-template-columns: 1.3fr 1fr 2fr 1fr;">
-                    <div class="table-col name-col">{{ alerte.date_creation|date:'d/m/Y H:i' }}</div>
-                    <div class="table-col time-col">{{ alerte.get_type_display }}</div>
-                    <div class="table-col description-col">{{ alerte.description }}</div>
-                    <div class="table-col status-col">{{ alerte.get_statut_display }}</div>
+                    <div class="table-col name-col">{{ incident.horodatage|date:'d/m/Y H:i' }}</div>
+                    <div class="table-col time-col">{{ incident.incident_type|default:'-' }}</div>
+                    <div class="table-col description-col">{{ incident.details.message|default:'-' }}</div>
+                    <div class="table-col status-col">{{ incident.details.status|default:incident.statut }}</div>
                 </div>
             {% empty %}
                 <div style="padding: var(--spacing-lg); color: var(--color-text-secondary);">
-                    Aucune alerte à afficher.
+                    Aucun incident à afficher.
                 </div>
             {% endfor %}
         </div>

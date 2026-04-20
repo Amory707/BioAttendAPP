@@ -12,12 +12,11 @@ from django.utils import timezone
 
 from accounts.access import ADMIN_SPACE, EMPLOYEE_SPACE, get_active_space, set_active_space, user_can_access_employee_space
 from accounts.models import Utilisateur
-
 from alerts.models import Alerte
 
 from attendance.models import Pointage
 from attendance.utils import summarize_work_time
-from schedule.services import attach_schedule_display
+from schedule.services import attach_schedule_display, analyze_day, get_belgian_holidays, get_schedule_settings
 
 def _deny_and_logout(request):
     messages.error(request, "Accès refusé : votre compte n'a pas les droits plateforme.")
@@ -38,6 +37,29 @@ def _employee_queryset_for_dashboard():
         .distinct()
     )
 
+
+def _compute_punctuality_counts_for_users(users, target_day):
+    if not users:
+        return {'late': 0, 'early_departure': 0, 'short_day': 0}
+
+    settings_obj = get_schedule_settings()
+    holiday_map = get_belgian_holidays(target_day, target_day)
+    late = 0
+    early_departure = 0
+    short_day = 0
+
+    for utilisateur in users:
+        analysis = analyze_day(utilisateur, target_day, settings_obj=settings_obj, holiday_map=holiday_map)
+        late += int(analysis['late'])
+        early_departure += int(analysis['early_departure'])
+        short_day += int(analysis['short_day'])
+
+    return {
+        'late': late,
+        'early_departure': early_departure,
+        'short_day': short_day,
+    }
+
 @login_required(login_url='login')
 def dashboard(request):
     if get_active_space(request) == EMPLOYEE_SPACE: return redirect('dashboard:employee_home')
@@ -48,6 +70,7 @@ def dashboard(request):
     start_week = today - timedelta(days=6)
 
     employee_qs = _employee_queryset_for_dashboard()
+    employee_list = list(employee_qs)
     total_employees = employee_qs.count()
 
     today_present_count = (
@@ -63,12 +86,8 @@ def dashboard(request):
 
     today_absent_count = max(total_employees - today_present_count, 0)
 
-    not_recognized_today = Pointage.objects.filter(
-        horodatage__date=today,
-        origine=Pointage.ORIGINE_POINTEUSE,
-        statut='NON_VALIDE',
-        incident_type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
-    ).count()
+    # Keep this metric aligned with "Stat Sécurité" source of truth.
+    not_recognized_today = Alerte.objects.filter(type__in=Alerte.SECURITY_TYPES).count()
 
     weekly_present_map = {
         item['jour']: item['total']
@@ -114,14 +133,10 @@ def dashboard(request):
             'unrecorded': unrecorded,
         })
 
-    today_schedule_alerts = Alerte.objects.filter(
-        utilisateur__in=employee_qs,
-        masquee=False,
-        date_creation__date=today,
-    )
-    today_late_count = today_schedule_alerts.filter(type='RETARD').count()
-    today_early_departure_count = today_schedule_alerts.filter(type='DEPART_ANTICIPE').count()
-    today_short_day_count = today_schedule_alerts.filter(type='JOURNEE_COURTE').count()
+    punctuality_counts = _compute_punctuality_counts_for_users(employee_list, today)
+    today_late_count = punctuality_counts['late']
+    today_early_departure_count = punctuality_counts['early_departure']
+    today_short_day_count = punctuality_counts['short_day']
 
     recent_checkins = list(
         Pointage.objects.select_related('utilisateur')
@@ -151,20 +166,37 @@ def employee_home(request):
     if not user_can_access_employee_space(request.user): return _deny_and_logout(request)
 
     pointages_qs = Pointage.objects.filter(utilisateur=request.user)
-    alertes_qs = Alerte.objects.filter(utilisateur=request.user, masquee=False)
     work_stats = summarize_work_time(pointages_qs)
     recent_pointages = attach_schedule_display(list(pointages_qs.order_by('-horodatage')[:8]))
+    today = timezone.localdate()
+    month_start = today.replace(day=1)
+    punctuality_counts = {'late': 0, 'early_departure': 0, 'short_day': 0}
+    settings_obj = get_schedule_settings()
+    holiday_map = get_belgian_holidays(month_start, today)
+
+    for day_offset in range((today - month_start).days + 1):
+        day = month_start + timedelta(days=day_offset)
+        analysis = analyze_day(request.user, day, settings_obj=settings_obj, holiday_map=holiday_map)
+        punctuality_counts['late'] += int(analysis['late'])
+        punctuality_counts['early_departure'] += int(analysis['early_departure'])
+        punctuality_counts['short_day'] += int(analysis['short_day'])
+
+    incidents_qs = pointages_qs.filter(
+        statut='NON_VALIDE',
+        incident_type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
+    )
+    recent_incidents = incidents_qs.order_by('-horodatage')[:8]
 
     context = {
         'user': request.user,
         'total_pointages': pointages_qs.count(),
         'pointages_valides': pointages_qs.filter(statut='VALIDE').count(),
-        'alertes_non_traitees': alertes_qs.exclude(statut='TRAITEE').count(),
-        'alertes_retard': alertes_qs.filter(type='RETARD').count(),
-        'alertes_depart_anticipe': alertes_qs.filter(type='DEPART_ANTICIPE').count(),
-        'alertes_journee_courte': alertes_qs.filter(type='JOURNEE_COURTE').count(),
+        'retards_mois': punctuality_counts['late'],
+        'departs_anticipes_mois': punctuality_counts['early_departure'],
+        'journees_courtes_mois': punctuality_counts['short_day'],
+        'incidents_securite': incidents_qs.count(),
         'recent_pointages': recent_pointages,
-        'recent_alertes': alertes_qs.order_by('-date_creation')[:8],
+        'recent_incidents': recent_incidents,
         'worked_time_today': work_stats['today_duration_display'],
         'worked_time_week': work_stats['week_duration_display'],
         'completed_work_sessions': work_stats['today_sessions'],
@@ -263,14 +295,22 @@ def employee_alertes(request):
 
     statut_filtre = request.GET.get('statut', '').strip()
 
-    alertes = Alerte.objects.filter(utilisateur=request.user, masquee=False)
+    incidents = Pointage.objects.filter(
+        utilisateur=request.user,
+        statut='NON_VALIDE',
+        incident_type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
+    )
     if statut_filtre:
-        alertes = alertes.filter(statut=statut_filtre)
+        incidents = incidents.filter(incident_type=statut_filtre)
 
     context = {
-        'alertes': alertes.order_by('-date_creation'),
+        'alertes': incidents.order_by('-horodatage'),
         'statut_filtre': statut_filtre,
-        'choix_statut': Alerte.STATUT_CHOICES,
+        'choix_statut': [
+            ('UTILISATEUR_INCONNU', 'UTILISATEUR_INCONNU'),
+            ('ECHEC_RECONNAISSANCE', 'ECHEC_RECONNAISSANCE'),
+            ('TENTATIVE_FRAUDE', 'TENTATIVE_FRAUDE'),
+        ],
     }
 
     return render(request, 'dashboard/employee_alertes.html', context)

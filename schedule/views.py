@@ -211,7 +211,6 @@ def submit_request(request):
                 f"{timezone.localtime(entry.start_at).strftime('%d/%m/%Y %H:%M')} au "
                 f"{timezone.localtime(entry.end_at).strftime('%d/%m/%Y %H:%M')}."
             ),
-            statut='NOUVELLE',
         )
         messages.success(request, "Votre demande a bien été envoyée aux RH pour validation.")
     else:
@@ -240,7 +239,6 @@ def review_request(request, request_id, decision):
             f"Votre demande {schedule_request.get_category_display().lower()} a été "
             f"{'approuvée' if decision == 'approve' else 'refusée'}."
         ),
-        statut='NOUVELLE',
     )
     messages.success(request, "La demande a bien été mise à jour.")
     return redirect('schedule:home')

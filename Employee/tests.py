@@ -267,13 +267,11 @@ class EmployeeAppTests(TestCase):
 			utilisateur=None,
 			type="UTILISATEUR_INCONNU",
 			description="Visage inconnu detecte",
-			statut="NOUVELLE",
 		)
 		Alerte.objects.create(
 			utilisateur=target,
 			type="ECHEC_RECONNAISSANCE",
 			description="Distance trop elevee",
-			statut="VUE",
 		)
 
 		response = self.client.get(reverse("Employee:statistiques_problemes"))
@@ -293,13 +291,11 @@ class EmployeeAppTests(TestCase):
 			utilisateur=target,
 			type="ECHEC_RECONNAISSANCE",
 			description="Echec rattache utilisateur",
-			statut="NOUVELLE",
 		)
 		Alerte.objects.create(
 			utilisateur=None,
 			type="TENTATIVE_FRAUDE",
 			description="Incident borne non rattache",
-			statut="NOUVELLE",
 			event_status="BLOCKED",
 			device_name="bioattend-pi",
 			details={"stage": "liveness"},
@@ -323,13 +319,11 @@ class EmployeeAppTests(TestCase):
 			utilisateur=user,
 			type="UTILISATEUR_INCONNU",
 			description="Utilisateur non reconnu",
-			statut="NOUVELLE",
 		)
 		Alerte.objects.create(
 			utilisateur=user,
 			type="TENTATIVE_FRAUDE",
 			description="Liveness negatif",
-			statut="VUE",
 		)
 
 		response = self.client.get(reverse("Employee:alerte_list"), {"categorie": "UTILISATEUR_INCONNU"})
@@ -339,7 +333,7 @@ class EmployeeAppTests(TestCase):
 		self.assertEqual(len(alertes), 1)
 		self.assertEqual(alertes[0].type, "UTILISATEUR_INCONNU")
 
-	def test_alerte_list_delete_selected_archives_without_removing_db_rows(self):
+	def test_alerte_list_delete_selected_removes_rows_from_db(self):
 		user = self._create_user("alert-delete")
 		self.client.force_login(user)
 
@@ -355,13 +349,11 @@ class EmployeeAppTests(TestCase):
 			pointage=pointage,
 			type="UTILISATEUR_INCONNU",
 			description="Test suppression cible",
-			statut="NOUVELLE",
 		)
 		alerte_visible = Alerte.objects.create(
 			utilisateur=user,
 			type="TENTATIVE_FRAUDE",
 			description="Test conservation",
-			statut="NOUVELLE",
 		)
 
 		response = self.client.post(
@@ -373,10 +365,7 @@ class EmployeeAppTests(TestCase):
 		)
 
 		self.assertEqual(response.status_code, 302)
-		alerte_a_masquer.refresh_from_db()
-		self.assertTrue(Alerte.objects.filter(pk=alerte_a_masquer.pk).exists())
-		self.assertEqual(alerte_a_masquer.statut, "TRAITEE")
-		self.assertTrue(alerte_a_masquer.masquee)
+		self.assertFalse(Alerte.objects.filter(pk=alerte_a_masquer.pk).exists())
 		self.assertTrue(Alerte.objects.filter(pk=alerte_visible.pk).exists())
 		self.assertTrue(Pointage.objects.filter(pk=pointage.pk).exists())
 		self.assertTrue(Utilisateur.objects.filter(pk=user.pk).exists())
@@ -393,13 +382,11 @@ class EmployeeAppTests(TestCase):
 			utilisateur=user,
 			type="UTILISATEUR_INCONNU",
 			description="A supprimer",
-			statut="NOUVELLE",
 		)
 		alerte_fraude = Alerte.objects.create(
 			utilisateur=user,
 			type="TENTATIVE_FRAUDE",
 			description="A conserver",
-			statut="NOUVELLE",
 		)
 
 		response = self.client.post(
@@ -408,27 +395,22 @@ class EmployeeAppTests(TestCase):
 		)
 
 		self.assertEqual(response.status_code, 302)
-		alerte_inconnue.refresh_from_db()
-		alerte_fraude.refresh_from_db()
-		self.assertTrue(alerte_inconnue.masquee)
-		self.assertEqual(alerte_inconnue.statut, "TRAITEE")
-		self.assertFalse(alerte_fraude.masquee)
+		self.assertFalse(Alerte.objects.filter(pk=alerte_inconnue.pk).exists())
+		self.assertTrue(Alerte.objects.filter(pk=alerte_fraude.pk).exists())
 
-	def test_alerte_list_post_marks_selected_alertes_as_traitees(self):
+	def test_alerte_list_post_deletes_selected_alertes(self):
 		user = self._create_user("alert-user-selected")
 		self.client.force_login(user)
 
 		alert1 = Alerte.objects.create(
 			utilisateur=user,
-			type="RETARD",
-			description="Retard detecte",
-			statut="NOUVELLE",
+			type="ECHEC_RECONNAISSANCE",
+			description="Visage non detecte",
 		)
 		alert2 = Alerte.objects.create(
 			utilisateur=user,
-			type="ABSENCE",
-			description="Absence justifiee",
-			statut="NOUVELLE",
+			type="TENTATIVE_FRAUDE",
+			description="Photo detectee",
 		)
 
 		response = self.client.post(
@@ -437,30 +419,28 @@ class EmployeeAppTests(TestCase):
 		)
 
 		self.assertEqual(response.status_code, 302)
-		self.assertEqual(Alerte.objects.get(pk=alert1.pk).statut, "TRAITEE")
-		self.assertEqual(Alerte.objects.get(pk=alert2.pk).statut, "NOUVELLE")
+		self.assertFalse(Alerte.objects.filter(pk=alert1.pk).exists())
+		self.assertTrue(Alerte.objects.filter(pk=alert2.pk).exists())
 
-	def test_alerte_list_post_marks_all_alertes_as_traitees(self):
+	def test_alerte_list_post_deletes_all_alertes(self):
 		user = self._create_user("alert-user-all")
 		self.client.force_login(user)
 
 		Alerte.objects.create(
 			utilisateur=user,
-			type="RETARD",
-			description="Retard detecte",
-			statut="NOUVELLE",
+			type="UTILISATEUR_INCONNU",
+			description="Visage inconnu detecte",
 		)
 		Alerte.objects.create(
 			utilisateur=user,
-			type="ABSENCE",
-			description="Absence justifiee",
-			statut="VUE",
+			type="ECHEC_RECONNAISSANCE",
+			description="Visage non detecte",
 		)
 
 		response = self.client.post(reverse("Employee:alerte_list"), {"delete_all": "1"})
 
 		self.assertEqual(response.status_code, 302)
-		self.assertEqual(Alerte.objects.filter(statut="TRAITEE").count(), 2)
+		self.assertEqual(Alerte.objects.count(), 0)
 
 	def test_delete_utilisateur_post_removes_employee(self):
 		request_user = self._create_user("deleter")
@@ -558,14 +538,12 @@ class EmployeeAppTests(TestCase):
 			utilisateur=None,
 			type="UTILISATEUR_INCONNU",
 			description="Visage inconnu en entree",
-			statut="NOUVELLE",
 			device_name="borne-a",
 		)
 		Alerte.objects.create(
 			utilisateur=None,
 			type="TENTATIVE_FRAUDE",
 			description="Photo detectee",
-			statut="NOUVELLE",
 			device_name="borne-b",
 		)
 
@@ -579,11 +557,12 @@ class EmployeeAppTests(TestCase):
 		self.assertIn("charset=utf-8", response["Content-Type"])
 		self.assertTrue(response.content.startswith(b"\xef\xbb\xbf"))
 		content = response.content.decode("utf-8-sig")
-		self.assertIn("Date,Type,Statut,Source,Description", content)
+		self.assertIn("Date,Type,Concerne,Description", content)
+		self.assertIn("Inconnu", content)
 		self.assertIn("Visage inconnu en entree", content)
 		self.assertNotIn("Photo detectee", content)
 
-	def test_archiving_notification_does_not_remove_security_history(self):
+	def test_delete_notification_removes_security_history_entry(self):
 		admin = self._create_user("notif-separate-admin")
 		self.client.force_login(admin)
 
@@ -591,7 +570,6 @@ class EmployeeAppTests(TestCase):
 			utilisateur=None,
 			type="UTILISATEUR_INCONNU",
 			description="Incident conserve dans securite",
-			statut="NOUVELLE",
 		)
 
 		response = self.client.post(
@@ -599,10 +577,11 @@ class EmployeeAppTests(TestCase):
 			{"action": "delete_selected", "selected_alert_ids": [str(alerte.pk)]},
 		)
 		self.assertEqual(response.status_code, 302)
+		self.assertFalse(Alerte.objects.filter(pk=alerte.pk).exists())
 
 		security_response = self.client.get(reverse("Employee:statistiques_problemes"))
 		self.assertEqual(security_response.status_code, 200)
-		self.assertContains(security_response, "Incident conserve dans securite")
+		self.assertNotContains(security_response, "Incident conserve dans securite")
 
 	def test_security_export_csv_includes_problem_history(self):
 		user = self._create_user("security-export-admin")
@@ -612,13 +591,12 @@ class EmployeeAppTests(TestCase):
 			utilisateur=None,
 			type="TENTATIVE_FRAUDE",
 			description="Incident export securite",
-			statut="TRAITEE",
 			masquee=True,
 		)
 
 		response = self.client.get(
 			reverse("Employee:alerte_export_csv"),
-			{"source": "security", "problem_type": "TENTATIVE_FRAUDE"},
+			{"tab": "problemes", "problem_type": "TENTATIVE_FRAUDE"},
 		)
 
 		self.assertEqual(response.status_code, 200)

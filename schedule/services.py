@@ -101,6 +101,12 @@ def _worked_duration(pointages):
     return total
 
 
+def _time_delta_between(target_day: date, actual_time: time, expected_time: time) -> timedelta:
+    actual_dt = datetime.combine(target_day, actual_time)
+    expected_dt = datetime.combine(target_day, expected_time)
+    return actual_dt - expected_dt
+
+
 def analyze_day(utilisateur: Utilisateur, target_day: date, settings_obj: ScheduleSettings | None = None, holiday_map=None):
     settings_obj = settings_obj or get_schedule_settings()
     holiday_map = holiday_map or get_belgian_holidays(target_day, target_day)
@@ -180,14 +186,26 @@ def analyze_day(utilisateur: Utilisateur, target_day: date, settings_obj: Schedu
     }
 
 
-def _create_schedule_alert(utilisateur: Utilisateur, alert_type: str, description: str):
-    _, created = Alerte.objects.get_or_create(
+def _create_schedule_alert(utilisateur: Utilisateur, alert_type: str, description: str, target_day: date):
+    day_token = target_day.strftime('%d/%m/%Y')
+    existing = Alerte.objects.filter(
+        utilisateur=utilisateur,
+        type=alert_type,
+        description__contains=day_token,
+    ).first()
+
+    if existing is not None:
+        if existing.description != description:
+            existing.description = description
+            existing.save(update_fields=['description'])
+        return False
+
+    Alerte.objects.create(
         utilisateur=utilisateur,
         type=alert_type,
         description=description,
-        defaults={'statut': 'NOUVELLE'},
     )
-    return created
+    return True
 
 
 def sync_schedule_alerts(start_date: date | None = None, end_date: date | None = None, users=None):
@@ -207,29 +225,33 @@ def sync_schedule_alerts(start_date: date | None = None, end_date: date | None =
     created_counts = {'absences': 0, 'retards': 0, 'early_departures': 0, 'short_days': 0}
 
     for utilisateur in queryset:
+        employee_label = get_user_label(utilisateur)
         for current_day in iter_days(start_date, end_date):
             analysis = analyze_day(utilisateur, current_day, settings_obj=settings_obj, holiday_map=holiday_map)
 
             if analysis['absent']:
-                description = f"Absence détectée le {current_day.strftime('%d/%m/%Y')}."
-                created_counts['absences'] += int(_create_schedule_alert(utilisateur, 'ABSENCE', description))
+                description = f"Absence détectée pour {employee_label} le {current_day.strftime('%d/%m/%Y')}."
+                created_counts['absences'] += int(_create_schedule_alert(utilisateur, 'ABSENCE', description, current_day))
 
             if analysis['late'] and analysis['first_entry'] is not None:
                 entry_display = _local_time(analysis['first_entry']).strftime('%H:%M')
-                description = f"Retard détecté le {current_day.strftime('%d/%m/%Y')} : arrivée à {entry_display}."
-                created_counts['retards'] += int(_create_schedule_alert(utilisateur, 'RETARD', description))
+                description = (
+                    f"Retard détecté pour {employee_label} le {current_day.strftime('%d/%m/%Y')} : "
+                    f"arrivée à {entry_display}."
+                )
+                created_counts['retards'] += int(_create_schedule_alert(utilisateur, 'RETARD', description, current_day))
 
             if analysis['early_departure'] and analysis['last_exit'] is not None:
                 exit_display = _local_time(analysis['last_exit']).strftime('%H:%M')
                 description = f"Départ anticipé détecté le {current_day.strftime('%d/%m/%Y')} : sortie à {exit_display}."
-                created_counts['early_departures'] += int(_create_schedule_alert(utilisateur, 'DEPART_ANTICIPE', description))
+                created_counts['early_departures'] += int(_create_schedule_alert(utilisateur, 'DEPART_ANTICIPE', description, current_day))
 
             if analysis['short_day']:
                 description = (
-                    f"Journée trop courte le {current_day.strftime('%d/%m/%Y')} : "
+                    f"Journée trop courte pour {employee_label} le {current_day.strftime('%d/%m/%Y')} : "
                     f"{analysis['worked_duration_display']} prestées."
                 )
-                created_counts['short_days'] += int(_create_schedule_alert(utilisateur, 'JOURNEE_COURTE', description))
+                created_counts['short_days'] += int(_create_schedule_alert(utilisateur, 'JOURNEE_COURTE', description, current_day))
 
     return created_counts
 
@@ -259,24 +281,38 @@ def get_pointage_display_context(pointage: Pointage, *, persist: bool = False):
 
     flags = []
     messages = []
+    required_duration = timedelta(minutes=settings_obj.required_daily_minutes)
+    required_duration_display = format_duration(required_duration)
+    pointage_local_time = _local_time(pointage.horodatage)
 
     if pointage.type == 'ENTREE' and analysis['late']:
+        entry_time = pointage_local_time.time()
+        late_duration = _time_delta_between(target_day, entry_time, settings_obj.arrival_window_end)
+        late_duration_display = format_duration(late_duration)
         flags.append('RETARD')
         messages.append(
-            f"Retard détecté : arrivée à {_local_time(analysis['first_entry']).strftime('%H:%M')} "
-            f"(après {settings_obj.arrival_window_end.strftime('%H:%M')})."
+            f"Retard de {late_duration_display} "
+            f"(arrivée à {entry_time.strftime('%H:%M')} au lieu de {settings_obj.arrival_window_end.strftime('%H:%M')})."
         )
 
     if pointage.type == 'SORTIE' and analysis['early_departure']:
+        exit_time = pointage_local_time.time()
+        early_duration = _time_delta_between(target_day, settings_obj.departure_window_start, exit_time)
+        early_duration_display = format_duration(early_duration)
         flags.append('DEPART_ANTICIPE')
         messages.append(
-            f"Départ anticipé : sortie à {_local_time(analysis['last_exit']).strftime('%H:%M')} "
-            f"(avant {settings_obj.departure_window_start.strftime('%H:%M')})."
+            f"Départ anticipé de {early_duration_display} "
+            f"(sortie à {exit_time.strftime('%H:%M')} au lieu de {settings_obj.departure_window_start.strftime('%H:%M')})."
         )
 
     if pointage.type == 'SORTIE' and analysis['short_day']:
+        missing_duration = required_duration - analysis['worked_duration']
+        missing_duration_display = format_duration(missing_duration)
         flags.append('JOURNEE_COURTE')
-        messages.append(f"Journée trop courte : {analysis['worked_duration_display']} au lieu de 8h00.")
+        messages.append(
+            f"Travail effectif réduit de {missing_duration_display} "
+            f"({analysis['worked_duration_display']} au lieu de {required_duration_display})."
+        )
 
     payload = {
         'flags': flags,

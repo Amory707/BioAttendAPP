@@ -34,21 +34,21 @@
                 <h3 class="stat-title">Retards</h3>
                 <i class="fas fa-clock stat-icon"></i>
             </div>
-            <div class="stat-value">{{ alertes_retard }}</div>
+            <div class="stat-value">{{ retards_mois }}</div>
         </div>
         <div class="stat-card absent-today">
             <div class="stat-header">
                 <h3 class="stat-title">Départs anticipés</h3>
                 <i class="fas fa-arrow-right-from-bracket stat-icon"></i>
             </div>
-            <div class="stat-value">{{ alertes_depart_anticipe }}</div>
+            <div class="stat-value">{{ departs_anticipes_mois }}</div>
         </div>
         <div class="stat-card stat-total">
             <div class="stat-header">
                 <h3 class="stat-title">Journées courtes</h3>
                 <i class="fas fa-hourglass-half stat-icon"></i>
             </div>
-            <div class="stat-value">{{ alertes_journee_courte }}</div>
+            <div class="stat-value">{{ journees_courtes_mois }}</div>
         </div>
         <div class="stat-card present-today">
             <div class="stat-header">
@@ -59,10 +59,10 @@
         </div>
         <div class="stat-card absent-today">
             <div class="stat-header">
-                <h3 class="stat-title">Alertes ouvertes</h3>
+                <h3 class="stat-title">Incidents sécurité</h3>
                 <i class="fas fa-bell stat-icon"></i>
             </div>
-            <div class="stat-value">{{ alertes_non_traitees }}</div>
+            <div class="stat-value">{{ incidents_securite }}</div>
         </div>
     </div>
 
@@ -103,25 +103,25 @@
 
     <div class="recent-section">
         <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>Mes alertes récentes</h2>
+            <h2>Mes incidents sécurité récents</h2>
             <a href="{% url 'dashboard:employee_alertes' %}" class="btn btn-primary">Voir tout</a>
         </div>
         <div class="recent-table">
             <div class="table-header">
                 <div class="table-col name-col">Date</div>
                 <div class="table-col time-col">Type</div>
-                <div class="table-col status-col">Statut</div>
+                <div class="table-col status-col">Détail</div>
             </div>
             <div class="table-body">
-                {% for alerte in recent_alertes %}
+                {% for incident in recent_incidents %}
                     <div class="table-row">
-                        <div class="table-col name-col">{{ alerte.date_creation|date:'d/m/Y H:i' }}</div>
-                        <div class="table-col time-col">{{ alerte.get_type_display }}</div>
-                        <div class="table-col status-col">{{ alerte.get_statut_display }}</div>
+                        <div class="table-col name-col">{{ incident.horodatage|date:'d/m/Y H:i' }}</div>
+                        <div class="table-col time-col">{{ incident.incident_type|default:'-' }}</div>
+                        <div class="table-col status-col">{{ incident.details.message|default:'-' }}</div>
                     </div>
                 {% empty %}
                     <div style="padding: var(--spacing-lg); color: var(--color-text-secondary);">
-                        Aucune alerte trouvée.
+                        Aucun incident trouvé.
                     </div>
                 {% endfor %}
             </div>
