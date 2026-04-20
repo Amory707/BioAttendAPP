@@ -16,19 +16,19 @@
             {% if request.session.active_dashboard_space == 'employee' or user.is_employe and not user.is_platform_admin %}
                 <a href="{% url 'dashboard:employee_home' %}" class="nav-item {% if request.path == '/dashboard/employe/' or request.path == '/dashboard/employe' %}active{% endif %}">
                     <i class="fas fa-home"></i>
-                    <span class="nav-label">Ma vue employé</span>
+                    <span class="nav-label">Accueil</span>
                 </a>
                 <a href="{% url 'dashboard:employee_prestations' %}" class="nav-item {% if '/dashboard/employe/prestations' in request.path %}active{% endif %}">
                     <i class="fas fa-clock"></i>
-                    <span class="nav-label">Mes prestations</span>
+                    <span class="nav-label">Prestations</span>
                 </a>
                 <a href="{% url 'dashboard:employee_pointages' %}" class="nav-item {% if '/dashboard/employe/pointages' in request.path %}active{% endif %}">
                     <i class="fas fa-fingerprint"></i>
-                    <span class="nav-label">Mes pointages</span>
+                    <span class="nav-label">Pointages</span>
                 </a>
                 <a href="{% url 'schedule:home' %}" class="nav-item {% if '/schedule/' in request.path %}active{% endif %}">
                     <i class="fas fa-calendar-alt"></i>
-                    <span class="nav-label">Emploi du temps</span>
+                    <span class="nav-label">Planning</span>
                 </a>
             {% else %}
                 <a href="{% url 'dashboard:index' %}" class="nav-item {% if '/dashboard/' in request.path or request.path == '/dashboard' or request.path == '/' %}active{% endif %}">
@@ -45,7 +45,7 @@
                 </a>
                 <a href="{% url 'schedule:home' %}" class="nav-item {% if '/schedule/' in request.path %}active{% endif %}">
                     <i class="fas fa-calendar-alt"></i>
-                    <span class="nav-label">Emploi du temps</span>
+                    <span class="nav-label">Planning</span>
                 </a>
             {% endif %}
         </nav>

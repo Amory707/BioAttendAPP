@@ -31,6 +31,27 @@
         </div>
         <div class="stat-card present-today">
             <div class="stat-header">
+                <h3 class="stat-title">Retards</h3>
+                <i class="fas fa-clock stat-icon"></i>
+            </div>
+            <div class="stat-value">{{ alertes_retard }}</div>
+        </div>
+        <div class="stat-card absent-today">
+            <div class="stat-header">
+                <h3 class="stat-title">Départs anticipés</h3>
+                <i class="fas fa-arrow-right-from-bracket stat-icon"></i>
+            </div>
+            <div class="stat-value">{{ alertes_depart_anticipe }}</div>
+        </div>
+        <div class="stat-card stat-total">
+            <div class="stat-header">
+                <h3 class="stat-title">Journées courtes</h3>
+                <i class="fas fa-hourglass-half stat-icon"></i>
+            </div>
+            <div class="stat-value">{{ alertes_journee_courte }}</div>
+        </div>
+        <div class="stat-card present-today">
+            <div class="stat-header">
                 <h3 class="stat-title">Pointages validés</h3>
                 <i class="fas fa-check stat-icon"></i>
             </div>
@@ -51,14 +72,16 @@
             <a href="{% url 'dashboard:employee_pointages' %}" class="btn btn-primary">Voir tout</a>
         </div>
         <div class="recent-table">
-            <div class="table-header">
+            <div class="table-header" style="grid-template-columns: 1.2fr .7fr .8fr 1.4fr .8fr;">
                 <div class="table-col name-col">Date</div>
                 <div class="table-col time-col">Type</div>
                 <div class="table-col status-col">Statut</div>
+                <div class="table-col">Ponctualité</div>
+                <div class="table-col">Temps effectif</div>
             </div>
             <div class="table-body">
                 {% for p in recent_pointages %}
-                    <div class="table-row">
+                    <div class="table-row" style="grid-template-columns: 1.2fr .7fr .8fr 1.4fr .8fr;">
                         <div class="table-col name-col">{{ p.horodatage|date:'d/m/Y H:i' }}</div>
                         <div class="table-col time-col">{{ p.get_type_display }}</div>
                         <div class="table-col status-col">
@@ -66,6 +89,8 @@
                                 {{ p.get_statut_display }}
                             </span>
                         </div>
+                        <div class="table-col">{{ p.schedule_feedback_display }}</div>
+                        <div class="table-col">{{ p.worked_duration_display }}</div>
                     </div>
                 {% empty %}
                     <div style="padding: var(--spacing-lg); color: var(--color-text-secondary);">

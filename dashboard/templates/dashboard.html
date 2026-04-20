@@ -3,6 +3,18 @@
 {% block extra_css %}
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
     <style>
+        #dashboard-page .dashboard-hero-grid {
+            display: grid;
+            grid-template-columns: 2fr 1.15fr;
+            gap: var(--spacing-lg);
+            margin-bottom: var(--spacing-2xl);
+            align-items: start;
+        }
+
+        #dashboard-page .stats-grid {
+            margin-bottom: 0;
+        }
+
         #dashboard-page .stat-card.stat-total {
             background: linear-gradient(135deg, #7C8594 0%, #5B6472 100%) !important;
             color: #fff !important;
@@ -22,6 +34,54 @@
         #dashboard-page .stat-card.stat-danger div {
             color: #fff !important;
         }
+
+        #dashboard-page .punctuality-panel {
+            background: var(--color-bg-white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            padding: var(--spacing-lg);
+        }
+
+        #dashboard-page .punctuality-panel h3 {
+            margin: 0 0 var(--spacing-md);
+            color: var(--color-text-primary);
+            font-size: var(--font-size-lg);
+        }
+
+        #dashboard-page .punctuality-mini-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        #dashboard-page .punctuality-mini-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: var(--color-bg-light);
+            border: 1px solid rgba(148, 163, 184, .15);
+        }
+
+        #dashboard-page .punctuality-mini-label {
+            color: var(--color-text-secondary);
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+        }
+
+        #dashboard-page .punctuality-mini-value {
+            color: var(--color-text-primary);
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        @media (max-width: 1100px) {
+            #dashboard-page .dashboard-hero-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 {% endblock %}
 {% block title %}Dashboard - BioAttend{% endblock %}
@@ -29,36 +89,56 @@
 <section id="dashboard-page" class="page active">
     <div class="page-header">
     </div>
-    <div class="stats-grid">
-        <div class="stat-card stat-total">
-            <div class="stat-header">
-                <h3 class="stat-title">Total Employés</h3>
-                <i class="fas fa-users stat-icon"></i>
+    <div class="dashboard-hero-grid">
+        <div class="stats-grid">
+            <div class="stat-card stat-total">
+                <div class="stat-header">
+                    <h3 class="stat-title">Total Employés</h3>
+                    <i class="fas fa-users stat-icon"></i>
+                </div>
+                <div class="stat-value">{{ total_employees }}</div>
             </div>
-            <div class="stat-value">{{ total_employees }}</div>
+            <div class="stat-card stat-success">
+                <div class="stat-header">
+                    <h3 class="stat-title">Présent Aujourd'hui</h3>
+                    <i class="fas fa-check stat-icon"></i>
+                </div>
+                <div class="stat-value">{{ today_present_count }}</div>
+            </div>
+            <div class="stat-card stat-warning">
+                <div class="stat-header">
+                    <h3 class="stat-title">Absent Aujourd'hui</h3>
+                    <i class="fas fa-times stat-icon"></i>
+                </div>
+                <div class="stat-value">{{ today_absent_count }}</div>
+            </div>
+            <a href="{% url 'Employee:statistiques_problemes' %}" class="stat-card stat-danger" style="text-decoration: none; color: inherit; display: block;">
+                <div class="stat-header">
+                    <h3 class="stat-title">Incidents sécurité</h3>
+                    <i class="fas fa-shield-halved stat-icon"></i>
+                </div>
+                <div class="stat-value">{{ not_recognized_today }}</div>
+                <div style="margin-top: 8px; font-size: 12px; opacity: .85;">Voir le détail sécurité</div>
+            </a>
         </div>
-        <div class="stat-card stat-success">
-            <div class="stat-header">
-                <h3 class="stat-title">Présent Aujourd'hui</h3>
-                <i class="fas fa-check stat-icon"></i>
+
+        <div class="punctuality-panel">
+            <h3>Ponctualité du jour</h3>
+            <div class="punctuality-mini-grid">
+                <div class="punctuality-mini-card">
+                    <span class="punctuality-mini-label">Retards</span>
+                    <span class="punctuality-mini-value">{{ today_late_count }}</span>
+                </div>
+                <div class="punctuality-mini-card">
+                    <span class="punctuality-mini-label">Départs anticipés</span>
+                    <span class="punctuality-mini-value">{{ today_early_departure_count }}</span>
+                </div>
+                <div class="punctuality-mini-card">
+                    <span class="punctuality-mini-label">Journées courtes</span>
+                    <span class="punctuality-mini-value">{{ today_short_day_count }}</span>
+                </div>
             </div>
-            <div class="stat-value">{{ today_present_count }}</div>
         </div>
-        <div class="stat-card stat-warning">
-            <div class="stat-header">
-                <h3 class="stat-title">Absent Aujourd'hui</h3>
-                <i class="fas fa-times stat-icon"></i>
-            </div>
-            <div class="stat-value">{{ today_absent_count }}</div>
-        </div>
-        <a href="{% url 'Employee:statistiques_problemes' %}" class="stat-card stat-danger" style="text-decoration: none; color: inherit; display: block;">
-            <div class="stat-header">
-                <h3 class="stat-title">Incidents sécurité</h3>
-                <i class="fas fa-shield-halved stat-icon"></i>
-            </div>
-            <div class="stat-value">{{ not_recognized_today }}</div>
-            <div style="margin-top: 8px; font-size: 12px; opacity: .85;">Voir le détail sécurité</div>
-        </a>
     </div>
     <div class="charts-section">
         <div class="charts-container">
@@ -69,14 +149,16 @@
     </div>
     <div class="recent-section">
         <div class="recent-table">
-            <div class="table-header">
+            <div class="table-header" style="grid-template-columns: 1.2fr .7fr .7fr 1.4fr .8fr;">
                 <div class="table-col name-col">Nom</div>
                 <div class="table-col time-col">Heure</div>
-                <div class="table-col status-col">Statut</div>
+                <div class="table-col status-col">Type</div>
+                <div class="table-col">Ponctualité</div>
+                <div class="table-col">Temps effectif</div>
             </div>
             <div class="table-body" id="recentTableBody">
                 {% for item in recent_checkins %}
-                    <div class="table-row">
+                    <div class="table-row" style="grid-template-columns: 1.2fr .7fr .7fr 1.4fr .8fr;">
                         <div class="table-col name-col">{{ item.utilisateur.first_name }} {{ item.utilisateur.last_name }}</div>
                         <div class="table-col time-col">{{ item.horodatage|date:'H:i' }}</div>
                         <div class="table-col">
@@ -84,6 +166,8 @@
                                 {% if item.type == 'ENTREE' %}Entrée{% else %}Sortie{% endif %}
                             </span>
                         </div>
+                        <div class="table-col">{{ item.schedule_feedback_display }}</div>
+                        <div class="table-col">{{ item.worked_duration_display }}</div>
                     </div>
                 {% empty %}
                     <div class="table-row">

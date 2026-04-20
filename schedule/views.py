@@ -13,7 +13,7 @@ from accounts.access import ADMIN_SPACE, EMPLOYEE_SPACE, get_active_space, user_
 
 from alerts.models import Alerte
 
-from .forms import ScheduleRequestForm
+from .forms import ScheduleRequestForm, ScheduleSettingsForm
 from .models import ScheduleRequest
 from .services import (
     ABSENCE_CATEGORIES,
@@ -284,6 +284,35 @@ def export_schedule_csv(request):
         writer.writerow(['Tous', 'Jour férié', 'Applicable', holiday_day.strftime('%d/%m/%Y'), holiday_day.strftime('%d/%m/%Y'), holiday_name])
 
     return response
+
+
+@login_required(login_url='login')
+def schedule_settings_view(request):
+    if not request.user.is_platform_admin:
+        return redirect('schedule:home')
+
+    settings_obj = get_schedule_settings()
+    form = ScheduleSettingsForm(request.POST or None, instance=settings_obj)
+
+    if request.method == 'POST':
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Les paramètres de retard et de présence ont été mis à jour.")
+            return redirect('schedule:home')
+        for _, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, error)
+
+    return render(
+        request,
+        'schedule/settings.html',
+        {
+            'settings_form': form,
+            'settings_obj': settings_obj,
+            'admin_view': True,
+            'features_enabled': settings_obj.is_enabled,
+        },
+    )
 
 
 @login_required(login_url='login')

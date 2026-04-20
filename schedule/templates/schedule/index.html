@@ -7,15 +7,15 @@
 <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
 <style>
     .schedule-grid { display: grid; grid-template-columns: 360px 1fr; gap: 1rem; }
-    .schedule-card { background: #fff; border: 1px solid #e6e8ef; border-radius: 16px; padding: 1rem; box-shadow: 0 6px 18px rgba(15, 23, 42, .05); }
+    .schedule-card { background: var(--color-bg-white); border: 1px solid rgba(148, 163, 184, .22); border-radius: 16px; padding: 1rem; box-shadow: var(--shadow-md); }
     .schedule-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; margin-bottom: 1rem; }
-    .schedule-stat { background: linear-gradient(135deg, #f8fafc, #eef6ff); border-radius: 14px; padding: .85rem; }
+    .schedule-stat { background: linear-gradient(135deg, rgba(59, 130, 246, .08), rgba(14, 165, 233, .10)); border: 1px solid rgba(59, 130, 246, .12); border-radius: 14px; padding: .85rem; color: var(--color-text-primary); }
     .schedule-stat .value { font-size: 1.4rem; font-weight: 700; }
     .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; gap: .75rem; }
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: .35rem; }
     .calendar-day-name, .calendar-cell { border-radius: 12px; padding: .5rem; min-height: 105px; }
-    .calendar-day-name { background: #f3f6fb; font-weight: 600; text-align: center; }
-    .calendar-cell { background: #fbfcfe; border: 1px solid #edf1f7; }
+    .calendar-day-name { background: var(--color-bg-light); font-weight: 600; text-align: center; color: var(--color-text-primary); }
+    .calendar-cell { background: var(--color-bg-light); border: 1px solid rgba(148, 163, 184, .18); color: var(--color-text-primary); }
     .calendar-cell.other-month { opacity: .45; }
     .calendar-cell.today { border: 2px solid #2563eb; }
     .calendar-date { font-weight: 700; margin-bottom: .35rem; }
@@ -27,17 +27,30 @@
     .legend { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; }
     .legend .event-chip { width: auto; margin: 0; }
     .form-group { margin-bottom: .75rem; }
-    .form-group label { display: block; margin-bottom: .25rem; font-weight: 600; }
-    .form-group input, .form-group select, .form-group textarea { width: 100%; border: 1px solid #dbe3ef; border-radius: 10px; padding: .65rem .8rem; }
+    .form-group label { display: block; margin-bottom: .25rem; font-weight: 600; color: var(--color-text-primary); }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; border: 1px solid rgba(148, 163, 184, .28); border-radius: 10px; padding: .65rem .8rem; background: var(--color-bg-white); color: var(--color-text-primary); }
     .inline-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
     .status-pill { display: inline-block; padding: .25rem .5rem; border-radius: 999px; font-size: .78rem; font-weight: 600; }
     .status-pending { background: #fef3c7; color: #92400e; }
     .status-approved { background: #dcfce7; color: #166534; }
     .status-rejected { background: #fee2e2; color: #991b1b; }
     .feature-banner { margin-bottom: 1rem; padding: .9rem 1rem; border-radius: 12px; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
-    .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
-    .requests-table { width: 100%; border-collapse: collapse; }
-    .requests-table th, .requests-table td { padding: .6rem; border-bottom: 1px solid #edf1f7; vertical-align: top; text-align: left; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; color: var(--color-text-primary); }
+    .feature-switch-card { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; padding: 1rem 1.1rem; border-radius: 14px; background: var(--color-bg-white); border: 1px solid rgba(59, 130, 246, .18); box-shadow: var(--shadow-md); }
+    .switch-meta { color: var(--color-text-secondary); font-size: .92rem; }
+    .switch-label { position: relative; display: inline-flex; align-items: center; gap: .65rem; font-weight: 600; color: var(--color-text-primary); }
+    .switch-label input[type='checkbox'] { appearance: none; width: 50px; height: 28px; border-radius: 999px; background: #cbd5e1; position: relative; cursor: pointer; outline: none; transition: .2s ease; }
+    .switch-label input[type='checkbox']::after { content: ''; position: absolute; top: 3px; left: 4px; width: 22px; height: 22px; border-radius: 50%; background: white; transition: .2s ease; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
+    .switch-label input[type='checkbox']:checked { background: #2563eb; }
+    .switch-label input[type='checkbox']:checked::after { left: 24px; }
+    .switch-label input[type='checkbox'][disabled] { opacity: .7; cursor: not-allowed; }
+    .requests-table { width: 100%; border-collapse: collapse; color: var(--color-text-primary); }
+    .requests-table th, .requests-table td { padding: .6rem; border-bottom: 1px solid rgba(148, 163, 184, .18); vertical-align: top; text-align: left; }
+    body.dark-mode .schedule-card, body.dark-mode .feature-switch-card { border-color: rgba(148, 163, 184, .18); box-shadow: 0 10px 25px rgba(0, 0, 0, .25); }
+    body.dark-mode .schedule-stat { background: linear-gradient(135deg, rgba(30, 41, 59, .95), rgba(15, 23, 42, .92)); border-color: rgba(96, 165, 250, .20); }
+    body.dark-mode .calendar-cell, body.dark-mode .calendar-day-name { background: rgba(15, 23, 42, .72); }
+    body.dark-mode .form-group input, body.dark-mode .form-group select, body.dark-mode .form-group textarea { background: rgba(15, 23, 42, .82); border-color: rgba(148, 163, 184, .22); color: #e5e7eb; }
+    body.dark-mode .feature-banner { background: rgba(154, 52, 18, .18); color: #fed7aa; border-color: rgba(251, 146, 60, .30); }
     @media (max-width: 980px) { .schedule-grid { grid-template-columns: 1fr; } .schedule-stats { grid-template-columns: 1fr; } }
 </style>
 {% endblock %}
@@ -61,6 +74,36 @@
         </div>
     {% endif %}
 
+    <div class="feature-switch-card">
+        <div>
+            <strong>Activation du module absences et retards</strong>
+            <div class="switch-meta">
+                {% if admin_view %}
+                    Utilisez ce switch pour activer ou désactiver toutes les fonctionnalités de ce nouvel onglet.
+                {% else %}
+                    Statut actuel du module. La modification est réservée aux RH.
+                {% endif %}
+            </div>
+        </div>
+        {% if admin_view %}
+            <div class="inline-actions">
+                <a href="{% url 'schedule:settings' %}" class="btn btn-secondary">Configurer les seuils</a>
+                <form method="post" action="{% url 'schedule:toggle' %}">
+                    {% csrf_token %}
+                    <label class="switch-label">
+                        <input type="checkbox" name="is_enabled" {% if features_enabled %}checked{% endif %} onchange="this.form.submit()">
+                        <span>{% if features_enabled %}Activé{% else %}Désactivé{% endif %}</span>
+                    </label>
+                </form>
+            </div>
+        {% else %}
+            <label class="switch-label">
+                <input type="checkbox" {% if features_enabled %}checked{% endif %} disabled>
+                <span>{% if features_enabled %}Activé{% else %}Désactivé{% endif %}</span>
+            </label>
+        {% endif %}
+    </div>
+
     <div class="schedule-stats">
         <div class="schedule-stat">
             <div>Demandes en attente</div>
@@ -78,22 +121,6 @@
 
     <div class="schedule-grid">
         <div class="schedule-card">
-            {% if admin_view %}
-                <form method="post" action="{% url 'schedule:toggle' %}" style="margin-bottom: 1rem;">
-                    {% csrf_token %}
-                    <div class="toggle-row">
-                        <div>
-                            <strong>Interrupteur global</strong>
-                            <div style="color:#64748b; font-size:.9rem;">Active ou désactive tout le module.</div>
-                        </div>
-                        <label>
-                            <input type="checkbox" name="is_enabled" {% if features_enabled %}checked{% endif %} onchange="this.form.submit()">
-                            Actif
-                        </label>
-                    </div>
-                </form>
-            {% endif %}
-
             <h2>{% if admin_view %}Nouvelle entrée RH{% else %}Soumettre une demande{% endif %}</h2>
             <form method="post" action="{% url 'schedule:submit' %}">
                 {% csrf_token %}

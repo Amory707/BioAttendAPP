@@ -151,7 +151,7 @@ def analyze_day(utilisateur: Utilisateur, target_day: date, settings_obj: Schedu
     absent = required_presence and should_check_absence and (not pointages or not has_effective_work)
 
     late = False
-    if first_entry is not None and has_effective_work and not absent:
+    if first_entry is not None and not absent:
         late = _local_time(first_entry).time() > settings_obj.arrival_window_end and not delay_requests
 
     early_departure = False
@@ -234,17 +234,27 @@ def sync_schedule_alerts(start_date: date | None = None, end_date: date | None =
     return created_counts
 
 
-def build_pointage_feedback(pointage: Pointage):
+def get_pointage_display_context(pointage: Pointage, *, persist: bool = False):
     utilisateur = getattr(pointage, 'utilisateur', None)
+    details = pointage.details if isinstance(pointage.details, dict) else {}
+
+    fallback_payload = {
+        'flags': list(details.get('schedule_flags', [])),
+        'messages': list(details.get('schedule_feedback', [])),
+        'worked_duration_display': details.get('worked_duration_display', '0h00'),
+    }
+
     if utilisateur is None:
-        return {'flags': [], 'messages': [], 'worked_duration_display': '0h00'}
+        return fallback_payload
 
     settings_obj = get_schedule_settings()
     if not settings_obj.is_enabled:
-        return {'flags': [], 'messages': [], 'worked_duration_display': '0h00'}
+        return fallback_payload
 
     target_day = _local_time(pointage.horodatage).date()
-    sync_schedule_alerts(start_date=target_day, end_date=target_day, users=[utilisateur])
+    if persist:
+        sync_schedule_alerts(start_date=target_day, end_date=target_day, users=[utilisateur])
+
     analysis = analyze_day(utilisateur, target_day, settings_obj=settings_obj)
 
     flags = []
@@ -268,15 +278,33 @@ def build_pointage_feedback(pointage: Pointage):
         flags.append('JOURNEE_COURTE')
         messages.append(f"Journée trop courte : {analysis['worked_duration_display']} au lieu de 8h00.")
 
-    details = pointage.details if isinstance(pointage.details, dict) else {}
-    details['schedule_flags'] = flags
-    details['schedule_feedback'] = messages
-    details['worked_duration_display'] = analysis['worked_duration_display']
-    pointage.details = details
-    pointage.save(update_fields=['details'])
-
-    return {
+    payload = {
         'flags': flags,
         'messages': messages,
         'worked_duration_display': analysis['worked_duration_display'],
     }
+
+    if persist:
+        details['schedule_flags'] = payload['flags']
+        details['schedule_feedback'] = payload['messages']
+        details['worked_duration_display'] = payload['worked_duration_display']
+        pointage.details = details
+        pointage.save(update_fields=['details'])
+
+    return payload
+
+
+def attach_schedule_display(pointages, *, persist: bool = False):
+    enriched = []
+    for pointage in pointages:
+        payload = get_pointage_display_context(pointage, persist=persist)
+        pointage.schedule_flags = payload.get('flags', [])
+        pointage.schedule_feedback = payload.get('messages', [])
+        pointage.schedule_feedback_display = ' · '.join(pointage.schedule_feedback) if pointage.schedule_feedback else 'RAS'
+        pointage.worked_duration_display = payload.get('worked_duration_display', '0h00')
+        enriched.append(pointage)
+    return enriched
+
+
+def build_pointage_feedback(pointage: Pointage):
+    return get_pointage_display_context(pointage, persist=True)
