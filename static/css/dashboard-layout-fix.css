@@ -15,7 +15,7 @@
     z-index: 200;
     display: flex !important;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     flex-wrap: wrap;
     gap: 14px;
     padding: 10px 20px;
@@ -30,7 +30,8 @@
     align-items: center;
     gap: 14px;
     min-width: 0;
-    flex: 1;
+    flex: 1 1 700px;
+    flex-wrap: wrap;
 }
 
 .app-container .brand-link {
@@ -49,7 +50,7 @@
 
 .app-container .brand-link .sidebar-title {
     margin: 0;
-    font-size: 33px;
+    font-size: 28px;
     font-weight: 700;
     letter-spacing: 0.2px;
     line-height: 1;
@@ -58,24 +59,17 @@
 .app-container .top-nav-menu {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 6px;
     margin: 0;
     padding: 0;
     border-radius: 0;
     background: transparent;
     border: none;
-    overflow-x: auto;
-    white-space: nowrap;
-    scrollbar-width: thin;
-}
-
-.app-container .top-nav-menu::-webkit-scrollbar {
-    height: 5px;
-}
-
-.app-container .top-nav-menu::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 999px;
+    flex: 1 1 420px;
+    min-width: 0;
+    overflow: visible;
+    white-space: normal;
 }
 
 .app-container .top-bar .nav-item {
@@ -237,8 +231,8 @@
 
 @media (max-width: 1200px) {
     .app-container .top-bar {
-        align-items: center;
-        flex-wrap: nowrap;
+        align-items: flex-start;
+        flex-wrap: wrap;
     }
 
     .app-container .top-bar-left,
@@ -248,7 +242,7 @@
     }
 
     .app-container .top-bar-left {
-        flex: 1 1 auto;
+        flex: 1 1 100%;
         min-width: 0;
     }
 
@@ -274,10 +268,23 @@
     .app-container .top-bar {
         gap: 10px;
         padding: 10px 12px;
+        align-items: stretch;
+    }
+
+    .app-container .top-bar-left {
+        flex-wrap: wrap;
     }
 
     .app-container .brand-link .sidebar-title {
-        font-size: 26px;
+        font-size: 24px;
+    }
+
+    .app-container .top-nav-menu {
+        width: 100%;
+        order: 2;
+        padding-top: 2px;
+        overflow: visible;
+        white-space: normal;
     }
 
     .app-container .top-bar .nav-item {

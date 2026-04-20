@@ -1,0 +1,50 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Paramètres planning - BioAttend{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<style>
+    .settings-wrapper { max-width: 780px; margin: 0 auto; }
+    .settings-card { background: var(--color-bg-white); border: 1px solid rgba(148, 163, 184, .22); border-radius: 16px; padding: 1.2rem; box-shadow: var(--shadow-md); }
+    .settings-card h2, .settings-card p, .settings-card label { color: var(--color-text-primary); }
+    .form-group { margin-bottom: .9rem; }
+    .form-group label { display: block; margin-bottom: .25rem; font-weight: 600; }
+    .form-group input { width: 100%; border: 1px solid rgba(148, 163, 184, .28); border-radius: 10px; padding: .65rem .8rem; background: var(--color-bg-white); color: var(--color-text-primary); }
+    .inline-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+    body.dark-mode .settings-card { border-color: rgba(148, 163, 184, .18); box-shadow: 0 10px 25px rgba(0, 0, 0, .25); }
+    body.dark-mode .form-group input { background: rgba(15, 23, 42, .82); border-color: rgba(148, 163, 184, .22); color: #e5e7eb; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page active">
+    <div class="page-header" style="justify-content: space-between;">
+        <div>
+            <h1>Paramètres de contrôle</h1>
+            <p>Les retards et départs anticipés seront calculés à partir de ces valeurs.</p>
+        </div>
+        <a href="{% url 'schedule:home' %}" class="btn btn-secondary">Retour au planning</a>
+    </div>
+
+    <div class="settings-wrapper">
+        <div class="settings-card">
+            <form method="post">
+                {% csrf_token %}
+                {% for field in settings_form %}
+                    <div class="form-group">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                    </div>
+                {% endfor %}
+
+                <div class="inline-actions">
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                    <a href="{% url 'schedule:home' %}" class="btn btn-secondary">Annuler</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+{% endblock %}

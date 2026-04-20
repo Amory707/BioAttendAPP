@@ -7,6 +7,7 @@ from django.utils import timezone
 from accounts.models import Role, RoleUtilisateur, Utilisateur
 from alerts.models import Alerte
 from attendance.models import Pointage
+from schedule.forms import ScheduleRequestForm
 from schedule.models import ScheduleRequest
 from schedule.services import build_pointage_feedback, get_schedule_settings, sync_schedule_alerts
 
@@ -57,6 +58,42 @@ class ScheduleFeatureTests(TestCase):
         request_obj = ScheduleRequest.objects.get(utilisateur=self.employee)
         self.assertEqual(request_obj.status, ScheduleRequest.STATUS_PENDING)
         self.assertEqual(request_obj.category, ScheduleRequest.CATEGORY_CONGE)
+
+    def test_schedule_home_displays_global_switch_status(self):
+        self.client.force_login(self.employee)
+        response = self.client.get(reverse('schedule:home'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Activation du module absences et retards')
+
+    def test_admin_schedule_home_displays_settings_button(self):
+        self.client.force_login(self.admin)
+        session = self.client.session
+        session['active_dashboard_space'] = 'admin'
+        session.save()
+
+        response = self.client.get(reverse('schedule:home'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Configurer les seuils')
+
+    def test_admin_settings_page_is_accessible(self):
+        self.client.force_login(self.admin)
+        session = self.client.session
+        session['active_dashboard_space'] = 'admin'
+        session.save()
+
+        response = self.client.get(reverse('schedule:settings'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Paramètres de contrôle')
+        self.assertContains(response, 'Retard après')
+
+    def test_retard_is_not_available_in_manual_form_choices(self):
+        form = ScheduleRequestForm(actor=self.employee, is_admin=False)
+        choice_values = {value for value, _ in form.fields['category'].choices}
+
+        self.assertNotIn(ScheduleRequest.CATEGORY_RETARD, choice_values)
 
     def test_sync_schedule_alerts_creates_absence_for_unjustified_day(self):
         target_day = self._weekday_in_past()

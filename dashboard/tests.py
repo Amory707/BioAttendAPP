@@ -109,12 +109,19 @@ class DashboardAppTests(TestCase):
 			incident_type="TENTATIVE_FRAUDE",
 		)
 
+		Alerte.objects.create(utilisateur=employee_one, type="RETARD", description="Retard détecté", statut="NOUVELLE")
+		Alerte.objects.create(utilisateur=employee_one, type="DEPART_ANTICIPE", description="Départ anticipé détecté", statut="NOUVELLE")
+		Alerte.objects.create(utilisateur=employee_one, type="JOURNEE_COURTE", description="Journée courte détectée", statut="NOUVELLE")
+
 		response = self.client.get(reverse("dashboard:index"))
 
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.context["total_employees"], 2)
 		self.assertEqual(response.context["today_present_count"], 1)
 		self.assertEqual(response.context["today_absent_count"], 1)
+		self.assertEqual(response.context["today_late_count"], 1)
+		self.assertEqual(response.context["today_early_departure_count"], 1)
+		self.assertEqual(response.context["today_short_day_count"], 1)
 		self.assertEqual(response.context["not_recognized_today"], 3)
 		self.assertEqual(len(response.context["weekly_stats"]), 7)
 		self.assertContains(response, "Lina Ops")
@@ -250,6 +257,34 @@ class DashboardAppTests(TestCase):
 		self.assertEqual(response.context["alertes_non_traitees"], 1)
 		self.assertEqual(list(response.context["recent_pointages"])[0].utilisateur_id, employee.id)
 		self.assertEqual(list(response.context["recent_alertes"])[0].utilisateur_id, employee.id)
+
+	def test_employee_home_shows_punctuality_and_effective_work_time(self):
+		employee = self._create_user("employee-punctuality")
+		self._assign_role(employee, "employé")
+		self.client.force_login(employee)
+
+		now = timezone.now().replace(hour=10, minute=30, second=0, microsecond=0)
+		Pointage.objects.create(
+			utilisateur=employee,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=now,
+			score_confiance=0.96,
+		)
+		Pointage.objects.create(
+			utilisateur=employee,
+			statut="VALIDE",
+			type="SORTIE",
+			horodatage=now.replace(hour=15, minute=0),
+			score_confiance=0.94,
+		)
+
+		response = self.client.get(reverse("dashboard:employee_home"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Départs anticipés")
+		self.assertContains(response, "Retard détecté")
+		self.assertContains(response, "4h30")
 
 	def test_employee_home_computes_worked_time_from_valid_entry_exit_pairs(self):
 		employee = self._create_user("employee-worktime")

@@ -429,7 +429,7 @@
         <div class="kpi-card">
             <div class="kpi-title">Alertes Totales</div>
             <div class="kpi-value">{{ alert_totales }}</div>
-            <div class="kpi-meta">Retard: {{ alertes_retard }} - Absence: {{ alertes_absence }}</div>
+            <div class="kpi-meta">Retard: {{ alertes_retard }} · Départ anticipé: {{ alertes_depart_anticipe }} · Journée courte: {{ alertes_journee_courte }} · Absence: {{ alertes_absence }}</div>
         </div>
         <div class="kpi-card">
             <div class="kpi-title">Tendance Qualité</div>
@@ -622,6 +622,8 @@
                             <th>Date / Heure</th>
                             <th>Utilisateur</th>
                             <th>Type</th>
+                            <th>Statut</th>
+                            <th>Ponctualité</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -638,10 +640,12 @@
                                 <td>
                                     <span class="chip {% if p.type == 'ENTREE' %}ok{% else %}warn{% endif %}">{{ p.type }}</span>
                                 </td>
+                                <td>{{ p.get_statut_display }}</td>
+                                <td>{{ p.schedule_feedback_display }}</td>
                             </tr>
                         {% empty %}
                             <tr>
-                                <td colspan="3" class="empty">Aucun pointage validé trouvé.</td>
+                                <td colspan="5" class="empty">Aucun pointage validé trouvé.</td>
                             </tr>
                         {% endfor %}
                     </tbody>

@@ -17,6 +17,7 @@ from alerts.models import Alerte
 
 from attendance.models import Pointage
 from attendance.utils import summarize_work_time
+from schedule.services import attach_schedule_display
 
 def _deny_and_logout(request):
     messages.error(request, "Accès refusé : votre compte n'a pas les droits plateforme.")
@@ -113,13 +114,30 @@ def dashboard(request):
             'unrecorded': unrecorded,
         })
 
-    recent_checkins = (Pointage.objects.select_related('utilisateur').filter(utilisateur__in=employee_qs).order_by('-horodatage')[:10])
+    today_schedule_alerts = Alerte.objects.filter(
+        utilisateur__in=employee_qs,
+        masquee=False,
+        date_creation__date=today,
+    )
+    today_late_count = today_schedule_alerts.filter(type='RETARD').count()
+    today_early_departure_count = today_schedule_alerts.filter(type='DEPART_ANTICIPE').count()
+    today_short_day_count = today_schedule_alerts.filter(type='JOURNEE_COURTE').count()
+
+    recent_checkins = list(
+        Pointage.objects.select_related('utilisateur')
+        .filter(utilisateur__in=employee_qs)
+        .order_by('-horodatage')[:10]
+    )
+    recent_checkins = attach_schedule_display(recent_checkins)
 
     context = {
         'user': request.user,
         'total_employees': total_employees,
         'today_present_count': today_present_count,
         'today_absent_count': today_absent_count,
+        'today_late_count': today_late_count,
+        'today_early_departure_count': today_early_departure_count,
+        'today_short_day_count': today_short_day_count,
         'not_recognized_today': not_recognized_today,
         'weekly_stats': weekly_stats,
         'recent_checkins': recent_checkins,
@@ -135,13 +153,17 @@ def employee_home(request):
     pointages_qs = Pointage.objects.filter(utilisateur=request.user)
     alertes_qs = Alerte.objects.filter(utilisateur=request.user, masquee=False)
     work_stats = summarize_work_time(pointages_qs)
+    recent_pointages = attach_schedule_display(list(pointages_qs.order_by('-horodatage')[:8]))
 
     context = {
         'user': request.user,
         'total_pointages': pointages_qs.count(),
         'pointages_valides': pointages_qs.filter(statut='VALIDE').count(),
         'alertes_non_traitees': alertes_qs.exclude(statut='TRAITEE').count(),
-        'recent_pointages': pointages_qs.order_by('-horodatage')[:8],
+        'alertes_retard': alertes_qs.filter(type='RETARD').count(),
+        'alertes_depart_anticipe': alertes_qs.filter(type='DEPART_ANTICIPE').count(),
+        'alertes_journee_courte': alertes_qs.filter(type='JOURNEE_COURTE').count(),
+        'recent_pointages': recent_pointages,
         'recent_alertes': alertes_qs.order_by('-date_creation')[:8],
         'worked_time_today': work_stats['today_duration_display'],
         'worked_time_week': work_stats['week_duration_display'],
@@ -167,8 +189,10 @@ def employee_pointages(request):
 
     if statut_filtre: pointages = pointages.filter(statut=statut_filtre)
 
+    ordered_pointages = attach_schedule_display(list(pointages.order_by('-horodatage')))
+
     context = {
-        'pointages': pointages.order_by('-horodatage'),
+        'pointages': ordered_pointages,
         'type_filtre': type_filtre,
         'statut_filtre': statut_filtre,
         'choix_type': Pointage.TYPE_CHOICES,

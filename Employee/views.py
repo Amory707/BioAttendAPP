@@ -21,6 +21,7 @@ from alerts.models import Alerte
 
 from attendance.models import Pointage
 from attendance.utils import summarize_work_time
+from schedule.services import attach_schedule_display
 
 from .forms import UtilisateurUnifiedForm
 
@@ -529,6 +530,8 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
     alertes_fraude = alerts_qs.filter(type='TENTATIVE_FRAUDE').count()
     alertes_retard = alerts_qs.filter(type='RETARD').count()
     alertes_absence = alerts_qs.filter(type='ABSENCE').count()
+    alertes_depart_anticipe = alerts_qs.filter(type='DEPART_ANTICIPE').count()
+    alertes_journee_courte = alerts_qs.filter(type='JOURNEE_COURTE').count()
     alertes_double_pointage = alerts_qs.filter(type='DOUBLE_POINTAGE').count()
 
     last_30_days = timezone.now() - timedelta(days=30)
@@ -564,8 +567,8 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
     }
     
     alert_types_data = {
-        'labels': ['Échec reco', 'Utilisateur inconnu', 'Tentative fraude', 'Retard', 'Absence', 'Double pointage'],
-        'data': [alertes_echec_reco, alertes_inconnu, alertes_fraude, alertes_retard, alertes_absence, alertes_double_pointage],
+        'labels': ['Échec reco', 'Utilisateur inconnu', 'Tentative fraude', 'Retard', 'Absence', 'Départ anticipé', 'Journée courte', 'Double pointage'],
+        'data': [alertes_echec_reco, alertes_inconnu, alertes_fraude, alertes_retard, alertes_absence, alertes_depart_anticipe, alertes_journee_courte, alertes_double_pointage],
     }
 
     problem_filters = _filtered_problem_alerts_queryset(request, utilisateur=utilisateur)
@@ -580,7 +583,7 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'active_tab': active_tab,
         'scope_utilisateur': utilisateur,
         'is_user_scope': utilisateur is not None,
-        'pointages': filtered_pointages[:200],
+        'pointages': attach_schedule_display(list(filtered_pointages[:200])),
         'total_pointages': total,
         'total_entrees': total_entrees,
         'total_sorties': total_sorties,
@@ -604,6 +607,8 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'alertes_fraude': alertes_fraude,
         'alertes_retard': alertes_retard,
         'alertes_absence': alertes_absence,
+        'alertes_depart_anticipe': alertes_depart_anticipe,
+        'alertes_journee_courte': alertes_journee_courte,
         'alertes_double_pointage': alertes_double_pointage,
         'tendance_label': tendance_label,
         'daily_chart': daily_chart,
@@ -655,9 +660,11 @@ def exporter_pointages_csv(request, utilisateur_id=None):
         'Type',
         'Statut',
         'Score IA',
+        'Ponctualité',
+        'Temps effectif',
     ])
 
-    for pointage in pointages:
+    for pointage in attach_schedule_display(list(pointages)):
         utilisateur_associe = pointage.utilisateur
         writer.writerow([
             pointage.pk,
@@ -668,6 +675,8 @@ def exporter_pointages_csv(request, utilisateur_id=None):
             pointage.type,
             pointage.statut,
             pointage.score_confiance,
+            pointage.schedule_feedback_display,
+            pointage.worked_duration_display,
         ])
 
     return response
