@@ -977,7 +977,7 @@
         <div class="panel">
             <div class="panel-header">
                 <div class="panel-title">Journal sécurité de reconnaissance</div>
-                <a href="{% url 'Employee:alerte_export_csv' %}?source=security{% if is_user_scope %}&utilisateur_id={{ scope_utilisateur.pk }}{% endif %}{% if problem_q %}&problem_q={{ problem_q|urlencode }}{% endif %}{% if problem_type %}&problem_type={{ problem_type }}{% endif %}{% if problem_status %}&problem_status={{ problem_status }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="panel-export-link">
+                <a href="{% url 'Employee:alerte_export_csv' %}?tab=problemes{% if is_user_scope %}&utilisateur_id={{ scope_utilisateur.pk }}{% endif %}{% if problem_q %}&problem_q={{ problem_q|urlencode }}{% endif %}{% if problem_type %}&problem_type={{ problem_type }}{% endif %}{% if date_debut %}&date_debut={{ date_debut }}{% endif %}{% if date_fin %}&date_fin={{ date_fin }}{% endif %}" class="panel-export-link">
                     <i class="fas fa-file-csv"></i> Export CSV
                 </a>
             </div>
@@ -993,12 +993,6 @@
                         <option value="{{ value }}" {% if problem_type == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
-                <select name="problem_status">
-                    <option value="">Tous les statuts</option>
-                    {% for value, label in problem_status_choices %}
-                        <option value="{{ value }}" {% if problem_status == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
                 <input type="date" name="date_debut" value="{{ date_debut }}">
                 <input type="date" name="date_fin" value="{{ date_fin }}">
                 <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filtrer</button>
@@ -1010,7 +1004,7 @@
                         <tr>
                             <th>Date / Heure</th>
                             <th>Type</th>
-                            <th>Statut</th>
+                            <th>Concerne</th>
                             <th>Description</th>
                         </tr>
                     </thead>
@@ -1023,7 +1017,7 @@
                                         {{ alerte.get_type_display }}
                                     </span>
                                 </td>
-                                <td>{{ alerte.statut }}</td>
+                                <td>{% if alerte.utilisateur %}{{ alerte.utilisateur.get_full_name|default:alerte.utilisateur.username }}{% else %}Inconnu{% endif %}</td>
                                 <td>{{ alerte.description }}</td>
                             </tr>
                         {% empty %}

@@ -5,81 +5,151 @@
     <style>
         #dashboard-page .dashboard-hero-grid {
             display: grid;
-            grid-template-columns: 2fr 1.15fr;
-            gap: var(--spacing-lg);
-            margin-bottom: var(--spacing-2xl);
-            align-items: start;
+            grid-template-columns: 1fr;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
         }
 
         #dashboard-page .stats-grid {
             margin-bottom: 0;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--spacing-xs);
+        }
+        #dashboard-page .stat-card {
+            border-radius: var(--radius-md);
+            padding: 8px 10px;
+            min-height: 44px;
+        }
+        .stat-header {
+            margin-bottom: 2px;
+        }
+        .stat-title {
+            font-size: 15px;
+        }
+        .stat-icon {
+            font-size: 16px;
+        }
+        .stat-value {
+            font-size: 18px;
         }
 
-        #dashboard-page .stat-card.stat-total {
-            background: linear-gradient(135deg, #7C8594 0%, #5B6472 100%) !important;
-            color: #fff !important;
-        }
-
-        #dashboard-page .stat-card.stat-danger {
-            background: linear-gradient(135deg, #C97A63 0%, #B86452 100%) !important;
-            color: #fff !important;
-        }
-
-        #dashboard-page .stat-card.stat-total .stat-title,
-        #dashboard-page .stat-card.stat-total .stat-value,
-        #dashboard-page .stat-card.stat-total .stat-icon,
-        #dashboard-page .stat-card.stat-danger .stat-title,
-        #dashboard-page .stat-card.stat-danger .stat-value,
-        #dashboard-page .stat-card.stat-danger .stat-icon,
-        #dashboard-page .stat-card.stat-danger div {
-            color: #fff !important;
-        }
-
-        #dashboard-page .punctuality-panel {
+        #dashboard-page .dashboard-date-chip {
+            font-size: 14px;
+            color: var(--color-text-secondary);
             background: var(--color-bg-white);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-md);
-            padding: var(--spacing-lg);
+            border: 1px solid var(--color-border-light);
+            border-radius: var(--radius-full);
+            padding: 4px 10px;
+            font-weight: 500;
+            box-shadow: var(--shadow-xs);
         }
 
-        #dashboard-page .punctuality-panel h3 {
-            margin: 0 0 var(--spacing-md);
-            color: var(--color-text-primary);
-            font-size: var(--font-size-lg);
-        }
-
-        #dashboard-page .punctuality-mini-grid {
+        #dashboard-page .punctuality-row {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 10px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--spacing-md);
+            margin-top: 0;
+            margin-bottom: 0;
         }
 
-        #dashboard-page .punctuality-mini-card {
+        #dashboard-page .punct-card {
+            background: var(--color-bg-white);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            padding: 12px 14px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 12px 14px;
-            border-radius: 12px;
-            background: var(--color-bg-light);
-            border: 1px solid rgba(148, 163, 184, .15);
+            gap: var(--spacing-sm);
+            transition: all var(--transition-base);
+            border-left: 3px solid transparent;
+            min-width: 0;
         }
 
-        #dashboard-page .punctuality-mini-label {
+        #dashboard-page .punct-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        #dashboard-page .punct-card.punct-late {
+            border-left-color: #F59E0B;
+        }
+
+        #dashboard-page .punct-card.punct-early {
+            border-left-color: #8B5CF6;
+        }
+
+        #dashboard-page .punct-card.punct-short {
+            border-left-color: #6366F1;
+        }
+
+        #dashboard-page .punct-icon-wrap {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+
+        #dashboard-page .punct-late .punct-icon-wrap {
+            background: rgba(245, 158, 11, .12);
+            color: #D97706;
+        }
+
+        #dashboard-page .punct-early .punct-icon-wrap {
+            background: rgba(139, 92, 246, .12);
+            color: #7C3AED;
+        }
+
+        #dashboard-page .punct-short .punct-icon-wrap {
+            background: rgba(99, 102, 241, .12);
+            color: #4F46E5;
+        }
+
+        #dashboard-page .punct-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        #dashboard-page .punct-label {
+            font-size: 13px;
             color: var(--color-text-secondary);
-            font-size: var(--font-size-sm);
-            font-weight: 600;
+            font-weight: 500;
+            margin: 0;
         }
 
-        #dashboard-page .punctuality-mini-value {
+        #dashboard-page .punct-value {
+            font-size: 20px;
+            font-weight: 700;
             color: var(--color-text-primary);
-            font-size: 24px;
-            font-weight: 800;
+            margin: 1px 0 0;
+            line-height: 1;
+        }
+
+        #dashboard-page .punct-hint {
+            font-size: 10px;
+            color: var(--color-text-secondary);
+            opacity: .7;
+            margin-top: 1px;
         }
 
         @media (max-width: 1100px) {
-            #dashboard-page .dashboard-hero-grid {
-                grid-template-columns: 1fr;
+            #dashboard-page .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            #dashboard-page .punctuality-row {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            #dashboard-page .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            #dashboard-page .punctuality-row {
+                grid-template-columns: repeat(3, 1fr);
             }
         }
     </style>
@@ -88,6 +158,7 @@
 {% block content %}
 <section id="dashboard-page" class="page active">
     <div class="page-header">
+        <div class="dashboard-date-chip">Date du jour : {% now "d/m/Y" %}</div>
     </div>
     <div class="dashboard-hero-grid">
         <div class="stats-grid">
@@ -100,47 +171,61 @@
             </div>
             <div class="stat-card stat-success">
                 <div class="stat-header">
-                    <h3 class="stat-title">Présent Aujourd'hui</h3>
-                    <i class="fas fa-check stat-icon"></i>
+                    <h3 class="stat-title">Présents</h3>
+                    <i class="fas fa-user-check stat-icon"></i>
                 </div>
                 <div class="stat-value">{{ today_present_count }}</div>
             </div>
             <div class="stat-card stat-warning">
                 <div class="stat-header">
-                    <h3 class="stat-title">Absent Aujourd'hui</h3>
-                    <i class="fas fa-times stat-icon"></i>
+                    <h3 class="stat-title">Absents</h3>
+                    <i class="fas fa-user-xmark stat-icon"></i>
                 </div>
                 <div class="stat-value">{{ today_absent_count }}</div>
             </div>
-            <a href="{% url 'Employee:statistiques_problemes' %}" class="stat-card stat-danger" style="text-decoration: none; color: inherit; display: block;">
+            <a href="{% url 'Employee:statistiques_problemes' %}" class="stat-card stat-danger" style="text-decoration: none; display: block;">
                 <div class="stat-header">
                     <h3 class="stat-title">Incidents sécurité</h3>
                     <i class="fas fa-shield-halved stat-icon"></i>
                 </div>
                 <div class="stat-value">{{ not_recognized_today }}</div>
-                <div style="margin-top: 8px; font-size: 12px; opacity: .85;">Voir le détail sécurité</div>
             </a>
         </div>
 
-        <div class="punctuality-panel">
-            <h3>Ponctualité du jour</h3>
-            <div class="punctuality-mini-grid">
-                <div class="punctuality-mini-card">
-                    <span class="punctuality-mini-label">Retards</span>
-                    <span class="punctuality-mini-value">{{ today_late_count }}</span>
+        <div class="punctuality-row">
+            <div class="punct-card punct-late">
+                <div class="punct-icon-wrap">
+                    <i class="fas fa-clock"></i>
                 </div>
-                <div class="punctuality-mini-card">
-                    <span class="punctuality-mini-label">Départs anticipés</span>
-                    <span class="punctuality-mini-value">{{ today_early_departure_count }}</span>
+                <div class="punct-info">
+                    <div class="punct-label">Retards</div>
+                    <div class="punct-value">{{ today_late_count }}</div>
                 </div>
-                <div class="punctuality-mini-card">
-                    <span class="punctuality-mini-label">Journées courtes</span>
-                    <span class="punctuality-mini-value">{{ today_short_day_count }}</span>
+            </div>
+            <div class="punct-card punct-early">
+                <div class="punct-icon-wrap">
+                    <i class="fas fa-right-from-bracket"></i>
+                </div>
+                <div class="punct-info">
+                    <div class="punct-label">Départs anticipés</div>
+                    <div class="punct-value">{{ today_early_departure_count }}</div>
+                </div>
+            </div>
+            <div class="punct-card punct-short">
+                <div class="punct-icon-wrap">
+                    <i class="fas fa-hourglass-half"></i>
+                </div>
+                <div class="punct-info">
+                    <div class="punct-label">Travail effectif réduit</div>
+                    <div class="punct-value">{{ today_short_day_count }}</div>
                 </div>
             </div>
         </div>
     </div>
     <div class="charts-section">
+        <div class="section-header">
+            <h2>Activité de la semaine</h2>
+        </div>
         <div class="charts-container">
             <div class="chart-card">
                 <canvas id="weeklyChart"></canvas>
@@ -148,6 +233,9 @@
         </div>
     </div>
     <div class="recent-section">
+        <div class="section-header">
+            <h2>Pointages récents</h2>
+        </div>
         <div class="recent-table">
             <div class="table-header" style="grid-template-columns: 1.2fr .7fr .7fr 1.4fr .8fr;">
                 <div class="table-col name-col">Nom</div>

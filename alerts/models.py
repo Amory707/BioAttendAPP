@@ -14,11 +14,6 @@ class Alerte(models.Model):
         'TENTATIVE_FRAUDE',
     )
 
-    STATUT_CHOICES = [
-        ('NOUVELLE', 'NOUVELLE'),
-        ('VUE', 'VUE'),
-        ('TRAITEE', 'TRAITEE'),
-    ]
     TYPE_CHOICES = [
         ('RETARD', 'Retard'),
         ('ABSENCE', 'Absence'),
@@ -57,7 +52,6 @@ class Alerte(models.Model):
     device_name = models.CharField(max_length=100, blank=True)
     details = models.JSONField(default=dict, blank=True)
     date_creation = models.DateTimeField(auto_now_add=True)
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='NOUVELLE')
     masquee = models.BooleanField(default=False)
 
     class Meta:
@@ -84,7 +78,6 @@ class Alerte(models.Model):
         event_status='',
         device_name='',
         details=None,
-        statut='NOUVELLE',
     ):
         if details is None:
             details = {}
@@ -140,7 +133,7 @@ class Alerte(models.Model):
                     existing.save(update_fields=updated_fields)
                 return existing
 
-        return cls.objects.create(pointage=pointage, statut=statut, **payload)
+        return cls.objects.create(pointage=pointage, **payload)
 
     def __str__(self):
-        return f"[{self.statut}] {self.type}"
+        return self.type

@@ -59,6 +59,52 @@ class ScheduleFeatureTests(TestCase):
         self.assertEqual(request_obj.status, ScheduleRequest.STATUS_PENDING)
         self.assertEqual(request_obj.category, ScheduleRequest.CATEGORY_CONGE)
 
+    def test_employee_submission_creates_planning_alert(self):
+        self.client.force_login(self.employee)
+
+        response = self.client.post(
+            reverse('schedule:submit'),
+            {
+                'start_at': '2026-04-21T09:00',
+                'end_at': '2026-04-21T17:00',
+                'category': ScheduleRequest.CATEGORY_CONGE,
+                'description': 'Congé test alerte',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            Alerte.objects.filter(
+                utilisateur=self.employee,
+                type='DEMANDE_PLANNING',
+                description__icontains='Nouvelle demande',
+            ).exists()
+        )
+
+    def test_admin_review_request_creates_decision_alert(self):
+        start_at = timezone.make_aware(datetime(2026, 4, 22, 9, 0))
+        end_at = timezone.make_aware(datetime(2026, 4, 22, 17, 0))
+        request_obj = ScheduleRequest.objects.create(
+            utilisateur=self.employee,
+            created_by=self.employee,
+            status=ScheduleRequest.STATUS_PENDING,
+            category=ScheduleRequest.CATEGORY_CONGE,
+            start_at=start_at,
+            end_at=end_at,
+        )
+
+        self.client.force_login(self.admin)
+        response = self.client.post(reverse('schedule:approve', kwargs={'request_id': request_obj.pk}))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            Alerte.objects.filter(
+                utilisateur=self.employee,
+                type='DEMANDE_PLANNING',
+                description__icontains='approuvée',
+            ).exists()
+        )
+
     def test_schedule_home_displays_global_switch_status(self):
         self.client.force_login(self.employee)
         response = self.client.get(reverse('schedule:home'))

@@ -120,7 +120,6 @@ class AttendanceAppTests(TestCase):
 			pointage=pointage,
 			type="ECHEC_RECONNAISSANCE",
 			description="Echec de reconnaissance detecte.",
-			statut="NOUVELLE",
 		)
 
 		pointage.delete()

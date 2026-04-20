@@ -172,12 +172,24 @@ def _build_csv_response(filename):
     return response, writer
 
 
+def _alert_concerne_label(alerte):
+    utilisateur = getattr(alerte, 'utilisateur', None)
+    if utilisateur is None:
+        return 'Inconnu'
+    full_name = (utilisateur.get_full_name() or '').strip()
+    return full_name or utilisateur.username
+
+
 def _security_alert_categories():
     return [
         ('UTILISATEUR_INCONNU', 'Utilisateur inconnu'),
         ('ECHEC_RECONNAISSANCE', 'Visage non détecté'),
         ('TENTATIVE_FRAUDE', 'Tentative de fraude'),
     ]
+
+
+def _all_alert_categories():
+    return list(Alerte.TYPE_CHOICES)
 
 
 def _sync_security_alerts(utilisateur=None, date_debut=None, date_fin=None):
@@ -214,10 +226,8 @@ def _filtered_security_alerts_queryset(request, include_hidden=False):
     date_fin_raw = request.GET.get('date_fin', '').strip()
     date_debut = _safe_parse_date(date_debut_raw)
     date_fin = _safe_parse_date(date_fin_raw)
-    categories_autorisees = _security_alert_categories()
+    categories_autorisees = _all_alert_categories()
     types_autorises = {value for value, _ in categories_autorisees}
-
-    _sync_security_alerts(date_debut=date_debut, date_fin=date_fin)
 
     if categorie_filtre and categorie_filtre not in types_autorises:
         categorie_filtre = ''
@@ -245,7 +255,6 @@ def _filtered_security_alerts_queryset(request, include_hidden=False):
 def _filtered_problem_alerts_queryset(request, utilisateur=None):
     problem_q = request.GET.get('problem_q', '').strip()
     problem_type = request.GET.get('problem_type', '').strip()
-    problem_status = request.GET.get('problem_status', '').strip()
     date_debut_raw = request.GET.get('date_debut', '').strip()
     date_fin_raw = request.GET.get('date_fin', '').strip()
     date_debut = _safe_parse_date(date_debut_raw)
@@ -253,9 +262,6 @@ def _filtered_problem_alerts_queryset(request, utilisateur=None):
 
     problem_type_choices = _security_alert_categories()
     valid_problem_types = {value for value, _ in problem_type_choices}
-    valid_problem_statuses = {value for value, _ in Alerte.STATUT_CHOICES}
-
-    _sync_security_alerts(utilisateur=utilisateur, date_debut=date_debut, date_fin=date_fin)
 
     alerts_qs = Alerte.objects.all()
     if utilisateur is not None:
@@ -279,16 +285,12 @@ def _filtered_problem_alerts_queryset(request, utilisateur=None):
         )
     if problem_type in valid_problem_types:
         problem_alerts = problem_alerts.filter(type=problem_type)
-    if problem_status in valid_problem_statuses:
-        problem_alerts = problem_alerts.filter(statut=problem_status)
 
     return {
         'problem_alerts': problem_alerts.select_related('utilisateur').order_by('-date_creation'),
         'problem_q': problem_q,
         'problem_type': problem_type,
-        'problem_status': problem_status,
         'problem_type_choices': problem_type_choices,
-        'problem_status_choices': Alerte.STATUT_CHOICES,
     }
 
 
@@ -509,8 +511,6 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
             'width': max(width, 4) if value else 0,
         })
 
-    _sync_security_alerts(utilisateur=utilisateur, date_debut=date_debut, date_fin=date_fin)
-
     alerts_qs = Alerte.objects.all()
     if utilisateur is not None:
         alerts_qs = alerts_qs.filter(
@@ -632,9 +632,7 @@ def _build_statistics_context(request, utilisateur=None, active_tab='pointage'):
         'problem_alerts': problem_filters['problem_alerts'][:200],
         'problem_q': problem_filters['problem_q'],
         'problem_type': problem_filters['problem_type'],
-        'problem_status': problem_filters['problem_status'],
         'problem_type_choices': problem_filters['problem_type_choices'],
-        'problem_status_choices': problem_filters['problem_status_choices'],
     }
 
 @login_required(login_url='login')
@@ -829,21 +827,21 @@ def alerte_list(request):
         if action == 'delete_selected':
             selected_ids = request.POST.getlist('selected_alert_ids') or request.POST.getlist('selected_alertes')
             if selected_ids:
-                updated_count = alertes.filter(id__in=selected_ids).update(statut='TRAITEE', masquee=True)
-                if updated_count:
-                    messages.success(request, f"{updated_count} alerte(s) archivee(s) sans suppression de la base.")
+                deleted_count, _ = alertes.filter(id__in=selected_ids).delete()
+                if deleted_count:
+                    messages.success(request, f"{deleted_count} alerte(s) supprimee(s) definitivement.")
                 else:
-                    messages.warning(request, "Aucune alerte correspondante a archiver.")
+                    messages.warning(request, "Aucune alerte correspondante a supprimer.")
             else:
-                messages.warning(request, "Selectionnez au moins une alerte a retirer de la vue.")
+                messages.warning(request, "Selectionnez au moins une alerte a supprimer.")
         elif action == 'delete_all':
-            updated_count = alertes.update(statut='TRAITEE', masquee=True)
-            if updated_count:
-                messages.success(request, f"{updated_count} alerte(s) archivee(s) sans suppression de la base.")
+            deleted_count, _ = alertes.delete()
+            if deleted_count:
+                messages.success(request, f"{deleted_count} alerte(s) supprimee(s) definitivement.")
             else:
-                messages.info(request, "Aucune alerte a archiver avec les filtres actuels.")
+                messages.info(request, "Aucune alerte a supprimer avec les filtres actuels.")
         else:
-            messages.error(request, "Action d'archivage invalide.")
+            messages.error(request, "Action de suppression invalide.")
 
         query_params = {}
         if filtered_context['categorie_filtre']:
@@ -861,9 +859,16 @@ def alerte_list(request):
     context = {
         **filtered_context,
         'resume_total': alertes.count(),
-        'resume_inconnu': alertes.filter(type='UTILISATEUR_INCONNU').count(),
-        'resume_echec': alertes.filter(type='ECHEC_RECONNAISSANCE').count(),
-        'resume_fraude': alertes.filter(type='TENTATIVE_FRAUDE').count(),
+        'resume_bio_total': alertes.filter(type__in=SECURITY_ALERT_TYPES).count(),
+        'resume_bio_inconnu': alertes.filter(type='UTILISATEUR_INCONNU').count(),
+        'resume_bio_echec': alertes.filter(type='ECHEC_RECONNAISSANCE').count(),
+        'resume_bio_fraude': alertes.filter(type='TENTATIVE_FRAUDE').count(),
+        'resume_schedule_total': alertes.filter(type__in=['ABSENCE', 'RETARD', 'DEPART_ANTICIPE', 'JOURNEE_COURTE']).count(),
+        'resume_schedule_absence': alertes.filter(type='ABSENCE').count(),
+        'resume_schedule_retard': alertes.filter(type='RETARD').count(),
+        'resume_schedule_depart_anticipe': alertes.filter(type='DEPART_ANTICIPE').count(),
+        'resume_schedule_journee_courte': alertes.filter(type='JOURNEE_COURTE').count(),
+        'resume_planning_total': alertes.filter(type='DEMANDE_PLANNING').count(),
     }
 
     return render(request, 'utilisateur/alerte_list.html', context)
@@ -871,9 +876,13 @@ def alerte_list(request):
 
 @login_required(login_url='login')
 def exporter_alertes_csv(request):
-    source = request.GET.get('source', '').strip().lower()
+    export_tab = request.GET.get('tab', '').strip().lower()
+    has_problem_filters = any(
+        request.GET.get(key, '').strip()
+        for key in ('problem_q', 'problem_type')
+    )
 
-    if source == 'security':
+    if export_tab == 'problemes' or has_problem_filters:
         utilisateur = None
         utilisateur_id = request.GET.get('utilisateur_id', '').strip()
         if utilisateur_id:
@@ -888,14 +897,13 @@ def exporter_alertes_csv(request):
         filename = 'notifications_export.csv'
 
     response, writer = _build_csv_response(filename)
-    writer.writerow(['Date', 'Type', 'Statut', 'Source', 'Description'])
+    writer.writerow(['Date', 'Type', 'Concerne', 'Description'])
 
     for alerte in alertes:
         writer.writerow([
             alerte.date_creation.strftime('%Y-%m-%d %H:%M:%S') if alerte.date_creation else '',
             alerte.get_type_display(),
-            alerte.statut,
-            alerte.device_name or 'Système',
+            _alert_concerne_label(alerte),
             alerte.description,
         ])
 

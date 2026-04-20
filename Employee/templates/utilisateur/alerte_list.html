@@ -46,6 +46,12 @@
         color: var(--color-text-primary);
         margin-top: 6px;
     }
+    .alert-summary-meta {
+        margin-top: 8px;
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+        line-height: 1.4;
+    }
     .alertes-filter {
         display: flex;
         gap: var(--spacing-sm);
@@ -113,7 +119,7 @@
     .alertes-grid-header,
     .alertes-grid-row {
         display: grid;
-        grid-template-columns: 48px 1.1fr 2.3fr 1fr 1.2fr 0.9fr;
+        grid-template-columns: 48px 1.1fr 2.4fr 1.4fr 1.2fr;
         gap: var(--spacing-md);
         padding: var(--spacing-md) var(--spacing-lg);
         align-items: center;
@@ -155,13 +161,12 @@
         color: var(--color-text-primary);
         line-height: 1.4;
     }
-    .alerte-source,
-    .alerte-date,
-    .alerte-statut {
+    .alerte-date {
         color: var(--color-text-secondary);
     }
-    .alerte-statut {
-        font-weight: 700;
+    .alerte-concerne {
+        color: var(--color-text-secondary);
+        font-weight: 600;
     }
     @media (max-width: 960px) {
         .alertes-grid-header,
@@ -170,10 +175,8 @@
         }
         .alertes-grid-header div:nth-child(4),
         .alertes-grid-header div:nth-child(5),
-        .alertes-grid-header div:nth-child(6),
         .alertes-grid-row div:nth-child(4),
-        .alertes-grid-row div:nth-child(5),
-        .alertes-grid-row div:nth-child(6) {
+        .alertes-grid-row div:nth-child(5) {
             display: none;
         }
     }
@@ -194,23 +197,34 @@
             <div class="value">{{ resume_total }}</div>
         </div>
         <div class="alert-summary-card">
-            <div class="label">Utilisateurs inconnus</div>
-            <div class="value">{{ resume_inconnu }}</div>
+            <div class="label">Incidents biométriques</div>
+            <div class="value">{{ resume_bio_total }}</div>
+            <div class="alert-summary-meta">
+                Inconnus: {{ resume_bio_inconnu }}<br>
+                Visages non détectés: {{ resume_bio_echec }}<br>
+                Fraudes: {{ resume_bio_fraude }}
+            </div>
         </div>
         <div class="alert-summary-card">
-            <div class="label">Visages non détectés</div>
-            <div class="value">{{ resume_echec }}</div>
+            <div class="label">Ponctualité</div>
+            <div class="value">{{ resume_schedule_total }}</div>
+            <div class="alert-summary-meta">
+                Absences: {{ resume_schedule_absence }}<br>
+                Retards: {{ resume_schedule_retard }}<br>
+                Départs anticipés: {{ resume_schedule_depart_anticipe }}<br>
+                Journées courtes: {{ resume_schedule_journee_courte }}
+            </div>
         </div>
         <div class="alert-summary-card">
-            <div class="label">Tentatives de fraude</div>
-            <div class="value">{{ resume_fraude }}</div>
+            <div class="label">Demandes planning</div>
+            <div class="value">{{ resume_planning_total }}</div>
         </div>
     </div>
 
     <div class="recent-table">
         <form method="GET" class="alertes-filter">
             <div class="field" style="max-width: 260px;">
-                <label for="alert-category">Type d'erreur</label>
+                <label for="alert-category">Type d'alerte</label>
                 <select id="alert-category" name="categorie">
                     <option value="">Tous</option>
                     {% for value, label in choix_categorie %}
@@ -239,11 +253,11 @@
             <div class="alertes-actions">
                 <div class="alertes-actions-info"></div>
                 <div style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
-                    <button type="submit" name="action" value="delete_selected" class="btn btn-danger-soft" onclick="return confirm('Retirer les alertes sélectionnées de la vue ?');">
-                        Retirer la sélection
+                    <button type="submit" name="action" value="delete_selected" class="btn btn-danger-soft" onclick="return confirm('Supprimer définitivement les alertes sélectionnées ?');">
+                        Supprimer la sélection
                     </button>
-                    <button type="submit" name="action" value="delete_all" class="btn btn-danger" onclick="return confirm('Retirer toutes les alertes affichées de la vue ?');">
-                        Tout retirer
+                    <button type="submit" name="action" value="delete_all" class="btn btn-danger" onclick="return confirm('Supprimer définitivement toutes les alertes affichées ?');">
+                        Tout supprimer
                     </button>
                 </div>
             </div>
@@ -254,9 +268,8 @@
                 </div>
                 <div>Type</div>
                 <div>Description</div>
-                <div>Source</div>
+                <div>Concerne</div>
                 <div>Date</div>
-                <div>Statut</div>
             </div>
 
             <div class="table-body">
@@ -271,9 +284,8 @@
                             </span>
                         </div>
                         <div class="alerte-description">{{ alerte.description }}</div>
-                        <div class="alerte-source">{{ alerte.device_name|default:'Système' }}</div>
+                        <div class="alerte-concerne">{% if alerte.utilisateur %}{{ alerte.utilisateur.get_full_name|default:alerte.utilisateur.username }}{% else %}Inconnu{% endif %}</div>
                         <div class="alerte-date">{{ alerte.date_creation|date:'d/m/Y H:i' }}</div>
-                        <div class="alerte-statut">{{ alerte.statut }}</div>
                     </div>
                 {% empty %}
                     <div style="padding: var(--spacing-xl); color: var(--color-text-secondary); text-align: center;">
