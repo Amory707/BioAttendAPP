@@ -84,6 +84,13 @@ def _local_time(value):
     return value
 
 
+def _local_day_bounds(target_day: date):
+    tz = timezone.get_current_timezone()
+    start_local = timezone.make_aware(datetime.combine(target_day, time.min), tz)
+    end_local = start_local + timedelta(days=1)
+    return start_local, end_local
+
+
 def _worked_duration(pointages):
     open_entry = None
     total = timedelta()
@@ -110,13 +117,14 @@ def _time_delta_between(target_day: date, actual_time: time, expected_time: time
 def analyze_day(utilisateur: Utilisateur, target_day: date, settings_obj: ScheduleSettings | None = None, holiday_map=None):
     settings_obj = settings_obj or get_schedule_settings()
     holiday_map = holiday_map or get_belgian_holidays(target_day, target_day)
+    day_start, day_end = _local_day_bounds(target_day)
 
     approved_requests = list(
         ScheduleRequest.objects.filter(
             utilisateur=utilisateur,
             status=ScheduleRequest.STATUS_APPROVED,
-            start_at__date__lte=target_day,
-            end_at__date__gte=target_day,
+            start_at__lt=day_end,
+            end_at__gte=day_start,
         ).order_by('start_at')
     )
 
@@ -127,7 +135,8 @@ def analyze_day(utilisateur: Utilisateur, target_day: date, settings_obj: Schedu
         Pointage.objects.filter(
             utilisateur=utilisateur,
             statut='VALIDE',
-            horodatage__date=target_day,
+            horodatage__gte=day_start,
+            horodatage__lt=day_end,
         ).order_by('horodatage')
     )
 

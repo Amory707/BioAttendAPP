@@ -1,0 +1,58 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Présents du jour - BioAttend{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<style>
+    .table-header, .table-row {
+        grid-template-columns: 1.6fr 1fr 1fr;
+    }
+    .page-subtitle {
+        color: var(--color-text-secondary);
+        margin-top: 6px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page active">
+    <div class="page-header" style="justify-content: space-between; align-items: center;">
+        <div>
+            <h1>Présents du jour</h1>
+            <p class="page-subtitle">{{ target_day|date:'d/m/Y' }} · Pointage d'arrivée enregistré aujourd'hui</p>
+        </div>
+        <a href="{% url 'dashboard:index' %}" class="btn btn-secondary">Retour dashboard</a>
+    </div>
+
+    <div class="recent-table">
+        <div class="table-header">
+            <div>Employé</div>
+            <div>Département</div>
+            <div>Arrivée du jour</div>
+        </div>
+        <div class="table-body">
+            {% for utilisateur in present_users %}
+                <div class="table-row">
+                    <div>{{ utilisateur.get_full_name|default:utilisateur.username }}</div>
+                    <div>{{ utilisateur.departement|default:'-' }}</div>
+                    <div>
+                        {% if utilisateur.first_arrival %}
+                            {{ utilisateur.first_arrival|date:'H:i' }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                </div>
+            {% empty %}
+                <div class="table-row">
+                    <div>Aucun employé présent aujourd'hui.</div>
+                    <div></div>
+                    <div></div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -164,6 +164,20 @@ def _safe_parse_time(value):
         return None
 
 
+def _local_day_bounds(target_day):
+    tz = timezone.get_current_timezone()
+    start_local = timezone.make_aware(datetime.combine(target_day, time.min), tz)
+    end_local = start_local + timedelta(days=1)
+    return start_local, end_local
+
+
+def _local_datetime_display(value, fmt='%Y-%m-%d %H:%M:%S'):
+    if value is None:
+        return ''
+    local_value = timezone.localtime(value) if timezone.is_aware(value) else value
+    return local_value.strftime(fmt)
+
+
 def _build_csv_response(filename):
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -189,7 +203,7 @@ def _security_alert_categories():
 
 
 def _all_alert_categories():
-    return list(Alerte.TYPE_CHOICES)
+    return [choice for choice in Alerte.TYPE_CHOICES if choice[0] != 'DOUBLE_POINTAGE']
 
 
 def _sync_security_alerts(utilisateur=None, date_debut=None, date_fin=None):
@@ -235,6 +249,13 @@ def _filtered_security_alerts_queryset(request, include_hidden=False):
     alertes = Alerte.objects.select_related('utilisateur', 'pointage').all()
     if not include_hidden:
         alertes = alertes.filter(masquee=False)
+
+    # Decision confirmations ("Votre demande ...") are employee-targeted and should
+    # not appear in the global admin notification center.
+    alertes = alertes.exclude(
+        type='DEMANDE_PLANNING',
+        description__istartswith='Votre demande ',
+    )
 
     if categorie_filtre:
         alertes = alertes.filter(type=categorie_filtre)
@@ -666,7 +687,7 @@ def exporter_pointages_csv(request, utilisateur_id=None):
         utilisateur_associe = pointage.utilisateur
         writer.writerow([
             pointage.pk,
-            pointage.horodatage.strftime('%Y-%m-%d %H:%M:%S') if pointage.horodatage else '',
+            _local_datetime_display(pointage.horodatage),
             getattr(utilisateur_associe, 'username', ''),
             getattr(utilisateur_associe, 'last_name', ''),
             getattr(utilisateur_associe, 'first_name', ''),
@@ -766,8 +787,9 @@ def utilisateur_detail(request, utilisateur_id):
     utilisateur = get_object_or_404(Utilisateur, pk=utilisateur_id)
     pointages = utilisateur.pointages.order_by('-horodatage')
 
-    today = date.today()
-    dernier_pointage = pointages.filter(horodatage__date=today).last()
+    today = timezone.localdate()
+    day_start, day_end = _local_day_bounds(today)
+    dernier_pointage = pointages.filter(horodatage__gte=day_start, horodatage__lt=day_end).last()
 
     context = {
         'utilisateur': utilisateur,
@@ -901,7 +923,7 @@ def exporter_alertes_csv(request):
 
     for alerte in alertes:
         writer.writerow([
-            alerte.date_creation.strftime('%Y-%m-%d %H:%M:%S') if alerte.date_creation else '',
+            _local_datetime_display(alerte.date_creation),
             alerte.get_type_display(),
             _alert_concerne_label(alerte),
             alerte.description,
@@ -1051,7 +1073,8 @@ def exporter_csv(request):
 
 
 def badge_presence(utilisateur):
-    today = date.today()
-    dernier = Pointage.objects.filter(utilisateur=utilisateur, horodatage__date=today).last()
+    today = timezone.localdate()
+    day_start, day_end = _local_day_bounds(today)
+    dernier = Pointage.objects.filter(utilisateur=utilisateur, horodatage__gte=day_start, horodatage__lt=day_end).last()
     if dernier and dernier.type == 'ENTREE': return format_html('<b style="background: #d4edda; color: #155724; padding: 5px; border-radius: 5px;">Présent</b>')
     return format_html('<b style="background: #f8d7da; color: #721c24; padding: 5px; border-radius: 5px;">Absent</b>')

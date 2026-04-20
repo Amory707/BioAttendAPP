@@ -64,6 +64,10 @@
             border-left: 3px solid transparent;
             min-width: 0;
         }
+        #dashboard-page a.punct-card {
+            text-decoration: none;
+            color: inherit;
+        }
 
         #dashboard-page .punct-card:hover {
             transform: translateY(-2px);
@@ -162,27 +166,27 @@
     </div>
     <div class="dashboard-hero-grid">
         <div class="stats-grid">
-            <div class="stat-card stat-total">
+            <a href="{% url 'Employee:utilisateur_list' %}" class="stat-card stat-total" style="text-decoration: none; display: block;">
                 <div class="stat-header">
                     <h3 class="stat-title">Total Employés</h3>
                     <i class="fas fa-users stat-icon"></i>
                 </div>
                 <div class="stat-value">{{ total_employees }}</div>
-            </div>
-            <div class="stat-card stat-success">
+            </a>
+            <a href="{% url 'dashboard:today_present_list' %}" class="stat-card stat-success" style="text-decoration: none; display: block;">
                 <div class="stat-header">
                     <h3 class="stat-title">Présents</h3>
                     <i class="fas fa-user-check stat-icon"></i>
                 </div>
                 <div class="stat-value">{{ today_present_count }}</div>
-            </div>
-            <div class="stat-card stat-warning">
+            </a>
+            <a href="{% url 'dashboard:today_absent_list' %}" class="stat-card stat-warning" style="text-decoration: none; display: block;">
                 <div class="stat-header">
                     <h3 class="stat-title">Absents</h3>
                     <i class="fas fa-user-xmark stat-icon"></i>
                 </div>
                 <div class="stat-value">{{ today_absent_count }}</div>
-            </div>
+            </a>
             <a href="{% url 'Employee:statistiques_problemes' %}" class="stat-card stat-danger" style="text-decoration: none; display: block;">
                 <div class="stat-header">
                     <h3 class="stat-title">Incidents sécurité</h3>
@@ -193,7 +197,7 @@
         </div>
 
         <div class="punctuality-row">
-            <div class="punct-card punct-late">
+            <a href="{% url 'dashboard:today_punctuality_list' 'late' %}" class="punct-card punct-late">
                 <div class="punct-icon-wrap">
                     <i class="fas fa-clock"></i>
                 </div>
@@ -201,8 +205,8 @@
                     <div class="punct-label">Retards</div>
                     <div class="punct-value">{{ today_late_count }}</div>
                 </div>
-            </div>
-            <div class="punct-card punct-early">
+            </a>
+            <a href="{% url 'dashboard:today_punctuality_list' 'early' %}" class="punct-card punct-early">
                 <div class="punct-icon-wrap">
                     <i class="fas fa-right-from-bracket"></i>
                 </div>
@@ -210,8 +214,8 @@
                     <div class="punct-label">Départs anticipés</div>
                     <div class="punct-value">{{ today_early_departure_count }}</div>
                 </div>
-            </div>
-            <div class="punct-card punct-short">
+            </a>
+            <a href="{% url 'dashboard:today_punctuality_list' 'short' %}" class="punct-card punct-short">
                 <div class="punct-icon-wrap">
                     <i class="fas fa-hourglass-half"></i>
                 </div>
@@ -219,7 +223,7 @@
                     <div class="punct-label">Travail effectif réduit</div>
                     <div class="punct-value">{{ today_short_day_count }}</div>
                 </div>
-            </div>
+            </a>
         </div>
     </div>
     <div class="charts-section">

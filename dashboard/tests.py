@@ -1,3 +1,5 @@
+from datetime import datetime, time
+
 from django.contrib.messages import get_messages
 from django.contrib.sessions.models import Session
 from django.test import TestCase
@@ -8,6 +10,7 @@ from accounts.access import ACTIVE_SPACE_SESSION_KEY, EMPLOYEE_SPACE
 from accounts.models import Role, RoleUtilisateur, Utilisateur
 from alerts.models import Alerte
 from attendance.models import Pointage
+from schedule.models import ScheduleRequest
 
 
 class DashboardAppTests(TestCase):
@@ -19,13 +22,13 @@ class DashboardAppTests(TestCase):
 		Utilisateur.objects.all().delete()
 		Role.objects.all().delete()
 
-	def _create_user(self, username, is_superuser=False):
+	def _create_user(self, username, is_superuser=False, first_name="John", last_name="Doe"):
 		return Utilisateur.objects.create_user(
 			username=username,
 			email=f"{username}@example.com",
 			password="test-pass-123",
-			first_name="John",
-			last_name="Doe",
+			first_name=first_name,
+			last_name=last_name,
 			is_superuser=is_superuser,
 			is_staff=is_superuser,
 		)
@@ -61,6 +64,121 @@ class DashboardAppTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, "Incidents sécurité")
 		self.assertContains(response, reverse("Employee:statistiques_problemes"))
+
+	def test_dashboard_cards_link_to_expected_pages(self):
+		admin = self._create_user("admin-cards")
+		self._assign_role(admin, "admin")
+		self.client.force_login(admin)
+
+		response = self.client.get(reverse("dashboard:index"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, reverse("Employee:utilisateur_list"))
+		self.assertContains(response, reverse("dashboard:today_present_list"))
+		self.assertContains(response, reverse("dashboard:today_absent_list"))
+		self.assertContains(response, reverse("dashboard:today_punctuality_list", kwargs={"metric": "late"}))
+		self.assertContains(response, reverse("dashboard:today_punctuality_list", kwargs={"metric": "early"}))
+		self.assertContains(response, reverse("dashboard:today_punctuality_list", kwargs={"metric": "short"}))
+
+	def test_today_punctuality_list_late_renders_employee(self):
+		admin = self._create_user("admin-late-list")
+		employee = self._create_user("late-employee", first_name="Lina", last_name="Late")
+		self._assign_role(admin, "admin")
+		self._assign_role(employee, "employé")
+		self.client.force_login(admin)
+
+		now = timezone.now().replace(second=0, microsecond=0)
+		Pointage.objects.create(
+			utilisateur=employee,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=now.replace(hour=11, minute=0),
+			score_confiance=0.95,
+		)
+		Pointage.objects.create(
+			utilisateur=employee,
+			statut="VALIDE",
+			type="SORTIE",
+			horodatage=now.replace(hour=17, minute=0),
+			score_confiance=0.95,
+		)
+
+		response = self.client.get(reverse("dashboard:today_punctuality_list", kwargs={"metric": "late"}))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Retards du jour")
+		self.assertContains(response, "Lina Late")
+
+	def test_today_present_list_shows_first_arrival(self):
+		admin = self._create_user("admin-present-list")
+		employee = self._create_user("present-employee", first_name="Lina", last_name="Ray")
+		self._assign_role(admin, "admin")
+		self._assign_role(employee, "employé")
+		self.client.force_login(admin)
+
+		now = timezone.now().replace(second=0, microsecond=0)
+		Pointage.objects.create(
+			utilisateur=employee,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=now.replace(hour=8, minute=45),
+			score_confiance=0.95,
+		)
+		Pointage.objects.create(
+			utilisateur=employee,
+			statut="VALIDE",
+			type="SORTIE",
+			horodatage=now.replace(hour=17, minute=10),
+			score_confiance=0.95,
+		)
+
+		response = self.client.get(reverse("dashboard:today_present_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Présents du jour")
+		self.assertContains(response, "Lina Ray")
+		present_users = list(response.context["present_users"])
+		self.assertTrue(present_users)
+		self.assertIsNotNone(present_users[0].first_arrival)
+
+	def test_today_absent_list_splits_expected_and_unexpected_absences(self):
+		admin = self._create_user("admin-absent-list")
+		present_employee = self._create_user("present-emp", first_name="Nina", last_name="Present")
+		justified_absent = self._create_user("justified-absent", first_name="Jules", last_name="Conge")
+		unjustified_absent = self._create_user("unjustified-absent", first_name="Rami", last_name="Absent")
+
+		self._assign_role(admin, "admin")
+		self._assign_role(present_employee, "employé")
+		self._assign_role(justified_absent, "employé")
+		self._assign_role(unjustified_absent, "employé")
+		self.client.force_login(admin)
+
+		now = timezone.localtime(timezone.now())
+		Pointage.objects.create(
+			utilisateur=present_employee,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=timezone.make_aware(datetime.combine(now.date(), time(8, 30))),
+			score_confiance=0.94,
+		)
+
+		ScheduleRequest.objects.create(
+			utilisateur=justified_absent,
+			created_by=admin,
+			reviewed_by=admin,
+			status=ScheduleRequest.STATUS_APPROVED,
+			category=ScheduleRequest.CATEGORY_CONGE,
+			start_at=timezone.make_aware(datetime.combine(now.date(), time(0, 0))),
+			end_at=timezone.make_aware(datetime.combine(now.date(), time(23, 59))),
+		)
+
+		response = self.client.get(reverse("dashboard:today_absent_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Ne travaillent pas aujourd'hui")
+		self.assertContains(response, "Devraient être présents mais ne le sont pas")
+		self.assertContains(response, "Jules Conge")
+		self.assertContains(response, "Rami Absent")
 
 	def test_dashboard_uses_real_metrics_in_context(self):
 		admin = self._create_user("admin-metrics")
@@ -116,9 +234,9 @@ class DashboardAppTests(TestCase):
 		response = self.client.get(reverse("dashboard:index"))
 
 		self.assertEqual(response.status_code, 200)
-		self.assertEqual(response.context["total_employees"], 2)
+		self.assertEqual(response.context["total_employees"], 3)
 		self.assertEqual(response.context["today_present_count"], 1)
-		self.assertEqual(response.context["today_absent_count"], 1)
+		self.assertEqual(response.context["today_absent_count"], 2)
 		self.assertGreaterEqual(response.context["today_late_count"], 0)
 		self.assertGreaterEqual(response.context["today_early_departure_count"], 0)
 		self.assertGreaterEqual(response.context["today_short_day_count"], 0)
@@ -146,7 +264,7 @@ class DashboardAppTests(TestCase):
 		response = self.client.get(reverse("dashboard:index"))
 
 		self.assertEqual(response.status_code, 200)
-		self.assertEqual(response.context["total_employees"], 1)
+		self.assertEqual(response.context["total_employees"], 2)
 		self.assertEqual(response.context["today_present_count"], 1)
 		self.assertContains(response, "Noa Field")
 

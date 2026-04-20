@@ -107,7 +107,7 @@ class EmployeeAppTests(TestCase):
 			RoleUtilisateur.objects.filter(utilisateur=created_user, role=role_admin).exists()
 		)
 
-	def test_create_utilisateur_accepts_multiple_roles(self):
+	def test_create_utilisateur_rejects_multiple_roles(self):
 		role_employe = self._create_role("employé")
 		role_admin = self._create_role("admin")
 		request_user = self._create_user("owner-multi")
@@ -123,12 +123,9 @@ class EmployeeAppTests(TestCase):
 
 		response = self.client.post(reverse("Employee:utilisateur_create"), payload)
 
-		self.assertEqual(response.status_code, 302)
-		created_user = Utilisateur.objects.get(email="ari.dual@example.com")
-		assigned_roles = set(
-			RoleUtilisateur.objects.filter(utilisateur=created_user).values_list("role__nom", flat=True)
-		)
-		self.assertEqual(assigned_roles, {"employé", "admin"})
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Un seul rôle peut être attribué")
+		self.assertFalse(Utilisateur.objects.filter(email="ari.dual@example.com").exists())
 
 	def test_pointage_list_filters_by_type(self):
 		user = self._create_user("pointage-user")

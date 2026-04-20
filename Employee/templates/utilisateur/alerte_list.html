@@ -11,7 +11,7 @@
         align-items: flex-start;
         justify-content: space-between;
         gap: var(--spacing-md);
-        margin-bottom: var(--spacing-lg);
+        margin-bottom: var(--spacing-md);
     }
     .alertes-page-title {
         margin: 0;
@@ -24,49 +24,107 @@
     }
     .alertes-summary {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: var(--spacing-md);
-        margin-bottom: var(--spacing-lg);
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-md);
     }
     .alert-summary-card {
-        background: linear-gradient(135deg, rgba(74, 144, 226, 0.08), rgba(74, 144, 226, 0.02));
-        border: 1px solid rgba(74, 144, 226, 0.15);
+        background: var(--color-bg-white);
+        border: 1px solid var(--color-border);
         border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
         padding: var(--spacing-md);
+        position: relative;
+        overflow: hidden;
+        transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .alert-summary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    .alert-summary-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 4px;
+    }
+    .alert-summary-card.total::before {
+        background: linear-gradient(90deg, #6B7280, #4B5563);
+    }
+    .alert-summary-card.bio::before {
+        background: linear-gradient(90deg, var(--color-primary), var(--color-primary-dark));
+    }
+    .alert-summary-card.schedule::before {
+        background: linear-gradient(90deg, var(--color-warning), #D97706);
+    }
+    .alert-summary-card.planning::before {
+        background: linear-gradient(90deg, var(--color-info), #0891B2);
+    }
+    .alert-summary-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-sm);
+        margin-bottom: 2px;
+    }
+    .alert-summary-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: var(--radius-full);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-bg-light);
+        color: var(--color-text-secondary);
+        font-size: var(--font-size-xs);
     }
     .alert-summary-card .label {
         font-size: var(--font-size-xs);
         text-transform: uppercase;
         letter-spacing: .4px;
         color: var(--color-text-secondary);
+        font-weight: var(--font-weight-semibold);
     }
     .alert-summary-card .value {
-        font-size: 1.8rem;
-        font-weight: 800;
+        font-size: 1.75rem;
+        font-weight: var(--font-weight-bold);
         color: var(--color-text-primary);
-        margin-top: 6px;
+        margin-top: 2px;
     }
     .alert-summary-meta {
-        margin-top: 8px;
+        margin: 6px 0 0;
+        padding: 0;
+        list-style: none;
         font-size: var(--font-size-xs);
         color: var(--color-text-secondary);
-        line-height: 1.4;
+        line-height: 1.5;
+    }
+    .alert-summary-meta li {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--spacing-sm);
     }
     .alertes-filter {
         display: flex;
         gap: var(--spacing-sm);
-        padding: var(--spacing-md) var(--spacing-lg);
+        padding: var(--spacing-md);
         border-bottom: 1px solid #f0f0f0;
         flex-wrap: wrap;
-        background: var(--color-bg-light);
+        background: #FAFBFC;
         align-items: end;
     }
     .alertes-filter .field {
         display: flex;
         flex-direction: column;
-        gap: 6px;
-        min-width: 220px;
+        gap: 4px;
+        min-width: 200px;
         flex: 1;
+    }
+    .alertes-filter .field-large {
+        max-width: 280px;
+    }
+    .alertes-filter .field-date {
+        max-width: 190px;
     }
     .alertes-filter label {
         font-size: var(--font-size-xs);
@@ -79,7 +137,7 @@
     .alertes-filter select,
     .alertes-filter button,
     .alertes-filter a {
-        padding: 10px 12px;
+        padding: 8px 10px;
         border: 1px solid #ddd;
         border-radius: var(--radius-sm);
         font-size: var(--font-size-sm);
@@ -93,12 +151,15 @@
         background: #fff;
         color: var(--color-text-primary);
     }
+    .alertes-filter .btn {
+        min-height: 38px;
+    }
     .alertes-actions {
         display: flex;
         gap: var(--spacing-sm);
         align-items: center;
         justify-content: space-between;
-        padding: var(--spacing-md) var(--spacing-lg);
+        padding: var(--spacing-sm) var(--spacing-md);
         border-bottom: 1px solid #f0f0f0;
         background: #fff;
         flex-wrap: wrap;
@@ -106,6 +167,11 @@
     .alertes-actions-info {
         color: var(--color-text-secondary);
         font-size: var(--font-size-sm);
+    }
+    .alertes-actions-buttons {
+        display: flex;
+        gap: var(--spacing-sm);
+        flex-wrap: wrap;
     }
     .btn-danger-soft {
         background: #fff1f0;
@@ -120,7 +186,7 @@
         display: grid;
         grid-template-columns: 48px 1.1fr 2.4fr 1.4fr 1.2fr;
         gap: var(--spacing-md);
-        padding: var(--spacing-md) var(--spacing-lg);
+        padding: 12px var(--spacing-md);
         align-items: center;
     }
     .alertes-grid-header {
@@ -135,6 +201,21 @@
     .alertes-grid-row {
         border-bottom: 1px solid #f1f1f1;
         font-size: var(--font-size-sm);
+        transition: background-color var(--transition-fast);
+        border-left: 3px solid transparent;
+        padding-left: calc(var(--spacing-md) - 3px);
+    }
+    .alertes-grid-row.row-bio { border-left-color: var(--color-primary); }
+    .alertes-grid-row.row-schedule { border-left-color: var(--color-warning); }
+    .alertes-grid-row.row-planning { border-left-color: var(--color-info); }
+    .alertes-grid-row.row-other { border-left-color: #6B7280; }
+    .alertes-grid-row .alerte-description,
+    .alertes-grid-row .alerte-concerne,
+    .alertes-grid-row .alerte-date {
+        font-size: 13px;
+    }
+    .alertes-grid-row:hover {
+        background: var(--color-bg-light);
     }
     .alertes-grid-row:last-child {
         border-bottom: none;
@@ -152,10 +233,22 @@
         width: fit-content;
         font-size: 12px;
     }
-    .alerte-type-badge.inconnu { background: #FFF7E6; color: #B26A00; }
-    .alerte-type-badge.echec { background: #FEF2F2; color: #B91C1C; }
-    .alerte-type-badge.fraude { background: #FDF2F8; color: #BE185D; }
-    .alerte-type-badge.neutre { background: #EEF2FF; color: #4338CA; }
+    .alerte-type-badge.bio {
+        background: rgba(74, 144, 226, 0.14);
+        color: var(--color-primary-dark);
+    }
+    .alerte-type-badge.schedule {
+        background: rgba(245, 158, 11, 0.16);
+        color: #9A5C00;
+    }
+    .alerte-type-badge.planning {
+        background: rgba(6, 182, 212, 0.16);
+        color: #0A6F85;
+    }
+    .alerte-type-badge.other {
+        background: rgba(107, 114, 128, 0.14);
+        color: #4B5563;
+    }
     .alerte-description {
         color: var(--color-text-primary);
         line-height: 1.4;
@@ -168,6 +261,18 @@
         font-weight: 600;
     }
     @media (max-width: 960px) {
+        .alertes-filter {
+            padding: var(--spacing-sm);
+        }
+        .alertes-filter .field,
+        .alertes-filter .field-large,
+        .alertes-filter .field-date {
+            min-width: 100%;
+            max-width: 100%;
+        }
+        .alertes-actions {
+            padding: var(--spacing-sm);
+        }
         .alertes-grid-header,
         .alertes-grid-row {
             grid-template-columns: 42px 1fr 1.8fr;
@@ -191,38 +296,50 @@
     </div>
 
     <div class="alertes-summary">
-        <div class="alert-summary-card">
-            <div class="label">Total visible</div>
+        <div class="alert-summary-card total">
+            <div class="alert-summary-top">
+                <div class="label">Total visible</div>
+                <span class="alert-summary-icon"><i class="fas fa-layer-group"></i></span>
+            </div>
             <div class="value">{{ resume_total }}</div>
         </div>
-        <div class="alert-summary-card">
-            <div class="label">Incidents biométriques</div>
+        <div class="alert-summary-card bio">
+            <div class="alert-summary-top">
+                <div class="label">Incidents biométriques</div>
+                <span class="alert-summary-icon"><i class="fas fa-fingerprint"></i></span>
+            </div>
             <div class="value">{{ resume_bio_total }}</div>
-            <div class="alert-summary-meta">
-                Inconnus: {{ resume_bio_inconnu }}<br>
-                Visages non détectés: {{ resume_bio_echec }}<br>
-                Fraudes: {{ resume_bio_fraude }}
-            </div>
+            <ul class="alert-summary-meta">
+                <li><span>Inconnus</span><strong>{{ resume_bio_inconnu }}</strong></li>
+                <li><span>Visages non détectés</span><strong>{{ resume_bio_echec }}</strong></li>
+                <li><span>Fraudes</span><strong>{{ resume_bio_fraude }}</strong></li>
+            </ul>
         </div>
-        <div class="alert-summary-card">
-            <div class="label">Ponctualité</div>
+        <div class="alert-summary-card schedule">
+            <div class="alert-summary-top">
+                <div class="label">Ponctualité</div>
+                <span class="alert-summary-icon"><i class="fas fa-business-time"></i></span>
+            </div>
             <div class="value">{{ resume_schedule_total }}</div>
-            <div class="alert-summary-meta">
-                Absences: {{ resume_schedule_absence }}<br>
-                Retards: {{ resume_schedule_retard }}<br>
-                Départs anticipés: {{ resume_schedule_depart_anticipe }}<br>
-                Journées courtes: {{ resume_schedule_journee_courte }}
-            </div>
+            <ul class="alert-summary-meta">
+                <li><span>Absences</span><strong>{{ resume_schedule_absence }}</strong></li>
+                <li><span>Retards</span><strong>{{ resume_schedule_retard }}</strong></li>
+                <li><span>Départs anticipés</span><strong>{{ resume_schedule_depart_anticipe }}</strong></li>
+                <li><span>Journées courtes</span><strong>{{ resume_schedule_journee_courte }}</strong></li>
+            </ul>
         </div>
-        <div class="alert-summary-card">
-            <div class="label">Demandes planning</div>
+        <div class="alert-summary-card planning">
+            <div class="alert-summary-top">
+                <div class="label">Demandes planning</div>
+                <span class="alert-summary-icon"><i class="fas fa-calendar-check"></i></span>
+            </div>
             <div class="value">{{ resume_planning_total }}</div>
         </div>
     </div>
 
     <div class="recent-table">
         <form method="GET" class="alertes-filter">
-            <div class="field" style="max-width: 260px;">
+            <div class="field field-large">
                 <label for="alert-category">Type d'alerte</label>
                 <select id="alert-category" name="categorie">
                     <option value="">Tous</option>
@@ -231,11 +348,11 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="field" style="max-width: 180px;">
+            <div class="field field-date">
                 <label for="date-debut">Date début</label>
                 <input id="date-debut" type="date" name="date_debut" value="{{ date_debut }}">
             </div>
-            <div class="field" style="max-width: 180px;">
+            <div class="field field-date">
                 <label for="date-fin">Date fin</label>
                 <input id="date-fin" type="date" name="date_fin" value="{{ date_fin }}">
             </div>
@@ -251,7 +368,7 @@
             {% csrf_token %}
             <div class="alertes-actions">
                 <div class="alertes-actions-info"></div>
-                <div style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
+                <div class="alertes-actions-buttons">
                     <button type="submit" name="action" value="delete_selected" class="btn btn-danger-soft" onclick="return confirm('Supprimer définitivement les alertes sélectionnées ?');">
                         Supprimer la sélection
                     </button>
@@ -273,12 +390,12 @@
 
             <div class="table-body">
                 {% for alerte in alertes %}
-                    <div class="alertes-grid-row">
+                    <div class="alertes-grid-row {% if alerte.type == 'UTILISATEUR_INCONNU' or alerte.type == 'ECHEC_RECONNAISSANCE' or alerte.type == 'TENTATIVE_FRAUDE' %}row-bio{% elif alerte.type == 'ABSENCE' or alerte.type == 'RETARD' or alerte.type == 'DEPART_ANTICIPE' or alerte.type == 'JOURNEE_COURTE' or alerte.type == 'DOUBLE_POINTAGE' %}row-schedule{% elif alerte.type == 'DEMANDE_PLANNING' %}row-planning{% else %}row-other{% endif %}">
                         <div class="alertes-checkbox-cell">
                             <input type="checkbox" name="selected_alert_ids" value="{{ alerte.id }}" class="alert-select-item" aria-label="Sélectionner l'alerte {{ alerte.id }}">
                         </div>
                         <div>
-                            <span class="alerte-type-badge {% if alerte.type == 'UTILISATEUR_INCONNU' %}inconnu{% elif alerte.type == 'ECHEC_RECONNAISSANCE' %}echec{% elif alerte.type == 'TENTATIVE_FRAUDE' %}fraude{% else %}neutre{% endif %}">
+                            <span class="alerte-type-badge {% if alerte.type == 'UTILISATEUR_INCONNU' or alerte.type == 'ECHEC_RECONNAISSANCE' or alerte.type == 'TENTATIVE_FRAUDE' %}bio{% elif alerte.type == 'ABSENCE' or alerte.type == 'RETARD' or alerte.type == 'DEPART_ANTICIPE' or alerte.type == 'JOURNEE_COURTE' or alerte.type == 'DOUBLE_POINTAGE' %}schedule{% elif alerte.type == 'DEMANDE_PLANNING' %}planning{% else %}other{% endif %}">
                                 {{ alerte.get_type_display }}
                             </span>
                         </div>

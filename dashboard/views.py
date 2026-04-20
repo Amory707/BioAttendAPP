@@ -1,12 +1,12 @@
 import csv
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Min
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 
@@ -15,8 +15,12 @@ from accounts.models import Utilisateur
 from alerts.models import Alerte
 
 from attendance.models import Pointage
-from attendance.utils import summarize_work_time
+from attendance.utils import summarize_work_time, format_duration
 from schedule.services import attach_schedule_display, analyze_day, get_belgian_holidays, get_schedule_settings
+
+
+def _user_label(utilisateur):
+    return utilisateur.get_full_name() or utilisateur.username
 
 def _deny_and_logout(request):
     messages.error(request, "Accès refusé : votre compte n'a pas les droits plateforme.")
@@ -30,12 +34,8 @@ def _redirect_to_active_space(request):
     return _deny_and_logout(request)
 
 def _employee_queryset_for_dashboard():
-    return (
-        Utilisateur.objects.filter(is_superuser=False)
-        .exclude(roles__nom__iexact='admin')
-        .exclude(roles__nom__iexact='acces_total')
-        .distinct()
-    )
+    # Dashboard KPIs must include every user account.
+    return Utilisateur.objects.all().distinct()
 
 
 def _compute_punctuality_counts_for_users(users, target_day):
@@ -60,6 +60,91 @@ def _compute_punctuality_counts_for_users(users, target_day):
         'short_day': short_day,
     }
 
+
+def _absence_reason(utilisateur, analysis, target_day):
+    if analysis['absence_requests']:
+        reasons = sorted({item.get_category_display() for item in analysis['absence_requests']})
+        return f"Absence justifiée ({', '.join(reasons)})"
+
+    if analysis['holiday_name']:
+        return f"Jour férié ({analysis['holiday_name']})"
+
+    if target_day.weekday() >= 5:
+        return 'Repos hebdomadaire'
+
+    if utilisateur.date_debut and target_day < utilisateur.date_debut:
+        return 'Pas encore en poste'
+
+    if utilisateur.date_fin and target_day > utilisateur.date_fin:
+        return 'Contrat terminé'
+
+    return 'Aucun justificatif identifié'
+
+
+def _time_delta_on_day(target_day, lhs, rhs):
+    return datetime.combine(target_day, lhs) - datetime.combine(target_day, rhs)
+
+
+def _local_day_bounds(target_day):
+    tz = timezone.get_current_timezone()
+    start_local = timezone.make_aware(datetime.combine(target_day, time.min), tz)
+    end_local = start_local + timedelta(days=1)
+    return start_local, end_local
+
+
+def _collect_punctuality_rows(metric, target_day):
+    settings_obj = get_schedule_settings()
+    holiday_map = get_belgian_holidays(target_day, target_day)
+    rows = []
+
+    for utilisateur in _employee_queryset_for_dashboard().order_by('first_name', 'last_name', 'username'):
+        analysis = analyze_day(utilisateur, target_day, settings_obj=settings_obj, holiday_map=holiday_map)
+
+        if metric == 'late' and analysis['late'] and analysis['first_entry'] is not None:
+            actual_entry = timezone.localtime(analysis['first_entry']).time()
+            expected_entry = settings_obj.arrival_window_end
+            delay = _time_delta_on_day(target_day, actual_entry, expected_entry)
+            rows.append({
+                'utilisateur': utilisateur,
+                'label': _user_label(utilisateur),
+                'time_display': actual_entry.strftime('%H:%M'),
+                'detail': (
+                    f"Arrivée à {actual_entry.strftime('%H:%M')} "
+                    f"(seuil {expected_entry.strftime('%H:%M')}) · "
+                    f"retard de {format_duration(delay)}"
+                ),
+            })
+
+        elif metric == 'early' and analysis['early_departure'] and analysis['last_exit'] is not None:
+            actual_exit = timezone.localtime(analysis['last_exit']).time()
+            expected_exit = settings_obj.departure_window_start
+            early_delta = _time_delta_on_day(target_day, expected_exit, actual_exit)
+            rows.append({
+                'utilisateur': utilisateur,
+                'label': _user_label(utilisateur),
+                'time_display': actual_exit.strftime('%H:%M'),
+                'detail': (
+                    f"Sortie à {actual_exit.strftime('%H:%M')} "
+                    f"(seuil {expected_exit.strftime('%H:%M')}) · "
+                    f"anticipation de {format_duration(early_delta)}"
+                ),
+            })
+
+        elif metric == 'short' and analysis['short_day']:
+            required_duration = timedelta(minutes=settings_obj.required_daily_minutes)
+            missing_duration = max(required_duration - analysis['worked_duration'], timedelta())
+            rows.append({
+                'utilisateur': utilisateur,
+                'label': _user_label(utilisateur),
+                'time_display': analysis['worked_duration_display'],
+                'detail': (
+                    f"Temps requis: {format_duration(required_duration)} · "
+                    f"manque: {format_duration(missing_duration)}"
+                ),
+            })
+
+    return rows
+
 @login_required(login_url='login')
 def dashboard(request):
     if get_active_space(request) == EMPLOYEE_SPACE: return redirect('dashboard:employee_home')
@@ -68,6 +153,7 @@ def dashboard(request):
 
     today = timezone.localdate()
     start_week = today - timedelta(days=6)
+    today_start, today_end = _local_day_bounds(today)
 
     employee_qs = _employee_queryset_for_dashboard()
     employee_list = list(employee_qs)
@@ -76,7 +162,8 @@ def dashboard(request):
     today_present_count = (
         Pointage.objects.filter(
             utilisateur__in=employee_qs,
-            horodatage__date=today,
+            horodatage__gte=today_start,
+            horodatage__lt=today_end,
             statut='VALIDE',
         )
         .values('utilisateur_id')
@@ -89,48 +176,50 @@ def dashboard(request):
     # Keep this metric aligned with "Stat Sécurité" source of truth.
     not_recognized_today = Alerte.objects.filter(type__in=Alerte.SECURITY_TYPES).count()
 
-    weekly_present_map = {
-        item['jour']: item['total']
-        for item in (
-            Pointage.objects.filter(
-                utilisateur__in=employee_qs,
-                horodatage__date__gte=start_week,
-                horodatage__date__lte=today,
-                statut='VALIDE',
-            )
-            .annotate(jour=TruncDate('horodatage'))
-            .values('jour')
-            .annotate(total=Count('utilisateur', distinct=True))
-        )
-    }
-
-    weekly_unknown_map = {
-        item['jour']: item['total']
-        for item in (
-            Pointage.objects.filter(
-                horodatage__date__gte=start_week,
-                horodatage__date__lte=today,
-                origine=Pointage.ORIGINE_POINTEUSE,
-                statut='NON_VALIDE',
-                incident_type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
-            )
-            .annotate(jour=TruncDate('horodatage'))
-            .values('jour')
-            .annotate(total=Count('id'))
-        )
-    }
+    settings_obj = get_schedule_settings()
+    week_holidays = get_belgian_holidays(start_week, today)
 
     weekly_stats = []
     for i in range(7):
         day = start_week + timedelta(days=i)
-        presents = weekly_present_map.get(day, 0)
-        absents = max(total_employees - presents, 0)
-        unrecorded = weekly_unknown_map.get(day, 0)
+        day_start, day_end = _local_day_bounds(day)
+
+        present_user_ids = set(
+            Pointage.objects.filter(
+                utilisateur__in=employee_qs,
+                horodatage__gte=day_start,
+                horodatage__lt=day_end,
+                statut='VALIDE',
+            )
+            .values_list('utilisateur_id', flat=True)
+            .distinct()
+        )
+
+        justified_absences = 0
+        unjustified_absences = 0
+        for utilisateur in employee_list:
+            if utilisateur.pk in present_user_ids:
+                continue
+            analysis = analyze_day(utilisateur, day, settings_obj=settings_obj, holiday_map=week_holidays)
+            if analysis['required_presence']:
+                unjustified_absences += 1
+            else:
+                justified_absences += 1
+
+        security_incidents = Pointage.objects.filter(
+            horodatage__gte=day_start,
+            horodatage__lt=day_end,
+            origine=Pointage.ORIGINE_POINTEUSE,
+            statut='NON_VALIDE',
+            incident_type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
+        ).count()
+
         weekly_stats.append({
             'day': day.strftime('%a'),
-            'presents': presents,
-            'absents': absents,
-            'unrecorded': unrecorded,
+            'presents': len(present_user_ids),
+            'justified_absences': justified_absences,
+            'unjustified_absences': unjustified_absences,
+            'security_incidents': security_incidents,
         })
 
     punctuality_counts = _compute_punctuality_counts_for_users(employee_list, today)
@@ -159,6 +248,140 @@ def dashboard(request):
     }
 
     return render(request, 'dashboard.html', context)
+
+
+@login_required(login_url='login')
+def today_present_list(request):
+    if get_active_space(request) == EMPLOYEE_SPACE:
+        return redirect('dashboard:employee_home')
+
+    if not request.user.is_platform_admin:
+        return _deny_and_logout(request)
+
+    today = timezone.localdate()
+    today_start, today_end = _local_day_bounds(today)
+    employee_qs = _employee_queryset_for_dashboard()
+
+    present_user_ids = list(
+        Pointage.objects.filter(
+            utilisateur__in=employee_qs,
+            horodatage__gte=today_start,
+            horodatage__lt=today_end,
+            statut='VALIDE',
+        )
+        .values_list('utilisateur_id', flat=True)
+        .distinct()
+    )
+
+    present_users = (
+        employee_qs.filter(pk__in=present_user_ids)
+        .annotate(
+            first_arrival=Min(
+                'pointages__horodatage',
+                filter=Q(
+                    pointages__horodatage__gte=today_start,
+                    pointages__horodatage__lt=today_end,
+                    pointages__statut='VALIDE',
+                    pointages__type='ENTREE',
+                ),
+            )
+        )
+        .order_by('first_name', 'last_name', 'username')
+    )
+
+    context = {
+        'target_day': today,
+        'present_users': present_users,
+    }
+    return render(request, 'dashboard/presents_today.html', context)
+
+
+@login_required(login_url='login')
+def today_absent_list(request):
+    if get_active_space(request) == EMPLOYEE_SPACE:
+        return redirect('dashboard:employee_home')
+
+    if not request.user.is_platform_admin:
+        return _deny_and_logout(request)
+
+    today = timezone.localdate()
+    today_start, today_end = _local_day_bounds(today)
+    employee_qs = _employee_queryset_for_dashboard()
+    settings_obj = get_schedule_settings()
+    holiday_map = get_belgian_holidays(today, today)
+
+    present_user_ids = set(
+        Pointage.objects.filter(
+            utilisateur__in=employee_qs,
+            horodatage__gte=today_start,
+            horodatage__lt=today_end,
+            statut='VALIDE',
+        )
+        .values_list('utilisateur_id', flat=True)
+        .distinct()
+    )
+
+    absentees = employee_qs.exclude(pk__in=present_user_ids).order_by('first_name', 'last_name', 'username')
+
+    absents_non_attendus = []
+    absents_non_justifies = []
+    for utilisateur in absentees:
+        analysis = analyze_day(utilisateur, today, settings_obj=settings_obj, holiday_map=holiday_map)
+        row = {
+            'utilisateur': utilisateur,
+            'label': _user_label(utilisateur),
+            'raison': _absence_reason(utilisateur, analysis, today),
+        }
+        if analysis['required_presence']:
+            absents_non_justifies.append(row)
+        else:
+            absents_non_attendus.append(row)
+
+    context = {
+        'target_day': today,
+        'absents_non_attendus': absents_non_attendus,
+        'absents_non_justifies': absents_non_justifies,
+        'total_absents': len(absents_non_attendus) + len(absents_non_justifies),
+    }
+    return render(request, 'dashboard/absents_today.html', context)
+
+
+@login_required(login_url='login')
+def today_punctuality_list(request, metric):
+    if get_active_space(request) == EMPLOYEE_SPACE:
+        return redirect('dashboard:employee_home')
+
+    if not request.user.is_platform_admin:
+        return _deny_and_logout(request)
+
+    meta = {
+        'late': {
+            'title': 'Retards du jour',
+            'value_label': 'Heure arrivée',
+        },
+        'early': {
+            'title': 'Départs anticipés du jour',
+            'value_label': 'Heure sortie',
+        },
+        'short': {
+            'title': 'Journées trop courtes du jour',
+            'value_label': 'Temps effectif',
+        },
+    }
+    if metric not in meta:
+        return redirect('dashboard:index')
+
+    today = timezone.localdate()
+    rows = _collect_punctuality_rows(metric, today)
+
+    context = {
+        'target_day': today,
+        'rows': rows,
+        'metric': metric,
+        'metric_title': meta[metric]['title'],
+        'value_label': meta[metric]['value_label'],
+    }
+    return render(request, 'dashboard/punctuality_today.html', context)
 
 @login_required(login_url='login')
 def employee_home(request):

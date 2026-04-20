@@ -6,15 +6,56 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
 <style>
-    .schedule-grid { display: grid; grid-template-columns: 360px 1fr; gap: 1rem; }
+    .page-header {
+        justify-content: flex-start;
+        align-items: flex-start;
+        flex-direction: column;
+        margin-bottom: var(--spacing-lg);
+    }
+    .page-header-top {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+    }
+    .page-header-actions {
+        display: flex;
+        gap: .5rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+    .schedule-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(340px, 1fr); gap: 1rem; align-items: start; }
+    .schedule-main { min-width: 0; }
+    .schedule-side { display: grid; grid-template-rows: auto auto; gap: 1rem; }
     .schedule-card { background: var(--color-bg-white); border: 1px solid rgba(148, 163, 184, .22); border-radius: 16px; padding: 1rem; box-shadow: var(--shadow-md); }
-    .schedule-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; margin-bottom: 1rem; }
-    .schedule-stat { background: linear-gradient(135deg, rgba(59, 130, 246, .08), rgba(14, 165, 233, .10)); border: 1px solid rgba(59, 130, 246, .12); border-radius: 14px; padding: .85rem; color: var(--color-text-primary); }
-    .schedule-stat .value { font-size: 1.4rem; font-weight: 700; }
+    .schedule-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; margin-bottom: 1rem; }
+    .schedule-stat { background: linear-gradient(135deg, rgba(59, 130, 246, .08), rgba(14, 165, 233, .10)); border: 1px solid rgba(59, 130, 246, .12); border-radius: 14px; padding: .7rem .8rem; color: var(--color-text-primary); }
+    .schedule-stat .value { font-size: 1.2rem; font-weight: 700; }
+    .schedule-stat .label { font-size: .82rem; color: var(--color-text-secondary); margin-bottom: .2rem; }
     .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; gap: .75rem; }
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: .35rem; }
-    .calendar-day-name, .calendar-cell { border-radius: 12px; padding: .5rem; min-height: 105px; }
-    .calendar-day-name { background: var(--color-bg-light); font-weight: 600; text-align: center; color: var(--color-text-primary); }
+    .calendar-day-name {
+        border-radius: 10px;
+        padding: .32rem .5rem;
+        min-height: 40px;
+        background: linear-gradient(180deg, #eef5ff 0%, #e7f0ff 100%);
+        border: 1px solid rgba(59, 130, 246, .18);
+        color: var(--color-primary-dark);
+        font-weight: 700;
+        font-size: .83rem;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+    .calendar-cell {
+        border-radius: 12px;
+        padding: .45rem;
+        min-height: 98px;
+    }
     .calendar-cell { background: var(--color-bg-light); border: 1px solid rgba(148, 163, 184, .18); color: var(--color-text-primary); }
     .calendar-cell.other-month { opacity: .45; }
     .calendar-cell.today { border: 2px solid #2563eb; }
@@ -35,30 +76,89 @@
     .status-approved { background: #dcfce7; color: #166534; }
     .status-rejected { background: #fee2e2; color: #991b1b; }
     .feature-banner { margin-bottom: 1rem; padding: .9rem 1rem; border-radius: 12px; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
-    .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; color: var(--color-text-primary); }
-    .feature-switch-card { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; padding: 1rem 1.1rem; border-radius: 14px; background: var(--color-bg-white); border: 1px solid rgba(59, 130, 246, .18); box-shadow: var(--shadow-md); }
-    .switch-meta { color: var(--color-text-secondary); font-size: .92rem; }
-    .switch-label { position: relative; display: inline-flex; align-items: center; gap: .65rem; font-weight: 600; color: var(--color-text-primary); }
-    .switch-label input[type='checkbox'] { appearance: none; width: 50px; height: 28px; border-radius: 999px; background: #cbd5e1; position: relative; cursor: pointer; outline: none; transition: .2s ease; }
-    .switch-label input[type='checkbox']::after { content: ''; position: absolute; top: 3px; left: 4px; width: 22px; height: 22px; border-radius: 50%; background: white; transition: .2s ease; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
-    .switch-label input[type='checkbox']:checked { background: #2563eb; }
-    .switch-label input[type='checkbox']:checked::after { left: 24px; }
-    .switch-label input[type='checkbox'][disabled] { opacity: .7; cursor: not-allowed; }
+    .schedule-header-actions { margin: 0 0 1rem 0; }
+    .card-title-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .6rem; }
+    .card-title-row h3 { margin: 0; }
+    .table-wrap { max-height: 285px; overflow: auto; border: 1px solid rgba(148, 163, 184, .14); border-radius: 12px; }
     .requests-table { width: 100%; border-collapse: collapse; color: var(--color-text-primary); }
     .requests-table th, .requests-table td { padding: .6rem; border-bottom: 1px solid rgba(148, 163, 184, .18); vertical-align: top; text-align: left; }
-    body.dark-mode .schedule-card, body.dark-mode .feature-switch-card { border-color: rgba(148, 163, 184, .18); box-shadow: 0 10px 25px rgba(0, 0, 0, .25); }
+    .requests-table th { position: sticky; top: 0; background: var(--color-bg-light); z-index: 1; }
+    .muted-empty { color: #64748b; margin: .2rem 0 0; }
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, .45);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        z-index: 3000;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal-card {
+        width: min(640px, 100%);
+        max-height: 90vh;
+        overflow: auto;
+        background: var(--color-bg-white);
+        border-radius: 16px;
+        box-shadow: var(--shadow-xl);
+        border: 1px solid rgba(148, 163, 184, .22);
+        padding: 1rem;
+    }
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        margin-bottom: .85rem;
+    }
+    .modal-title { margin: 0; }
+    .modal-close {
+        border: 1px solid rgba(148, 163, 184, .34);
+        border-radius: 10px;
+        background: var(--color-bg-light);
+        color: var(--color-text-primary);
+        padding: .35rem .6rem;
+        cursor: pointer;
+    }
+    body.dark-mode .schedule-card { border-color: rgba(148, 163, 184, .18); box-shadow: 0 10px 25px rgba(0, 0, 0, .25); }
     body.dark-mode .schedule-stat { background: linear-gradient(135deg, rgba(30, 41, 59, .95), rgba(15, 23, 42, .92)); border-color: rgba(96, 165, 250, .20); }
-    body.dark-mode .calendar-cell, body.dark-mode .calendar-day-name { background: rgba(15, 23, 42, .72); }
+    body.dark-mode .calendar-day-name {
+        background: rgba(37, 99, 235, .24);
+        border-color: rgba(96, 165, 250, .32);
+        color: #bfdbfe;
+    }
+    body.dark-mode .calendar-cell { background: rgba(15, 23, 42, .72); }
     body.dark-mode .form-group input, body.dark-mode .form-group select, body.dark-mode .form-group textarea { background: rgba(15, 23, 42, .82); border-color: rgba(148, 163, 184, .22); color: #e5e7eb; }
     body.dark-mode .feature-banner { background: rgba(154, 52, 18, .18); color: #fed7aa; border-color: rgba(251, 146, 60, .30); }
-    @media (max-width: 980px) { .schedule-grid { grid-template-columns: 1fr; } .schedule-stats { grid-template-columns: 1fr; } }
+    body.dark-mode .modal-card { background: #16213E; border-color: rgba(148, 163, 184, .24); }
+    body.dark-mode .table-wrap { border-color: rgba(148, 163, 184, .24); }
+    body.dark-mode .requests-table th { background: rgba(15, 23, 42, .72); }
+    @media (max-width: 980px) {
+        .page-header-top { align-items: flex-start; flex-direction: column; }
+        .page-header-actions { width: 100%; justify-content: flex-start; }
+        .schedule-grid { grid-template-columns: 1fr; }
+        .schedule-side { grid-template-rows: auto; }
+        .schedule-stats { grid-template-columns: 1fr; }
+        .table-wrap { max-height: none; }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <section class="page active">
     <div class="page-header">
-        <h1>Emploi du temps</h1>
+        <div class="page-header-top">
+            <h1>Emploi du temps</h1>
+            <div class="page-header-actions">
+                <button type="button" class="btn btn-primary" id="openScheduleRequestModal" {% if not features_enabled %}disabled{% endif %}>
+                    {% if admin_view %}Nouvelle entrée RH{% else %}Nouvelle demande{% endif %}
+                </button>
+                {% if request.user.is_platform_admin %}
+                    <button type="button" class="btn btn-secondary" id="openScheduleSettingsModal">Configurer les heures</button>
+                {% endif %}
+            </div>
+        </div>
         <p>{% if admin_view %}Gestion RH des congés, maladies, absences et retards.{% else %}Soumettez vos demandes et consultez votre calendrier.{% endif %}</p>
     </div>
 
@@ -74,54 +174,12 @@
         </div>
     {% endif %}
 
-    <div class="feature-switch-card">
-        <div>
-            <strong>Activation du module absences et retards</strong>
-            <div class="switch-meta">
-                {% if admin_view %}
-                    Utilisez ce switch pour activer ou désactiver toutes les fonctionnalités de ce nouvel onglet.
-                {% else %}
-                    Statut actuel du module. La modification est réservée aux RH.
-                {% endif %}
+    <div class="modal-backdrop" id="scheduleRequestModal" aria-hidden="true">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="scheduleRequestModalTitle">
+            <div class="modal-header">
+                <h2 id="scheduleRequestModalTitle" class="modal-title">{% if admin_view %}Nouvelle entrée RH{% else %}Soumettre une demande{% endif %}</h2>
+                <button type="button" class="modal-close" id="closeScheduleRequestModal" aria-label="Fermer">Fermer</button>
             </div>
-        </div>
-        {% if admin_view %}
-            <div class="inline-actions">
-                <a href="{% url 'schedule:settings' %}" class="btn btn-secondary">Configurer les seuils</a>
-                <form method="post" action="{% url 'schedule:toggle' %}">
-                    {% csrf_token %}
-                    <label class="switch-label">
-                        <input type="checkbox" name="is_enabled" {% if features_enabled %}checked{% endif %} onchange="this.form.submit()">
-                        <span>{% if features_enabled %}Activé{% else %}Désactivé{% endif %}</span>
-                    </label>
-                </form>
-            </div>
-        {% else %}
-            <label class="switch-label">
-                <input type="checkbox" {% if features_enabled %}checked{% endif %} disabled>
-                <span>{% if features_enabled %}Activé{% else %}Désactivé{% endif %}</span>
-            </label>
-        {% endif %}
-    </div>
-
-    <div class="schedule-stats">
-        <div class="schedule-stat">
-            <div>Demandes en attente</div>
-            <div class="value">{{ pending_count }}</div>
-        </div>
-        <div class="schedule-stat">
-            <div>Absences / congés du mois</div>
-            <div class="value">{{ approved_absence_count }}</div>
-        </div>
-        <div class="schedule-stat">
-            <div>Jours fériés du mois</div>
-            <div class="value">{{ holiday_count }}</div>
-        </div>
-    </div>
-
-    <div class="schedule-grid">
-        <div class="schedule-card">
-            <h2>{% if admin_view %}Nouvelle entrée RH{% else %}Soumettre une demande{% endif %}</h2>
             <form method="post" action="{% url 'schedule:submit' %}">
                 {% csrf_token %}
                 {% for field in schedule_form %}
@@ -135,50 +193,58 @@
                         </div>
                     {% endif %}
                 {% endfor %}
-                <button type="submit" class="btn btn-primary" {% if not features_enabled %}disabled{% endif %}>
-                    {% if admin_view %}Enregistrer{% else %}Envoyer au RH{% endif %}
-                </button>
+                <div class="inline-actions">
+                    <button type="submit" class="btn btn-primary" {% if not features_enabled %}disabled{% endif %}>
+                        {% if admin_view %}Enregistrer{% else %}Envoyer au RH{% endif %}
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="cancelScheduleRequestModal">Annuler</button>
+                </div>
             </form>
-
-            <hr style="margin: 1rem 0; border: none; border-top: 1px solid #edf1f7;">
-
-            <h3>{% if admin_view %}Demandes à traiter{% else %}Mes demandes en attente{% endif %}</h3>
-            {% if pending_requests %}
-                <table class="requests-table">
-                    <thead>
-                        <tr>
-                            {% if admin_view %}<th>Employé</th>{% endif %}
-                            <th>Type</th>
-                            <th>Période</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in pending_requests %}
-                            <tr>
-                                {% if admin_view %}<td>{{ item.utilisateur.get_full_name|default:item.utilisateur.username }}</td>{% endif %}
-                                <td>{{ item.get_category_display }}</td>
-                                <td>{{ item.start_at|date:'d/m H:i' }} → {{ item.end_at|date:'d/m H:i' }}</td>
-                                <td>
-                                    {% if admin_view %}
-                                        <div class="inline-actions">
-                                            <form method="post" action="{% url 'schedule:approve' item.id %}">{% csrf_token %}<button class="btn btn-primary" type="submit">Approuver</button></form>
-                                            <form method="post" action="{% url 'schedule:reject' item.id %}">{% csrf_token %}<button class="btn btn-secondary" type="submit">Refuser</button></form>
-                                        </div>
-                                    {% else %}
-                                        <span class="status-pill status-pending">En attente</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p style="color:#64748b;">Aucune demande en attente.</p>
-            {% endif %}
         </div>
+    </div>
 
-        <div class="schedule-card">
+    {% if request.user.is_platform_admin and settings_form %}
+        <div class="modal-backdrop" id="scheduleSettingsModal" aria-hidden="true">
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="scheduleSettingsModalTitle">
+                <div class="modal-header">
+                    <h2 id="scheduleSettingsModalTitle" class="modal-title">Configurer les heures</h2>
+                    <button type="button" class="modal-close" id="closeScheduleSettingsModal" aria-label="Fermer">Fermer</button>
+                </div>
+                <form method="post" action="{% url 'schedule:settings' %}">
+                    {% csrf_token %}
+                    {% for field in settings_form %}
+                        <div class="form-group">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                        </div>
+                    {% endfor %}
+                    <div class="inline-actions">
+                        <button type="submit" class="btn btn-primary">Enregistrer</button>
+                        <button type="button" class="btn btn-secondary" id="cancelScheduleSettingsModal">Annuler</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="schedule-stats">
+        <div class="schedule-stat">
+            <div class="label">Demandes en attente</div>
+            <div class="value">{{ pending_count }}</div>
+        </div>
+        <div class="schedule-stat">
+            <div class="label">Absences / congés du mois</div>
+            <div class="value">{{ approved_absence_count }}</div>
+        </div>
+        <div class="schedule-stat">
+            <div class="label">Jours fériés du mois</div>
+            <div class="value">{{ holiday_count }}</div>
+        </div>
+    </div>
+
+    <div class="schedule-grid">
+        <div class="schedule-main">
+            <div class="schedule-card">
             <div class="calendar-header">
                 <div>
                     <h2 style="margin:0;">{{ month_label }}</h2>
@@ -191,7 +257,7 @@
                 <div class="inline-actions">
                     <a class="btn btn-secondary" href="?month={{ previous_month }}">← Mois précédent</a>
                     <a class="btn btn-secondary" href="?month={{ next_month }}">Mois suivant →</a>
-                    <a class="btn btn-primary" href="{% url 'schedule:export_csv' %}?month={{ month_param }}">Exporter CSV</a>
+                    <a class="btn btn-export" href="{% url 'schedule:export_csv' %}?month={{ month_param }}">Exporter CSV</a>
                 </div>
             </div>
 
@@ -215,36 +281,132 @@
                     {% endfor %}
                 {% endfor %}
             </div>
+            </div>
+        </div>
 
-            <hr style="margin: 1rem 0; border: none; border-top: 1px solid #edf1f7;">
-            <h3>Historique récent</h3>
-            <table class="requests-table">
-                <thead>
-                    <tr>
-                        {% if admin_view %}<th>Employé</th>{% endif %}
-                        <th>Type</th>
-                        <th>Période</th>
-                        <th>Statut</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in recent_requests %}
-                        <tr>
-                            {% if admin_view %}<td>{{ item.utilisateur.get_full_name|default:item.utilisateur.username }}</td>{% endif %}
-                            <td>{{ item.get_category_display }}</td>
-                            <td>{{ item.start_at|date:'d/m/Y H:i' }} → {{ item.end_at|date:'d/m/Y H:i' }}</td>
-                            <td>
-                                <span class="status-pill {% if item.status == 'APPROVED' %}status-approved{% elif item.status == 'REJECTED' %}status-rejected{% else %}status-pending{% endif %}">
-                                    {{ item.get_status_display }}
-                                </span>
-                            </td>
-                        </tr>
-                    {% empty %}
-                        <tr><td colspan="4" style="color:#64748b;">Aucun historique disponible.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="schedule-side">
+            <div class="schedule-card">
+                <div class="card-title-row">
+                    <h3>{% if admin_view %}Demandes à traiter{% else %}Mes demandes en attente{% endif %}</h3>
+                    <span class="status-pill status-pending">{{ pending_count }}</span>
+                </div>
+                {% if pending_requests %}
+                    <div class="table-wrap">
+                        <table class="requests-table">
+                            <thead>
+                                <tr>
+                                    {% if admin_view %}<th>Employé</th>{% endif %}
+                                    <th>Type</th>
+                                    <th>Période</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in pending_requests %}
+                                    <tr>
+                                        {% if admin_view %}<td>{{ item.utilisateur.get_full_name|default:item.utilisateur.username }}</td>{% endif %}
+                                        <td>{{ item.get_category_display }}</td>
+                                        <td>{{ item.start_at|date:'d/m H:i' }} → {{ item.end_at|date:'d/m H:i' }}</td>
+                                        <td>
+                                            {% if admin_view %}
+                                                <div class="inline-actions">
+                                                    <form method="post" action="{% url 'schedule:approve' item.id %}">{% csrf_token %}<button class="btn btn-primary" type="submit">Approuver</button></form>
+                                                    <form method="post" action="{% url 'schedule:reject' item.id %}">{% csrf_token %}<button class="btn btn-secondary" type="submit">Refuser</button></form>
+                                                </div>
+                                            {% else %}
+                                                <span class="status-pill status-pending">En attente</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="muted-empty">Aucune demande en attente.</p>
+                {% endif %}
+            </div>
+
+            <div class="schedule-card">
+                <div class="card-title-row">
+                    <h3>Historique récent</h3>
+                </div>
+                <div class="table-wrap">
+                    <table class="requests-table">
+                        <thead>
+                            <tr>
+                                {% if admin_view %}<th>Employé</th>{% endif %}
+                                <th>Type</th>
+                                <th>Période</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in recent_requests %}
+                                <tr>
+                                    {% if admin_view %}<td>{{ item.utilisateur.get_full_name|default:item.utilisateur.username }}</td>{% endif %}
+                                    <td>{{ item.get_category_display }}</td>
+                                    <td>{{ item.start_at|date:'d/m/Y H:i' }} → {{ item.end_at|date:'d/m/Y H:i' }}</td>
+                                    <td>
+                                        <span class="status-pill {% if item.status == 'APPROVED' %}status-approved{% elif item.status == 'REJECTED' %}status-rejected{% else %}status-pending{% endif %}">
+                                            {{ item.get_status_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="{% if admin_view %}4{% else %}3{% endif %}" class="muted-empty">Aucun historique disponible.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </section>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        function bindModal(modalId, openId, closeIds) {
+            const modal = document.getElementById(modalId);
+            const openBtn = document.getElementById(openId);
+            if (!modal || !openBtn) {
+                return;
+            }
+
+            function openModal() {
+                modal.classList.add('show');
+                modal.setAttribute('aria-hidden', 'false');
+            }
+
+            function closeModal() {
+                modal.classList.remove('show');
+                modal.setAttribute('aria-hidden', 'true');
+            }
+
+            openBtn.addEventListener('click', openModal);
+
+            closeIds.forEach(function (closeId) {
+                const closeBtn = document.getElementById(closeId);
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', closeModal);
+                }
+            });
+
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && modal.classList.contains('show')) {
+                    closeModal();
+                }
+            });
+        }
+
+        bindModal('scheduleRequestModal', 'openScheduleRequestModal', ['closeScheduleRequestModal', 'cancelScheduleRequestModal']);
+        bindModal('scheduleSettingsModal', 'openScheduleSettingsModal', ['closeScheduleSettingsModal', 'cancelScheduleSettingsModal']);
+    });
+</script>
 {% endblock %}

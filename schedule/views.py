@@ -151,6 +151,7 @@ def schedule_home(request):
 
     context = {
         'schedule_form': form,
+        'settings_form': ScheduleSettingsForm(instance=settings_obj) if request.user.is_platform_admin else None,
         'calendar_weeks': calendar_weeks,
         'month_label': month_start.strftime('%B %Y').capitalize(),
         'month_param': month_start.strftime('%Y-%m'),
