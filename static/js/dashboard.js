@@ -5,7 +5,9 @@
 const dashboardCharts = {}; 
 const dashboardColors = {
     primary: '#4A90E2',
+    success: '#10B981',
     orange: '#FF9F43',
+    danger: '#EF4444',
     gray: '#7F8C8D',
 };
 
@@ -79,18 +81,24 @@ function initWeeklyChart() {
                 {
                     label: 'Présents',
                     data: weeklyStats.map(d => d.presents),
-                    backgroundColor: dashboardColors.primary,
+                    backgroundColor: dashboardColors.success,
                     borderRadius: 6,
                 },
                 {
-                    label: 'Absents',
-                    data: weeklyStats.map(d => d.absents),
+                    label: 'Absences justifiées',
+                    data: weeklyStats.map(d => d.justified_absences || 0),
                     backgroundColor: dashboardColors.orange,
                     borderRadius: 6,
                 },
                 {
+                    label: 'Absences non justifiées',
+                    data: weeklyStats.map(d => d.unjustified_absences || 0),
+                    backgroundColor: dashboardColors.danger,
+                    borderRadius: 6,
+                },
+                {
                     label: 'Incidents sécurité',
-                    data: weeklyStats.map(d => d.unrecorded),
+                    data: weeklyStats.map(d => d.security_incidents || 0),
                     backgroundColor: dashboardColors.gray,
                     borderRadius: 6,
                 }
@@ -104,10 +112,11 @@ function initWeeklyChart() {
             },
             scales: {
                 y: { 
+                    stacked: true,
                     ticks: { color: textColor },
                     grid: { color: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
                 },
-                x: { ticks: { color: textColor }, grid: { display: false } }
+                x: { stacked: true, ticks: { color: textColor }, grid: { display: false } }
             }
         }
     });

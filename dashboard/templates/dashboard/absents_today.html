@@ -1,0 +1,108 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Absents du jour - BioAttend{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<style>
+    .absence-sections {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: var(--spacing-lg);
+    }
+    .table-header, .table-row {
+        grid-template-columns: 1.5fr 1.6fr;
+    }
+    .section-header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--spacing-sm);
+    }
+    .count-pill {
+        border-radius: var(--radius-full);
+        padding: 4px 10px;
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-semibold);
+    }
+    .count-pill.justified {
+        background: rgba(16, 185, 129, 0.14);
+        color: #047857;
+    }
+    .count-pill.unjustified {
+        background: rgba(239, 68, 68, 0.14);
+        color: #b91c1c;
+    }
+    .page-subtitle {
+        color: var(--color-text-secondary);
+        margin-top: 6px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page active">
+    <div class="page-header" style="justify-content: space-between; align-items: center;">
+        <div>
+            <h1>Absents du jour</h1>
+            <p class="page-subtitle">{{ target_day|date:'d/m/Y' }} · Total: {{ total_absents }}</p>
+        </div>
+        <a href="{% url 'dashboard:index' %}" class="btn btn-secondary">Retour dashboard</a>
+    </div>
+
+    <div class="absence-sections">
+        <div class="recent-section">
+            <div class="section-header-row">
+                <h2>Ne travaillent pas aujourd'hui</h2>
+                <span class="count-pill justified">{{ absents_non_attendus|length }}</span>
+            </div>
+            <div class="recent-table">
+                <div class="table-header">
+                    <div>Employé</div>
+                    <div>Raison</div>
+                </div>
+                <div class="table-body">
+                    {% for item in absents_non_attendus %}
+                        <div class="table-row">
+                            <div>{{ item.label }}</div>
+                            <div>{{ item.raison }}</div>
+                        </div>
+                    {% empty %}
+                        <div class="table-row">
+                            <div>Aucun absent justifié.</div>
+                            <div></div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="recent-section">
+            <div class="section-header-row">
+                <h2>Devraient être présents mais ne le sont pas</h2>
+                <span class="count-pill unjustified">{{ absents_non_justifies|length }}</span>
+            </div>
+            <div class="recent-table">
+                <div class="table-header">
+                    <div>Employé</div>
+                    <div>Raison</div>
+                </div>
+                <div class="table-body">
+                    {% for item in absents_non_justifies %}
+                        <div class="table-row">
+                            <div>{{ item.label }}</div>
+                            <div>{{ item.raison }}</div>
+                        </div>
+                    {% empty %}
+                        <div class="table-row">
+                            <div>Aucun absent non justifié.</div>
+                            <div></div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -105,12 +105,12 @@ class ScheduleFeatureTests(TestCase):
             ).exists()
         )
 
-    def test_schedule_home_displays_global_switch_status(self):
+    def test_schedule_home_does_not_display_global_switch_status(self):
         self.client.force_login(self.employee)
         response = self.client.get(reverse('schedule:home'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Activation du module absences et retards')
+        self.assertNotContains(response, 'Activation du module absences et retards')
 
     def test_admin_schedule_home_displays_settings_button(self):
         self.client.force_login(self.admin)
@@ -121,7 +121,7 @@ class ScheduleFeatureTests(TestCase):
         response = self.client.get(reverse('schedule:home'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Configurer les seuils')
+        self.assertContains(response, 'Configurer les heures')
 
     def test_admin_settings_page_is_accessible(self):
         self.client.force_login(self.admin)

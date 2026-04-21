@@ -11,6 +11,10 @@ def topbar_alert_count(request):
 
     if get_active_space(request) == EMPLOYEE_SPACE or (getattr(user, "is_employe", False) and not getattr(user, "is_platform_admin", False)): count = Alerte.objects.filter(utilisateur=user, masquee=False).count()
     
-    else: count = Alerte.objects.filter(masquee=False).count()
+    else:
+        count = Alerte.objects.filter(masquee=False).exclude(
+            type='DEMANDE_PLANNING',
+            description__istartswith='Votre demande ',
+        ).count()
 
     return {"topbar_alert_count": count}

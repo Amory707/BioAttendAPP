@@ -5,6 +5,9 @@ app_name = 'dashboard'
 
 urlpatterns = [
     path('', views.dashboard, name='index'), 
+    path('presents-aujourdhui/', views.today_present_list, name='today_present_list'),
+    path('absents-aujourdhui/', views.today_absent_list, name='today_absent_list'),
+    path('ponctualite-aujourdhui/<str:metric>/', views.today_punctuality_list, name='today_punctuality_list'),
     path('employe/', views.employee_home, name='employee_home'),
     path('employe/pointages/', views.employee_pointages, name='employee_pointages'),
     path('employe/prestations/', views.employee_prestations, name='employee_prestations'),

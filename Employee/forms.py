@@ -23,7 +23,7 @@ class UtilisateurUnifiedForm(forms.ModelForm):
     """
     Formulaire unique pour la création ET la modification d'un employé.
     - Username auto-généré à la création (prénom+nom)
-    - Rôles : sélection multiple
+    - Rôle : sélection unique
     - Photo : optionnelle (enrôlement biométrique)
     - Mot de passe : présent à la création OU si editing_self
     - acces_total réservé au superuser
@@ -32,11 +32,11 @@ class UtilisateurUnifiedForm(forms.ModelForm):
     last_name = forms.CharField(required=True, label='Nom', max_length=150)
     email = forms.EmailField(required=True, label='Email')
 
-    roles = forms.ModelMultipleChoiceField(
+    roles = forms.ModelChoiceField(
         queryset=Role.objects.none(),
-        widget=forms.CheckboxSelectMultiple,
-        required=False,
-        label='Rôles',
+        widget=forms.RadioSelect,
+        required=True,
+        label='Rôle',
     )
     password = forms.CharField(
         widget=forms.PasswordInput(render_value=False),
@@ -76,7 +76,12 @@ class UtilisateurUnifiedForm(forms.ModelForm):
         self._manageable_role_pks = set(roles_qs.values_list('pk', flat=True))
 
         if not is_create:
-            self.fields['roles'].initial = self.instance.roles.filter(pk__in=self._manageable_role_pks)
+            self.fields['roles'].initial = (
+                self.instance.roles
+                .filter(pk__in=self._manageable_role_pks)
+                .order_by('nom')
+                .first()
+            )
 
     def clean(self):
         cleaned_data = super().clean()
@@ -87,6 +92,17 @@ class UtilisateurUnifiedForm(forms.ModelForm):
         if not base:
             raise forms.ValidationError("Le prénom et le nom ne contiennent aucun caractère valide pour générer un identifiant.")
         return cleaned_data
+
+    def clean_roles(self):
+        # Reject crafted payloads that try to submit multiple roles in a single-value field.
+        raw_roles = self.data.getlist('roles') if hasattr(self.data, 'getlist') else []
+        if len([item for item in raw_roles if item]) > 1:
+            raise forms.ValidationError("Un seul rôle peut être attribué lors de la création d'un employé.")
+
+        role = self.cleaned_data.get('roles')
+        if role is None:
+            raise forms.ValidationError("Sélectionnez un rôle.")
+        return role
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -110,10 +126,10 @@ class UtilisateurUnifiedForm(forms.ModelForm):
         if user is None or user.pk is None:
             return
 
-        selected_roles = self.cleaned_data.get('roles') or []
+        selected_role = self.cleaned_data.get('roles')
         RoleUtilisateur.objects.filter(
             utilisateur=user,
             role__pk__in=self._manageable_role_pks,
         ).delete()
-        for role in selected_roles:
-            RoleUtilisateur.objects.get_or_create(utilisateur=user, role=role)
+        if selected_role is not None:
+            RoleUtilisateur.objects.get_or_create(utilisateur=user, role=selected_role)
