@@ -53,6 +53,18 @@ class DeviceApiAuthMixin:
 
 
 class FaceIdentifyView(DeviceApiAuthMixin, APIView):
+    INGESTION_MODE_PRODUCTION = "production"
+    INGESTION_MODE_TEST = "test"
+
+    @classmethod
+    def _resolve_ingestion_mode(cls, request):
+        mode = request.data.get("ingestion_mode", cls.INGESTION_MODE_PRODUCTION)
+        if not isinstance(mode, str):
+            return None
+        normalized = mode.strip().lower()
+        if normalized in {cls.INGESTION_MODE_PRODUCTION, cls.INGESTION_MODE_TEST}:
+            return normalized
+        return None
 
     @staticmethod
     def _score_confiance_from_distance(distance):
@@ -158,11 +170,23 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        ingestion_mode = self._resolve_ingestion_mode(request)
+        if ingestion_mode is None:
+            return Response(
+                {
+                    "matched": False,
+                    "error": "Le champ 'ingestion_mode' doit être 'production' ou 'test'.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        is_test_mode = ingestion_mode == self.INGESTION_MODE_TEST
+
         fraud_detected = request.data.get("fraud_detected", False)
         fraud_reason = request.data.get("fraud_reason", "Tentative de fraude detectee (photo imprimee, video ou autre).")
         if fraud_detected:
             logger.warning("Tentative de fraude signalee par la pointeuse: %s", fraud_reason)
-            self._create_fraud_event(fraud_reason)
+            if not is_test_mode:
+                self._create_fraud_event(fraud_reason)
             return Response(
                 {"matched": False, "error": "Tentative de fraude detectee."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -223,7 +247,8 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
                 "Aucune correspondance faciale (meilleure distance : %s)",
                 getattr(match, "distance", "N/A"),
             )
-            self._create_unknown_user_event(getattr(match, "distance", None))
+            if not is_test_mode:
+                self._create_unknown_user_event(getattr(match, "distance", None))
             return Response(
                 {"matched": False, "error": "Aucun visage correspondant trouvé."},
                 status=status.HTTP_404_NOT_FOUND,
@@ -236,7 +261,8 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
                 match.distance,
                 threshold,
             )
-            self._create_recognition_failure_event(match, match.distance)
+            if not is_test_mode:
+                self._create_recognition_failure_event(match, match.distance)
             return Response(
                 {"matched": False, "error": "Aucun visage correspondant trouvé."},
                 status=status.HTTP_404_NOT_FOUND,
@@ -248,18 +274,21 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
             match.distance,
         )
 
-        with transaction.atomic():
-            pointage_type = self._next_pointage_type_for_pointeuse(match)
-            pointage = Pointage.objects.create(
-                utilisateur=match,
-                statut="VALIDE",
-                horodatage=timezone.now(),
-                type=pointage_type,
-                score_confiance=self._score_confiance_from_distance(match.distance),
-                origine=Pointage.ORIGINE_POINTEUSE,
-            )
+        pointage = None
+        punctuality_feedback = {"messages": [], "flags": [], "worked_duration_display": "0h00"}
+        if not is_test_mode:
+            with transaction.atomic():
+                pointage_type = self._next_pointage_type_for_pointeuse(match)
+                pointage = Pointage.objects.create(
+                    utilisateur=match,
+                    statut="VALIDE",
+                    horodatage=timezone.now(),
+                    type=pointage_type,
+                    score_confiance=self._score_confiance_from_distance(match.distance),
+                    origine=Pointage.ORIGINE_POINTEUSE,
+                )
 
-        punctuality_feedback = build_pointage_feedback(pointage)
+            punctuality_feedback = build_pointage_feedback(pointage)
 
         return Response(
             {
@@ -268,11 +297,12 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
                 "username": match.username,
                 "full_name": match.get_full_name(),
                 "distance": round(float(match.distance), 6),
-                "pointage_id": str(pointage.id),
-                "pointage_type": pointage.type,
+                "pointage_id": str(pointage.id) if pointage else None,
+                "pointage_type": pointage.type if pointage else None,
                 "schedule_feedback": punctuality_feedback.get("messages", []),
                 "schedule_flags": punctuality_feedback.get("flags", []),
                 "worked_duration_display": punctuality_feedback.get("worked_duration_display", "0h00"),
+                "ingestion_mode": ingestion_mode,
             },
             status=status.HTTP_200_OK,
         )
