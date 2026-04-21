@@ -127,6 +127,20 @@ class FaceIdentifyApiTests(TestCase):
 		self.assertEqual(alerte.pointage_id, pointage.id)
 		self.assertIn("Photo imprimee detectee", alerte.description)
 
+	def test_identify_test_mode_does_not_create_fraud_incident(self):
+		response = self._post(
+			{
+				"embedding": [0.1] * 512,
+				"fraud_detected": True,
+				"fraud_reason": "Photo imprimee detectee.",
+				"ingestion_mode": "test",
+			},
+		)
+
+		self.assertEqual(response.status_code, 403)
+		self.assertEqual(Pointage.objects.filter(incident_type="TENTATIVE_FRAUDE").count(), 0)
+		self.assertEqual(Alerte.objects.filter(type="TENTATIVE_FRAUDE").count(), 0)
+
 	def test_identify_returns_404_when_no_match(self):
 		response = self._mock_queryset_chain(first_result=None)
 
@@ -138,6 +152,19 @@ class FaceIdentifyApiTests(TestCase):
 		self.assertEqual(pointage.statut, "NON_VALIDE")
 		alerte = Alerte.objects.get(type="UTILISATEUR_INCONNU")
 		self.assertEqual(alerte.pointage_id, pointage.id)
+
+	def test_identify_test_mode_does_not_create_incident_when_no_match(self):
+		queryset = Mock()
+		queryset.annotate.return_value = queryset
+		queryset.order_by.return_value = queryset
+		queryset.first.return_value = None
+
+		with patch("api.views.Utilisateur.objects.filter", return_value=queryset):
+			response = self._post({"embedding": [0.1] * 512, "ingestion_mode": "test"})
+
+		self.assertEqual(response.status_code, 404)
+		self.assertEqual(Pointage.objects.filter(incident_type="UTILISATEUR_INCONNU").count(), 0)
+		self.assertEqual(Alerte.objects.filter(type="UTILISATEUR_INCONNU").count(), 0)
 
 	@override_settings(FACE_MATCH_THRESHOLD=0.5)
 	def test_identify_returns_404_when_distance_above_threshold(self):
@@ -178,6 +205,36 @@ class FaceIdentifyApiTests(TestCase):
 		self.assertEqual(payload["username"], "matched-user")
 		self.assertEqual(payload["full_name"], "Jean Dupont")
 		self.assertEqual(payload["distance"], 0.12)
+
+	def test_identify_test_mode_matches_without_creating_pointage(self):
+		user = Utilisateur.objects.create_user(
+			username="test-mode-user",
+			email="testmode@example.com",
+			password="pass-123",
+		)
+		user.distance = 0.11
+
+		queryset = Mock()
+		queryset.annotate.return_value = queryset
+		queryset.order_by.return_value = queryset
+		queryset.first.return_value = user
+
+		with patch("api.views.Utilisateur.objects.filter", return_value=queryset):
+			response = self._post({"embedding": [0.1] * 512, "ingestion_mode": "test"})
+
+		self.assertEqual(response.status_code, 200)
+		payload = response.json()
+		self.assertTrue(payload["matched"])
+		self.assertEqual(payload["ingestion_mode"], "test")
+		self.assertIsNone(payload["pointage_id"])
+		self.assertIsNone(payload["pointage_type"])
+		self.assertEqual(Pointage.objects.filter(utilisateur=user).count(), 0)
+
+	def test_identify_rejects_invalid_ingestion_mode(self):
+		response = self._post({"embedding": [0.1] * 512, "ingestion_mode": "staging"})
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("ingestion_mode", response.json()["error"])
 
 	def test_identify_returns_401_without_api_key(self):
 		response = self.client.post(
