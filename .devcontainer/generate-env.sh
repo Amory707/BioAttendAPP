@@ -6,7 +6,7 @@ if [ -f .env ] && [ -s .env ]; then
   exit 0
 fi
 
-cat > .env <<'EOF'
+cat > .env <<EOF
 SECRET_KEY="${SECRET_KEY:-}"
 DEBUG="${DEBUG:-True}"
 DATABASE_URL="${DATABASE_URL:-}"
