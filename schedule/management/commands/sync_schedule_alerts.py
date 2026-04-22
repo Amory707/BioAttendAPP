@@ -6,7 +6,10 @@ from schedule.services import sync_schedule_alerts
 
 
 class Command(BaseCommand):
-    help = "Synchronise les alertes de retards, absences et journées trop courtes."
+    help = (
+        "Synchronise les alertes de retards, absences et journées trop courtes. "
+        "Pour les cas du jour, des mails sont envoyés aux RH et en copie au collaborateur concerné."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument('--start', type=str, help='Date de début YYYY-MM-DD')
