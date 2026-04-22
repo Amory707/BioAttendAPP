@@ -3,6 +3,8 @@ from __future__ import annotations
 import calendar
 from datetime import date, datetime, time, timedelta
 
+import requests
+from django.conf import settings
 from django.utils import timezone
 
 from accounts.models import Utilisateur
@@ -14,8 +16,14 @@ from .models import ScheduleRequest, ScheduleSettings
 
 try:
     import holidays
-except ImportError:  # pragma: no cover - optional dependency fallback
+except ImportError:  
     holidays = None
+
+
+class EmailDeliveryError(Exception):
+    """Erreur levée quand l'envoi d'un email ne peut pas être réalisé."""
+    pass
+
 
 ABSENCE_CATEGORIES = {
     ScheduleRequest.CATEGORY_CONGE,
@@ -30,6 +38,88 @@ def get_schedule_settings() -> ScheduleSettings:
 
 def schedule_features_enabled() -> bool:
     return get_schedule_settings().is_enabled
+
+
+def get_rh_recipient_emails() -> list[str]:
+    return list(
+        Utilisateur.objects.filter(
+            roles__nom__in=['admin', 'acces_total'],
+        )
+        .exclude(email__isnull=True)
+        .exclude(email__exact='')
+        .distinct()
+        .values_list('email', flat=True)
+    )
+
+
+def _send_email_via_brevo(subject: str, html_content: str, to_emails: list[str], cc_emails: list[str] | None = None) -> bool:
+    if not settings.BREVO_API_KEY:
+        raise EmailDeliveryError('BREVO_API_KEY Brevo manquant, impossible d envoyer le mail.')
+    if not to_emails:
+        raise EmailDeliveryError('Aucun destinataire RH trouve pour l alerte.')
+
+    payload = {
+        'sender': {
+            'name': settings.BREVO_SENDER_NAME,
+            'email': settings.BREVO_SENDER_EMAIL,
+        },
+        'to': [{'email': email} for email in to_emails],
+        'subject': subject,
+        'htmlContent': html_content,
+        'textContent': html_content,
+    }
+
+    if cc_emails:
+        payload['cc'] = [{'email': email} for email in cc_emails if email]
+
+    try:
+        response = requests.post(
+            settings.BREVO_API_ENDPOINT,
+            json=payload,
+            headers={
+                'accept': 'application/json',
+                'api-key': settings.BREVO_API_KEY,
+            },
+            timeout=15,
+        )
+        response.raise_for_status()
+        return True
+    except requests.RequestException as exc:
+        raise EmailDeliveryError('Erreur d envoi du mail via Brevo.') from exc
+
+
+def _send_absence_notification(utilisateur: Utilisateur, target_day: date, description: str) -> bool:
+    rh_emails = get_rh_recipient_emails()
+    if not rh_emails:
+        return False
+
+    subject = f"Alerte absence BioAttend – {target_day.strftime('%d/%m/%Y')}"
+    html_content = (
+        f"<p>Une absence a été détectée pour <strong>{utilisateur.get_full_name() or utilisateur.username}</strong> "
+        f"le {target_day.strftime('%d/%m/%Y')}.</p>"
+        f"<p>{description}</p>"
+        "<p>Merci de vérifier le planning et de prendre les actions nécessaires.</p>"
+    )
+
+    return _send_email_via_brevo(subject, html_content, rh_emails)
+
+
+def _send_late_notification(utilisateur: Utilisateur, target_day: date, entry_display: str, description: str) -> bool:
+    rh_emails = get_rh_recipient_emails()
+    if not rh_emails:
+        return False
+
+    cc_emails = [utilisateur.email] if utilisateur.email else []
+    subject = f"Alerte retard BioAttend – {target_day.strftime('%d/%m/%Y')}"
+    html_content = (
+        f"<p>Un retard a été détecté pour <strong>{utilisateur.get_full_name() or utilisateur.username}</strong> "
+        f"le {target_day.strftime('%d/%m/%Y')}.</p>"
+        f"<p>Arrivée enregistrée à {entry_display}.</p>"
+        f"<p>{description}</p>"
+        "<p>Merci de valider la présence et d'informer l'intéressé si nécessaire.</p>"
+    )
+
+    return _send_email_via_brevo(subject, html_content, rh_emails, cc_emails=cc_emails)
 
 
 def get_employee_queryset():
@@ -217,6 +307,68 @@ def _create_schedule_alert(utilisateur: Utilisateur, alert_type: str, descriptio
     return True
 
 
+def _should_send_absence_notification_for_day(target_day: date, settings_obj: ScheduleSettings | None = None) -> bool:
+    settings_obj = settings_obj or get_schedule_settings()
+    local_now = timezone.localtime(timezone.now())
+    return target_day < local_now.date() or (
+        target_day == local_now.date() and local_now.time() >= settings_obj.departure_window_end
+    )
+
+
+def trigger_absence_alert(utilisateur: Utilisateur, target_day: date) -> dict:
+    settings_obj = get_schedule_settings()
+    holiday_map = get_belgian_holidays(target_day, target_day)
+    analysis = analyze_day(utilisateur, target_day, settings_obj=settings_obj, holiday_map=holiday_map)
+    result = {
+        'absent': analysis['absent'],
+        'alert_created': False,
+        'email_sent': False,
+        'description': '',
+        'reason': '',
+    }
+
+    if not analysis['absent']:
+        result['reason'] = 'Aucune absence détectée pour cette date ou la journée n est pas encore terminee.'
+        return result
+
+    description = f"Absence detectee pour {get_user_label(utilisateur)} le {target_day.strftime('%d/%m/%Y')}."
+    created = _create_schedule_alert(utilisateur, 'ABSENCE', description, target_day)
+    result['alert_created'] = created
+    result['description'] = description
+
+    if created and _should_send_absence_notification_for_day(target_day, settings_obj=settings_obj):
+        result['email_sent'] = _send_absence_notification(utilisateur, target_day, description)
+
+    return result
+
+
+def trigger_absence_alerts_for_day(target_day: date | None = None, users=None) -> dict:
+    target_day = target_day or timezone.localdate()
+    queryset = users if users is not None else get_employee_queryset()
+    if hasattr(queryset, 'all'):
+        queryset = queryset.all()
+
+    absences = []
+    for utilisateur in queryset:
+        result = trigger_absence_alert(utilisateur, target_day)
+        if result['absent']:
+            absences.append({
+                'user_id': str(utilisateur.id),
+                'username': utilisateur.username,
+                'full_name': utilisateur.get_full_name(),
+                'alert_created': result['alert_created'],
+                'email_sent': result['email_sent'],
+                'description': result['description'],
+                'reason': result.get('reason', ''),
+            })
+
+    return {
+        'date': target_day,
+        'checked': queryset.count() if hasattr(queryset, 'count') else len(list(queryset)),
+        'absences': absences,
+    }
+
+
 def sync_schedule_alerts(start_date: date | None = None, end_date: date | None = None, users=None):
     settings_obj = get_schedule_settings()
     if not settings_obj.is_enabled:
@@ -240,7 +392,10 @@ def sync_schedule_alerts(start_date: date | None = None, end_date: date | None =
 
             if analysis['absent']:
                 description = f"Absence détectée pour {employee_label} le {current_day.strftime('%d/%m/%Y')}."
-                created_counts['absences'] += int(_create_schedule_alert(utilisateur, 'ABSENCE', description, current_day))
+                created = _create_schedule_alert(utilisateur, 'ABSENCE', description, current_day)
+                created_counts['absences'] += int(created)
+                if created and current_day == today:
+                    _send_absence_notification(utilisateur, current_day, description)
 
             if analysis['late'] and analysis['first_entry'] is not None:
                 entry_display = _local_time(analysis['first_entry']).strftime('%H:%M')
@@ -248,7 +403,10 @@ def sync_schedule_alerts(start_date: date | None = None, end_date: date | None =
                     f"Retard détecté pour {employee_label} le {current_day.strftime('%d/%m/%Y')} : "
                     f"arrivée à {entry_display}."
                 )
-                created_counts['retards'] += int(_create_schedule_alert(utilisateur, 'RETARD', description, current_day))
+                created = _create_schedule_alert(utilisateur, 'RETARD', description, current_day)
+                created_counts['retards'] += int(created)
+                if created and current_day == today:
+                    _send_late_notification(utilisateur, current_day, entry_display, description)
 
             if analysis['early_departure'] and analysis['last_exit'] is not None:
                 exit_display = _local_time(analysis['last_exit']).strftime('%H:%M')

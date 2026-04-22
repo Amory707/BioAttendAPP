@@ -1,6 +1,7 @@
 from datetime import datetime, time, timedelta
+from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -147,6 +148,48 @@ class ScheduleFeatureTests(TestCase):
         sync_schedule_alerts(start_date=target_day, end_date=target_day, users=[self.employee])
 
         self.assertTrue(Alerte.objects.filter(utilisateur=self.employee, type='ABSENCE').exists())
+
+    @override_settings(BREVO_API_KEY='test-brevo-key', BREVO_SENDER_EMAIL='no-reply@example.com', BREVO_SENDER_NAME='BioAttend Test')
+    @patch('schedule.services.requests.post')
+    def test_sync_schedule_alerts_sends_absence_email_for_today(self, mock_post):
+        target_day = timezone.localdate()
+        now_after_day = timezone.make_aware(datetime.combine(target_day, time(18, 30)))
+        mock_response = mock_post.return_value
+        mock_response.status_code = 201
+        mock_response.raise_for_status.return_value = None
+
+        with patch('schedule.services.timezone.now', return_value=now_after_day):
+            sync_schedule_alerts(start_date=target_day, end_date=target_day, users=[self.employee])
+
+        self.assertTrue(Alerte.objects.filter(utilisateur=self.employee, type='ABSENCE').exists())
+        self.assertTrue(mock_post.called)
+        payload = mock_post.call_args.kwargs['json']
+        self.assertEqual(payload['subject'], f"Alerte absence BioAttend – {target_day.strftime('%d/%m/%Y')}")
+        self.assertIn('Absence a été détectée', payload['htmlContent'])
+
+    @override_settings(BREVO_API_KEY='test-brevo-key', BREVO_SENDER_EMAIL='no-reply@example.com', BREVO_SENDER_NAME='BioAttend Test')
+    @patch('schedule.services.requests.post')
+    def test_sync_schedule_alerts_sends_late_email_for_today(self, mock_post):
+        target_day = timezone.localdate()
+        entry = Pointage.objects.create(
+            utilisateur=self.employee,
+            statut='VALIDE',
+            horodatage=timezone.make_aware(datetime.combine(target_day, time(10, 30))),
+            type='ENTREE',
+            score_confiance=0.95,
+        )
+        mock_response = mock_post.return_value
+        mock_response.status_code = 201
+        mock_response.raise_for_status.return_value = None
+
+        sync_schedule_alerts(start_date=target_day, end_date=target_day, users=[self.employee])
+
+        self.assertTrue(Alerte.objects.filter(utilisateur=self.employee, type='RETARD').exists())
+        self.assertTrue(mock_post.called)
+        payload = mock_post.call_args.kwargs['json']
+        self.assertEqual(payload['subject'], f"Alerte retard BioAttend – {target_day.strftime('%d/%m/%Y')}")
+        self.assertEqual(payload['cc'], [{'email': self.employee.email}])
+        self.assertIn('Arrivée enregistrée à 10:30', payload['htmlContent'])
 
     def test_approved_leave_prevents_absence_alert(self):
         target_day = self._weekday_in_past()
