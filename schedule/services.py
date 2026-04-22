@@ -93,6 +93,7 @@ def _send_absence_notification(utilisateur: Utilisateur, target_day: date, descr
     if not rh_emails:
         return False
 
+    cc_emails = [utilisateur.email] if utilisateur.email else []
     subject = f"Alerte absence BioAttend – {target_day.strftime('%d/%m/%Y')}"
     html_content = (
         f"<p>Une absence a été détectée pour <strong>{utilisateur.get_full_name() or utilisateur.username}</strong> "
@@ -101,7 +102,7 @@ def _send_absence_notification(utilisateur: Utilisateur, target_day: date, descr
         "<p>Merci de vérifier le planning et de prendre les actions nécessaires.</p>"
     )
 
-    return _send_email_via_brevo(subject, html_content, rh_emails)
+    return _send_email_via_brevo(subject, html_content, rh_emails, cc_emails=cc_emails)
 
 
 def _send_late_notification(utilisateur: Utilisateur, target_day: date, entry_display: str, description: str) -> bool:
