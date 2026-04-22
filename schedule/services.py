@@ -19,6 +19,12 @@ try:
 except ImportError:  
     holidays = None
 
+
+class EmailDeliveryError(Exception):
+    """Erreur levée quand l'envoi d'un email ne peut pas être réalisé."""
+    pass
+
+
 ABSENCE_CATEGORIES = {
     ScheduleRequest.CATEGORY_CONGE,
     ScheduleRequest.CATEGORY_MALADIE,
@@ -47,8 +53,10 @@ def get_rh_recipient_emails() -> list[str]:
 
 
 def _send_email_via_brevo(subject: str, html_content: str, to_emails: list[str], cc_emails: list[str] | None = None) -> bool:
-    if not settings.BREVO_API_KEY or not to_emails:
-        return False
+    if not settings.BREVO_API_KEY:
+        raise EmailDeliveryError('BREVO_API_KEY Brevo manquant, impossible d envoyer le mail.')
+    if not to_emails:
+        raise EmailDeliveryError('Aucun destinataire RH trouve pour l alerte.')
 
     payload = {
         'sender': {
@@ -76,8 +84,8 @@ def _send_email_via_brevo(subject: str, html_content: str, to_emails: list[str],
         )
         response.raise_for_status()
         return True
-    except requests.RequestException:
-        return False
+    except requests.RequestException as exc:
+        raise EmailDeliveryError('Erreur d envoi du mail via Brevo.') from exc
 
 
 def _send_absence_notification(utilisateur: Utilisateur, target_day: date, description: str) -> bool:

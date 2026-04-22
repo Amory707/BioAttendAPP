@@ -457,15 +457,25 @@ class AbsenceAlertView(DeviceApiAuthMixin, APIView):
             )
 
     def _handle_request(self, target_day):
-        result = trigger_absence_alerts_for_day(target_day)
-        return Response(
-            {
-                "checked": result["checked"],
-                "date": result["date"].strftime("%Y-%m-%d"),
-                "absences": result["absences"],
-            },
-            status=status.HTTP_200_OK,
-        )
+        try:
+            result = trigger_absence_alerts_for_day(target_day)
+            return Response(
+                {
+                    "checked": result["checked"],
+                    "date": result["date"].strftime("%Y-%m-%d"),
+                    "absences": result["absences"],
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as exc:
+            logger.exception("Erreur lors du declenchement des alertes d absence")
+            return Response(
+                {
+                    "alert_sent": False,
+                    "error": str(exc),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     def get(self, request):
         

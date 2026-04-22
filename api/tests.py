@@ -1,4 +1,5 @@
 import hashlib
+import requests
 import uuid
 from datetime import datetime, time
 from pathlib import Path
@@ -438,6 +439,36 @@ class AbsenceAlertApiTests(TestCase):
 		self.assertTrue(payload["absences"][0]["alert_created"])
 		self.assertTrue(payload["absences"][0]["email_sent"])
 		self.assertTrue(mock_post.called)
+
+	@override_settings(BREVO_API_KEY='test-brevo-key', BREVO_SENDER_EMAIL='no-reply@example.com', BREVO_SENDER_NAME='BioAttend Test')
+	@patch('schedule.services.requests.post')
+	def test_absence_alert_returns_500_when_email_send_fails(self, mock_post):
+		admin_role = Role.objects.create(nom='admin')
+		admin_user = Utilisateur.objects.create_user(
+			username='admin-user',
+			email='admin@example.com',
+			password='pass-123',
+		)
+		RoleUtilisateur.objects.create(role=admin_role, utilisateur=admin_user)
+
+		employee = Utilisateur.objects.create_user(
+			username='employee-user',
+			email='employee@example.com',
+			password='pass-123',
+		)
+
+		mock_post.side_effect = requests.RequestException('Brevo unreachable')
+
+		target_day = timezone.localdate()
+		now_after_day = timezone.make_aware(datetime.combine(target_day, time(18, 30)))
+
+		with patch('schedule.services.timezone.now', return_value=now_after_day):
+			response = self._get({"date": target_day.strftime('%Y-%m-%d')})
+
+		self.assertEqual(response.status_code, 500)
+		payload = response.json()
+		self.assertFalse(payload["alert_sent"])
+		self.assertIn('Brevo', payload["error"])
 
 	def test_absence_alert_does_not_send_before_day_finished(self):
 		employee = Utilisateur.objects.create_user(
