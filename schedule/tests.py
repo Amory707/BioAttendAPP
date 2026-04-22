@@ -165,6 +165,7 @@ class ScheduleFeatureTests(TestCase):
         self.assertTrue(mock_post.called)
         payload = mock_post.call_args.kwargs['json']
         self.assertEqual(payload['subject'], f"Alerte absence BioAttend – {target_day.strftime('%d/%m/%Y')}")
+        self.assertEqual(payload['cc'], [{'email': self.employee.email}])
         self.assertIn('Absence a été détectée', payload['htmlContent'])
 
     @override_settings(BREVO_API_KEY='test-brevo-key', BREVO_SENDER_EMAIL='no-reply@example.com', BREVO_SENDER_NAME='BioAttend Test')
