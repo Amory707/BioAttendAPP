@@ -299,6 +299,68 @@ def _create_schedule_alert(utilisateur: Utilisateur, alert_type: str, descriptio
     return True
 
 
+def _should_send_absence_notification_for_day(target_day: date, settings_obj: ScheduleSettings | None = None) -> bool:
+    settings_obj = settings_obj or get_schedule_settings()
+    local_now = timezone.localtime(timezone.now())
+    return target_day < local_now.date() or (
+        target_day == local_now.date() and local_now.time() >= settings_obj.departure_window_end
+    )
+
+
+def trigger_absence_alert(utilisateur: Utilisateur, target_day: date) -> dict:
+    settings_obj = get_schedule_settings()
+    holiday_map = get_belgian_holidays(target_day, target_day)
+    analysis = analyze_day(utilisateur, target_day, settings_obj=settings_obj, holiday_map=holiday_map)
+    result = {
+        'absent': analysis['absent'],
+        'alert_created': False,
+        'email_sent': False,
+        'description': '',
+        'reason': '',
+    }
+
+    if not analysis['absent']:
+        result['reason'] = 'Aucune absence détectée pour cette date ou la journée n est pas encore terminee.'
+        return result
+
+    description = f"Absence detectee pour {get_user_label(utilisateur)} le {target_day.strftime('%d/%m/%Y')}."
+    created = _create_schedule_alert(utilisateur, 'ABSENCE', description, target_day)
+    result['alert_created'] = created
+    result['description'] = description
+
+    if created and _should_send_absence_notification_for_day(target_day, settings_obj=settings_obj):
+        result['email_sent'] = _send_absence_notification(utilisateur, target_day, description)
+
+    return result
+
+
+def trigger_absence_alerts_for_day(target_day: date | None = None, users=None) -> dict:
+    target_day = target_day or timezone.localdate()
+    queryset = users if users is not None else get_employee_queryset()
+    if hasattr(queryset, 'all'):
+        queryset = queryset.all()
+
+    absences = []
+    for utilisateur in queryset:
+        result = trigger_absence_alert(utilisateur, target_day)
+        if result['absent']:
+            absences.append({
+                'user_id': str(utilisateur.id),
+                'username': utilisateur.username,
+                'full_name': utilisateur.get_full_name(),
+                'alert_created': result['alert_created'],
+                'email_sent': result['email_sent'],
+                'description': result['description'],
+                'reason': result.get('reason', ''),
+            })
+
+    return {
+        'date': target_day,
+        'checked': queryset.count() if hasattr(queryset, 'count') else len(list(queryset)),
+        'absences': absences,
+    }
+
+
 def sync_schedule_alerts(start_date: date | None = None, end_date: date | None = None, users=None):
     settings_obj = get_schedule_settings()
     if not settings_obj.is_enabled:

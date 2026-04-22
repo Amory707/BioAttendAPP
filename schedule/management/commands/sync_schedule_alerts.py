@@ -8,7 +8,8 @@ from schedule.services import sync_schedule_alerts
 class Command(BaseCommand):
     help = (
         "Synchronise les alertes de retards, absences et journées trop courtes. "
-        "Pour les cas du jour, des mails sont envoyés aux RH et en copie au collaborateur concerné."
+        "Pour les cas du jour, des mails sont envoyés aux RH et en copie au collaborateur concerné. "
+        "Pour un comportement automatique, planifier l'exécution quotidienne après la fin du créneau de travail."
     )
 
     def add_arguments(self, parser):
