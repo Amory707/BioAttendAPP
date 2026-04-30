@@ -187,6 +187,28 @@ class FaceIdentifyApiTests(TestCase):
 		self.assertEqual(alerte.pointage_id, pointage.id)
 
 	@override_settings(FACE_MATCH_THRESHOLD=0.5)
+	def test_identify_returns_404_when_distance_above_threshold_with_real_user_object(self):
+		user = Utilisateur.objects.create_user(
+			username="far-user-real",
+			email="far-real@example.com",
+			password="pass-123",
+			first_name="Far",
+			last_name="Real",
+		)
+		user.distance = 0.9
+
+		response = self._mock_queryset_chain(first_result=user)
+
+		self.assertEqual(response.status_code, 404)
+		self.assertIn("Aucun visage", response.json()["error"])
+		self.assertEqual(Pointage.objects.filter(incident_type="ECHEC_RECONNAISSANCE").count(), 1)
+		pointage = Pointage.objects.filter(incident_type="ECHEC_RECONNAISSANCE").first()
+		self.assertIsNone(pointage.utilisateur)
+		self.assertEqual(pointage.details["candidate_username"], "far-user-real")
+		alerte = Alerte.objects.get(type="ECHEC_RECONNAISSANCE")
+		self.assertEqual(alerte.pointage_id, pointage.id)
+
+	@override_settings(FACE_MATCH_THRESHOLD=0.5)
 	def test_identify_returns_200_when_match_found(self):
 		user = Utilisateur.objects.create_user(
 			username="matched-user",

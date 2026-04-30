@@ -139,7 +139,6 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
     @classmethod
     def _create_recognition_failure_event(cls, utilisateur, distance):
         username = getattr(utilisateur, "username", "inconnu")
-        utilisateur_associe = utilisateur if isinstance(utilisateur, Utilisateur) else None
         description = (
             "Tentative de pointage en echec de reconnaissance "
             f"(utilisateur candidat={username}, distance={distance:.4f})."
@@ -148,7 +147,7 @@ class FaceIdentifyView(DeviceApiAuthMixin, APIView):
             incident_type='ECHEC_RECONNAISSANCE',
             description=description,
             score_confiance=cls._score_confiance_from_distance(distance),
-            utilisateur=utilisateur_associe,
+            utilisateur=None,
             details={'candidate_username': username, 'distance': float(distance)},
         )
 

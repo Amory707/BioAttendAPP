@@ -5,90 +5,272 @@
 
 {% block extra_css %}
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <style>
+        .employee-dashboard .hero-section {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+            color: white;
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .employee-dashboard .hero-content h1 {
+            margin: 0 0 var(--spacing-sm) 0;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .employee-dashboard .hero-stats {
+            display: flex;
+            gap: var(--spacing-lg);
+        }
+
+        .employee-dashboard .hero-stat {
+            text-align: center;
+        }
+
+        .employee-dashboard .hero-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: block;
+        }
+
+        .employee-dashboard .hero-stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .employee-dashboard .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .employee-dashboard .stat-card {
+            background: var(--color-bg-white);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--color-border-light);
+            transition: all var(--transition-base);
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .employee-dashboard .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .employee-dashboard .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .employee-dashboard .stat-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin: 0;
+        }
+
+        .employee-dashboard .stat-icon {
+            font-size: 1.5rem;
+            color: var(--color-primary);
+        }
+
+        .employee-dashboard .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            margin: var(--spacing-sm) 0;
+        }
+
+        .employee-dashboard .stat-meta {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+
+        .employee-dashboard .charts-section {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .employee-dashboard .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: var(--spacing-lg);
+        }
+
+        .employee-dashboard .chart-card {
+            background: var(--color-bg-white);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--color-border-light);
+        }
+
+        .employee-dashboard .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .employee-dashboard .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .employee-dashboard .recent-section .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .employee-dashboard .recent-section .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .employee-dashboard .btn {
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            padding: var(--spacing-sm) var(--spacing-md);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all var(--transition-base);
+        }
+
+        .employee-dashboard .btn:hover {
+            background: var(--color-primary-dark);
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .employee-dashboard .hero-section {
+                flex-direction: column;
+                text-align: center;
+                gap: var(--spacing-md);
+            }
+
+            .employee-dashboard .hero-stats {
+                justify-content: center;
+            }
+
+            .employee-dashboard .charts-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 {% endblock %}
 
 {% block content %}
-<section class="page active">
-    <div class="page-header">
-        <h1>Mon espace</h1>
+<section class="page active employee-dashboard">
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1>Bonjour, {{ user.first_name|default:user.username }} !</h1>
+            <p>Bienvenue dans votre espace personnel BioAttend</p>
+        </div>
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <span class="hero-stat-value">{{ worked_time_today }}</span>
+                <span class="hero-stat-label">Aujourd'hui</span>
+            </div>
+            <div class="hero-stat">
+                <span class="hero-stat-value">{{ worked_time_week }}</span>
+                <span class="hero-stat-label">Cette semaine</span>
+            </div>
+            <div class="hero-stat">
+                <span class="hero-stat-value">{{ completed_work_sessions_today }}</span>
+                <span class="hero-stat-label">Sessions</span>
+            </div>
+        </div>
     </div>
 
     <div class="stats-grid">
-        <a href="{% url 'dashboard:employee_prestations' %}" class="stat-card present-today" style="text-decoration: none; color: inherit; display: block;">
+        <a href="{% url 'dashboard:employee_prestations' %}" class="stat-card">
             <div class="stat-header">
                 <h3 class="stat-title">Mes prestations</h3>
                 <i class="fas fa-clock stat-icon"></i>
             </div>
             <div class="stat-value">{{ worked_time_week }}</div>
-            <div style="margin-top: 8px; font-size: 12px; opacity: .85;">Heures cette semaine</div>
+            <div class="stat-meta">Heures cette semaine</div>
         </a>
-        <div class="stat-card total-employees">
+        <div class="stat-card">
             <div class="stat-header">
                 <h3 class="stat-title">Mes pointages</h3>
                 <i class="fas fa-fingerprint stat-icon"></i>
             </div>
             <div class="stat-value">{{ total_pointages }}</div>
+            <div class="stat-meta">{{ pointages_valides }} validés</div>
         </div>
-        <div class="stat-card present-today">
+        <div class="stat-card">
             <div class="stat-header">
-                <h3 class="stat-title">Retards</h3>
-                <i class="fas fa-clock stat-icon"></i>
+                <h3 class="stat-title">Ponctualité</h3>
+                <i class="fas fa-calendar-check stat-icon"></i>
             </div>
             <div class="stat-value">{{ retards_mois }}</div>
+            <div class="stat-meta">Retards ce mois</div>
         </div>
-        <div class="stat-card absent-today">
+        <div class="stat-card">
             <div class="stat-header">
-                <h3 class="stat-title">Départs anticipés</h3>
-                <i class="fas fa-arrow-right-from-bracket stat-icon"></i>
+                <h3 class="stat-title">Absences</h3>
+                <i class="fas fa-user-times stat-icon"></i>
             </div>
-            <div class="stat-value">{{ departs_anticipes_mois }}</div>
+            <div class="stat-value">{{ absences_mois }}</div>
+            <div class="stat-meta">Absences ce mois</div>
         </div>
-        <div class="stat-card stat-total">
-            <div class="stat-header">
-                <h3 class="stat-title">Journées courtes</h3>
-                <i class="fas fa-hourglass-half stat-icon"></i>
-            </div>
-            <div class="stat-value">{{ journees_courtes_mois }}</div>
+    </div>
+
+    <div class="charts-section">
+        <div class="section-header">
+            <h2>Analyse de mes performances</h2>
         </div>
-        <div class="stat-card present-today">
-            <div class="stat-header">
-                <h3 class="stat-title">Pointages validés</h3>
-                <i class="fas fa-check stat-icon"></i>
+        <div class="charts-container">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Heures travaillées cette semaine</h3>
+                </div>
+                <canvas id="weeklyHoursChart" width="400" height="200"></canvas>
             </div>
-            <div class="stat-value">{{ pointages_valides }}</div>
-        </div>
-        <div class="stat-card absent-today">
-            <div class="stat-header">
-                <h3 class="stat-title">Incidents sécurité</h3>
-                <i class="fas fa-bell stat-icon"></i>
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Retards ce mois</h3>
+                </div>
+                <canvas id="monthlyLateChart" width="400" height="200"></canvas>
             </div>
-            <div class="stat-value">{{ incidents_securite }}</div>
         </div>
     </div>
 
     <div class="recent-section">
-        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>Mes derniers pointages</h2>
-            <a href="{% url 'dashboard:employee_pointages' %}" class="btn btn-primary">Voir tout</a>
+        <div class="section-header">
+            <h2 class="section-title">Mes derniers pointages</h2>
+            <a href="{% url 'dashboard:employee_pointages' %}" class="btn">Voir tout</a>
         </div>
         <div class="recent-table">
-            <div class="table-header" style="grid-template-columns: 1.2fr .7fr .8fr 1.4fr .8fr;">
+            <div class="table-header" style="grid-template-columns: 1.2fr .7fr 1.4fr .8fr;">
                 <div class="table-col name-col">Date</div>
                 <div class="table-col time-col">Type</div>
-                <div class="table-col status-col">Statut</div>
                 <div class="table-col">Ponctualité</div>
                 <div class="table-col">Temps effectif</div>
             </div>
             <div class="table-body">
                 {% for p in recent_pointages %}
-                    <div class="table-row" style="grid-template-columns: 1.2fr .7fr .8fr 1.4fr .8fr;">
+                    <div class="table-row" style="grid-template-columns: 1.2fr .7fr 1.4fr .8fr;">
                         <div class="table-col name-col">{{ p.horodatage|date:'d/m/Y H:i' }}</div>
                         <div class="table-col time-col">{{ p.get_type_display }}</div>
-                        <div class="table-col status-col">
-                            <span class="status-badge {% if p.type == 'ENTREE' %}entry{% else %}exit{% endif %}">
-                                {{ p.get_statut_display }}
-                            </span>
-                        </div>
                         <div class="table-col">{{ p.schedule_feedback_display }}</div>
                         <div class="table-col">{{ p.worked_duration_display }}</div>
                     </div>
@@ -101,10 +283,11 @@
         </div>
     </div>
 
+    {% if incidents_securite > 0 %}
     <div class="recent-section">
-        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>Mes incidents sécurité récents</h2>
-            <a href="{% url 'dashboard:employee_alertes' %}" class="btn btn-primary">Voir tout</a>
+        <div class="section-header">
+            <h2 class="section-title">Mes incidents sécurité récents</h2>
+            <a href="{% url 'dashboard:employee_alertes' %}" class="btn">Voir tout</a>
         </div>
         <div class="recent-table">
             <div class="table-header">
@@ -127,5 +310,99 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </section>
+
+{{ weekly_hours|json_script:'weekly-hours-data' }}
+{{ weekly_labels|json_script:'weekly-labels-data' }}
+{{ monthly_late_days|json_script:'monthly-late-data' }}
+{{ monthly_labels|json_script:'monthly-labels-data' }}
+
+{% endblock %}
+
+{% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            initWeeklyHoursChart();
+            initMonthlyLateChart();
+        });
+
+        function initWeeklyHoursChart() {
+            const ctx = document.getElementById('weeklyHoursChart');
+            if (!ctx) return;
+
+            const labels = JSON.parse(document.getElementById('weekly-labels-data').textContent);
+            const data = JSON.parse(document.getElementById('weekly-hours-data').textContent);
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Heures travaillées',
+                        data: data,
+                        backgroundColor: '#4A90E2',
+                        borderRadius: 6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Heures'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        function initMonthlyLateChart() {
+            const ctx = document.getElementById('monthlyLateChart');
+            if (!ctx) return;
+
+            const labels = JSON.parse(document.getElementById('monthly-labels-data').textContent);
+            const data = JSON.parse(document.getElementById('monthly-late-data').textContent);
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels.map((label, index) => label || (index + 1).toString()),
+                    datasets: [{
+                        label: 'Jours de retard',
+                        data: data,
+                        borderColor: '#EF4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+    </script>
 {% endblock %}

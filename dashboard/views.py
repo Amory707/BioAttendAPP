@@ -397,12 +397,54 @@ def employee_home(request):
     settings_obj = get_schedule_settings()
     holiday_map = get_belgian_holidays(month_start, today)
 
+    # Données pour le graphique des heures travaillées cette semaine
+    week_start = today - timedelta(days=today.weekday())  # Lundi de cette semaine
+    weekly_hours = []
+    weekly_labels = []
+    for i in range(7):
+        day = week_start + timedelta(days=i)
+        day_start = timezone.make_aware(datetime.combine(day, time.min), timezone.get_current_timezone())
+        day_end = day_start + timedelta(days=1)
+        day_pointages = pointages_qs.filter(
+            horodatage__gte=day_start,
+            horodatage__lt=day_end,
+            statut='VALIDE'
+        ).order_by('horodatage')
+
+        # Calculer la durée travaillée pour ce jour
+        total_duration = timedelta()
+        current_entry = None
+
+        for pointage in day_pointages:
+            if pointage.type == 'ENTREE':
+                current_entry = pointage.horodatage
+            elif pointage.type == 'SORTIE' and current_entry is not None:
+                if pointage.horodatage > current_entry:
+                    total_duration += pointage.horodatage - current_entry
+                current_entry = None
+
+        hours = total_duration.total_seconds() / 3600
+        weekly_hours.append(round(hours, 1))
+        weekly_labels.append(day.strftime('%a'))
+
+    # Données pour le graphique des retards sur le mois
+    monthly_late_days = []
+    monthly_labels = []
+    absences_this_month = 0
     for day_offset in range((today - month_start).days + 1):
         day = month_start + timedelta(days=day_offset)
         analysis = analyze_day(request.user, day, settings_obj=settings_obj, holiday_map=holiday_map)
         punctuality_counts['late'] += int(analysis['late'])
         punctuality_counts['early_departure'] += int(analysis['early_departure'])
         punctuality_counts['short_day'] += int(analysis['short_day'])
+        if analysis.get('absent'):
+            absences_this_month += 1
+        if analysis['late']:
+            monthly_late_days.append(1)
+            monthly_labels.append(day.strftime('%d/%m'))
+        else:
+            monthly_late_days.append(0)
+            monthly_labels.append('')
 
     incidents_qs = pointages_qs.filter(
         statut='NON_VALIDE',
@@ -415,6 +457,7 @@ def employee_home(request):
         'total_pointages': pointages_qs.count(),
         'pointages_valides': pointages_qs.filter(statut='VALIDE').count(),
         'retards_mois': punctuality_counts['late'],
+        'absences_mois': absences_this_month,
         'departs_anticipes_mois': punctuality_counts['early_departure'],
         'journees_courtes_mois': punctuality_counts['short_day'],
         'incidents_securite': incidents_qs.count(),
@@ -424,6 +467,10 @@ def employee_home(request):
         'worked_time_week': work_stats['week_duration_display'],
         'completed_work_sessions': work_stats['today_sessions'],
         'completed_work_sessions_today': work_stats['today_sessions'],
+        'weekly_hours': weekly_hours,
+        'weekly_labels': weekly_labels,
+        'monthly_late_days': monthly_late_days,
+        'monthly_labels': monthly_labels,
     }
 
     return render(request, 'dashboard/employee_home.html', context)
@@ -436,22 +483,17 @@ def employee_pointages(request):
     if not user_can_access_employee_space(request.user): return _deny_and_logout(request)
 
     type_filtre = request.GET.get('type', '').strip()
-    statut_filtre = request.GET.get('statut', '').strip()
 
     pointages = Pointage.objects.filter(utilisateur=request.user)
 
     if type_filtre: pointages = pointages.filter(type=type_filtre)
-
-    if statut_filtre: pointages = pointages.filter(statut=statut_filtre)
 
     ordered_pointages = attach_schedule_display(list(pointages.order_by('-horodatage')))
 
     context = {
         'pointages': ordered_pointages,
         'type_filtre': type_filtre,
-        'statut_filtre': statut_filtre,
         'choix_type': Pointage.TYPE_CHOICES,
-        'choix_statut': Pointage.STATUT_CHOICES,
     }
 
     return render(request, 'dashboard/employee_pointages.html', context)
