@@ -18,9 +18,26 @@ from attendance.models import Pointage
 from attendance.utils import summarize_work_time, format_duration
 from schedule.services import attach_schedule_display, analyze_day, get_belgian_holidays, get_schedule_settings
 
+EMPLOYEE_ALERT_TYPES = [
+    'RETARD',
+    'ABSENCE',
+    'DEPART_ANTICIPE',
+    'JOURNEE_COURTE',
+    'DOUBLE_POINTAGE',
+    'DEMANDE_PLANNING',
+]
+
 
 def _user_label(utilisateur):
     return utilisateur.get_full_name() or utilisateur.username
+
+
+def _safe_parse_date(value):
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        return None
+
 
 def _deny_and_logout(request):
     messages.error(request, "Accès refusé : votre compte n'a pas les droits plateforme.")
@@ -446,11 +463,12 @@ def employee_home(request):
             monthly_late_days.append(0)
             monthly_labels.append('')
 
-    incidents_qs = pointages_qs.filter(
-        statut='NON_VALIDE',
-        incident_type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
+    alertes_qs = Alerte.objects.filter(
+        utilisateur=request.user,
+        masquee=False,
+        type__in=EMPLOYEE_ALERT_TYPES,
     )
-    recent_incidents = incidents_qs.order_by('-horodatage')[:8]
+    recent_incidents = alertes_qs.order_by('-date_creation')[:8]
 
     context = {
         'user': request.user,
@@ -460,7 +478,7 @@ def employee_home(request):
         'absences_mois': absences_this_month,
         'departs_anticipes_mois': punctuality_counts['early_departure'],
         'journees_courtes_mois': punctuality_counts['short_day'],
-        'incidents_securite': incidents_qs.count(),
+        'incidents_securite': alertes_qs.count(),
         'recent_pointages': recent_pointages,
         'recent_incidents': recent_incidents,
         'worked_time_today': work_stats['today_duration_display'],
@@ -559,23 +577,51 @@ def employee_alertes(request):
     if not user_can_access_employee_space(request.user): return _deny_and_logout(request)
 
     statut_filtre = request.GET.get('statut', '').strip()
+    date_debut_raw = request.GET.get('date_debut', '').strip()
+    date_fin_raw = request.GET.get('date_fin', '').strip()
+    date_debut = _safe_parse_date(date_debut_raw)
+    date_fin = _safe_parse_date(date_fin_raw)
 
-    incidents = Pointage.objects.filter(
+    alertes = Alerte.objects.filter(
         utilisateur=request.user,
-        statut='NON_VALIDE',
-        incident_type__in=['UTILISATEUR_INCONNU', 'ECHEC_RECONNAISSANCE', 'TENTATIVE_FRAUDE'],
+        masquee=False,
+        type__in=EMPLOYEE_ALERT_TYPES,
     )
     if statut_filtre:
-        incidents = incidents.filter(incident_type=statut_filtre)
+        alertes = alertes.filter(type=statut_filtre)
+    if date_debut:
+        alertes = alertes.filter(date_creation__date__gte=date_debut)
+    if date_fin:
+        alertes = alertes.filter(date_creation__date__lte=date_fin)
+
+    type_labels = dict(Alerte.TYPE_CHOICES)
+    alertes = alertes.order_by('-date_creation')
+
+    resume_total = alertes.count()
+    resume_schedule_total = alertes.filter(type__in=['ABSENCE', 'RETARD', 'DEPART_ANTICIPE', 'JOURNEE_COURTE', 'DOUBLE_POINTAGE']).count()
+    resume_schedule_absence = alertes.filter(type='ABSENCE').count()
+    resume_schedule_retard = alertes.filter(type='RETARD').count()
+    resume_schedule_depart_anticipe = alertes.filter(type='DEPART_ANTICIPE').count()
+    resume_schedule_journee_courte = alertes.filter(type='JOURNEE_COURTE').count()
+    resume_schedule_double_pointage = alertes.filter(type='DOUBLE_POINTAGE').count()
+    resume_planning_total = alertes.filter(type='DEMANDE_PLANNING').count()
 
     context = {
-        'alertes': incidents.order_by('-horodatage'),
+        'alertes': alertes,
         'statut_filtre': statut_filtre,
+        'date_debut': date_debut_raw,
+        'date_fin': date_fin_raw,
         'choix_statut': [
-            ('UTILISATEUR_INCONNU', 'UTILISATEUR_INCONNU'),
-            ('ECHEC_RECONNAISSANCE', 'ECHEC_RECONNAISSANCE'),
-            ('TENTATIVE_FRAUDE', 'TENTATIVE_FRAUDE'),
-        ],
+            (alert_type, type_labels.get(alert_type, alert_type))
+            for alert_type in EMPLOYEE_ALERT_TYPES
+        ],        'schedule_types': ['ABSENCE', 'RETARD', 'DEPART_ANTICIPE', 'JOURNEE_COURTE', 'DOUBLE_POINTAGE'],        'resume_total': resume_total,
+        'resume_schedule_total': resume_schedule_total,
+        'resume_schedule_absence': resume_schedule_absence,
+        'resume_schedule_retard': resume_schedule_retard,
+        'resume_schedule_depart_anticipe': resume_schedule_depart_anticipe,
+        'resume_schedule_journee_courte': resume_schedule_journee_courte,
+        'resume_schedule_double_pointage': resume_schedule_double_pointage,
+        'resume_planning_total': resume_planning_total,
     }
 
     return render(request, 'dashboard/employee_alertes.html', context)

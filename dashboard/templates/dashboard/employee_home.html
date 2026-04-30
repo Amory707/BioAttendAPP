@@ -218,19 +218,19 @@
         </div>
         <div class="stat-card">
             <div class="stat-header">
-                <h3 class="stat-title">Ponctualité</h3>
-                <i class="fas fa-calendar-check stat-icon"></i>
+                <h3 class="stat-title">Retards ce mois</h3>
+                <i class="fas fa-exclamation-triangle stat-icon"></i>
             </div>
             <div class="stat-value">{{ retards_mois }}</div>
-            <div class="stat-meta">Retards ce mois</div>
+            <div class="stat-meta">Occurrences</div>
         </div>
         <div class="stat-card">
             <div class="stat-header">
-                <h3 class="stat-title">Absences</h3>
+                <h3 class="stat-title">Absences ce mois</h3>
                 <i class="fas fa-user-times stat-icon"></i>
             </div>
             <div class="stat-value">{{ absences_mois }}</div>
-            <div class="stat-meta">Absences ce mois</div>
+            <div class="stat-meta">Occurrences</div>
         </div>
     </div>
 
@@ -283,34 +283,7 @@
         </div>
     </div>
 
-    {% if incidents_securite > 0 %}
-    <div class="recent-section">
-        <div class="section-header">
-            <h2 class="section-title">Mes incidents sécurité récents</h2>
-            <a href="{% url 'dashboard:employee_alertes' %}" class="btn">Voir tout</a>
-        </div>
-        <div class="recent-table">
-            <div class="table-header">
-                <div class="table-col name-col">Date</div>
-                <div class="table-col time-col">Type</div>
-                <div class="table-col status-col">Détail</div>
-            </div>
-            <div class="table-body">
-                {% for incident in recent_incidents %}
-                    <div class="table-row">
-                        <div class="table-col name-col">{{ incident.horodatage|date:'d/m/Y H:i' }}</div>
-                        <div class="table-col time-col">{{ incident.incident_type|default:'-' }}</div>
-                        <div class="table-col status-col">{{ incident.details.message|default:'-' }}</div>
-                    </div>
-                {% empty %}
-                    <div style="padding: var(--spacing-lg); color: var(--color-text-secondary);">
-                        Aucun incident trouvé.
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
+
 </section>
 
 {{ weekly_hours|json_script:'weekly-hours-data' }}
