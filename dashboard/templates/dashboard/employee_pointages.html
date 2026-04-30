@@ -40,29 +40,21 @@
                         <option value="{{ value }}" {% if type_filtre == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
-                <select name="statut">
-                    <option value="">Tous les statuts</option>
-                    {% for value, label in choix_statut %}
-                        <option value="{{ value }}" {% if statut_filtre == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
                 <button type="submit" class="btn btn-primary">Filtrer</button>
             </form>
 
-            <div class="table-header" style="grid-template-columns: 1.2fr .7fr .7fr 1.4fr .8fr;">
+            <div class="table-header" style="grid-template-columns: 1.2fr .7fr 1.4fr .8fr;">
                 <div class="table-col name-col">Horodatage</div>
                 <div class="table-col time-col">Type</div>
-                <div class="table-col status-col">Statut</div>
                 <div class="table-col">Observation</div>
                 <div class="table-col">Temps effectif</div>
             </div>
 
             <div class="table-body">
                 {% for p in pointages %}
-                    <div class="table-row" style="grid-template-columns: 1.2fr .7fr .7fr 1.4fr .8fr;">
+                    <div class="table-row" style="grid-template-columns: 1.2fr .7fr 1.4fr .8fr;">
                         <div class="table-col name-col">{{ p.horodatage|date:'d/m/Y H:i' }}</div>
                         <div class="table-col time-col">{{ p.get_type_display }}</div>
-                        <div class="table-col status-col">{{ p.get_statut_display }}</div>
                         <div class="table-col">{{ p.schedule_feedback_display }}</div>
                         <div class="table-col">{{ p.worked_duration_display }}</div>
                     </div>

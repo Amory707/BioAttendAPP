@@ -354,31 +354,21 @@ class DashboardAppTests(TestCase):
 			horodatage=timezone.now(),
 			score_confiance=0.8,
 		)
-		Pointage.objects.create(
+		Alerte.objects.create(
 			utilisateur=employee,
-			statut="NON_VALIDE",
-			type="ENTREE",
-			horodatage=timezone.now(),
-			score_confiance=0.2,
-			origine=Pointage.ORIGINE_POINTEUSE,
-			incident_type="ECHEC_RECONNAISSANCE",
-			details={"message": "Incident personnel"},
+			type="ABSENCE",
+			description="Absence détectée",
 		)
-		Pointage.objects.create(
+		Alerte.objects.create(
 			utilisateur=other,
-			statut="NON_VALIDE",
-			type="ENTREE",
-			horodatage=timezone.now(),
-			score_confiance=0.1,
-			origine=Pointage.ORIGINE_POINTEUSE,
-			incident_type="UTILISATEUR_INCONNU",
-			details={"message": "Incident autre utilisateur"},
+			type="RETARD",
+			description="Retard autre utilisateur",
 		)
 
 		response = self.client.get(reverse("dashboard:employee_home"))
 
 		self.assertEqual(response.status_code, 200)
-		self.assertEqual(response.context["total_pointages"], 2)
+		self.assertEqual(response.context["total_pointages"], 1)
 		self.assertEqual(response.context["pointages_valides"], 1)
 		self.assertEqual(response.context["incidents_securite"], 1)
 		self.assertEqual(list(response.context["recent_pointages"])[0].utilisateur_id, employee.id)
@@ -634,33 +624,39 @@ class DashboardAppTests(TestCase):
 		self._assign_role(employee, "employé")
 		self.client.force_login(employee)
 
-		Pointage.objects.create(
+		Alerte.objects.create(
 			utilisateur=employee,
-			statut="NON_VALIDE",
-			type="ENTREE",
-			horodatage=timezone.now(),
-			score_confiance=0.1,
-			origine=Pointage.ORIGINE_POINTEUSE,
-			incident_type="UTILISATEUR_INCONNU",
-			details={"message": "Alerte visible"},
+			type="ABSENCE",
+			description="Alerte visible",
 		)
-		Pointage.objects.create(
+		Alerte.objects.create(
 			utilisateur=other,
-			statut="NON_VALIDE",
-			type="ENTREE",
-			horodatage=timezone.now(),
-			score_confiance=0.1,
-			origine=Pointage.ORIGINE_POINTEUSE,
-			incident_type="ECHEC_RECONNAISSANCE",
-			details={"message": "Alerte masquée"},
+			type="RETARD",
+			description="Alerte autre utilisateur",
 		)
 
-		response = self.client.get(reverse("dashboard:employee_alertes"), {"statut": "UTILISATEUR_INCONNU"})
+		response = self.client.get(reverse("dashboard:employee_alertes"), {"statut": "ABSENCE"})
 
 		self.assertEqual(response.status_code, 200)
 		alertes = list(response.context["alertes"])
 		self.assertEqual(len(alertes), 1)
 		self.assertEqual(alertes[0].utilisateur_id, employee.id)
+
+	def test_employee_alertes_includes_planning_request_updates(self):
+		employee = self._create_user("employee-planning")
+		self._assign_role(employee, "employé")
+		self.client.force_login(employee)
+
+		Alerte.objects.create(
+			utilisateur=employee,
+			type="DEMANDE_PLANNING",
+			description="Votre demande congé a été approuvée.",
+		)
+
+		response = self.client.get(reverse("dashboard:employee_alertes"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Votre demande congé a été approuvée.")
 
 	def test_logout_view_logs_out_and_redirects_to_login(self):
 		user = self._create_user("logout-user")

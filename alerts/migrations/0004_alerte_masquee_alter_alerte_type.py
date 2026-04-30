@@ -43,6 +43,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("alerts", "0003_alerte_front_event_fields"),
+        ("attendance", "0003_pointage_incident_fields"),
     ]
 
     operations = [
