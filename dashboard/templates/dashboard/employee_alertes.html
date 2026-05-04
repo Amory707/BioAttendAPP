@@ -146,10 +146,41 @@
     .alertes-filter .btn {
         min-height: 38px;
     }
+    .alertes-actions {
+        display: flex;
+        gap: var(--spacing-sm);
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-bottom: 1px solid #f0f0f0;
+        background: #FAFBFC;
+    }
+    .alertes-actions-info {
+        color: var(--color-text-secondary);
+        font-size: var(--font-size-sm);
+    }
+    .alertes-actions-buttons {
+        display: flex;
+        gap: var(--spacing-sm);
+        flex-wrap: wrap;
+    }
+    .btn-danger-soft {
+        background: #fff1f0;
+        color: #c62828;
+        border: 1px solid #ffcdd2;
+    }
+    .btn-danger-soft:hover {
+        background: #ffe4e1;
+    }
+    .alertes-checkbox-cell {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
     .alertes-grid-header,
     .alertes-grid-row {
         display: grid;
-        grid-template-columns: 1.1fr 2.4fr 1.3fr 1.2fr;
+        grid-template-columns: 48px 1.1fr 2.4fr 1.3fr 1.2fr;
         gap: var(--spacing-md);
         padding: 12px var(--spacing-md);
         align-items: center;
@@ -228,10 +259,10 @@
         }
         .alertes-grid-header,
         .alertes-grid-row {
-            grid-template-columns: 1fr 1.8fr 1.1fr;
+            grid-template-columns: 48px 1fr 1.8fr 1.1fr;
         }
-        .alertes-grid-header div:nth-child(4),
-        .alertes-grid-row div:nth-child(4) {
+        .alertes-grid-header div:nth-child(5),
+        .alertes-grid-row div:nth-child(5) {
             display: none;
         }
     }
@@ -305,31 +336,75 @@
             {% endif %}
         </form>
 
-        <div class="alertes-grid-header">
-            <div>Type</div>
-            <div>Description</div>
-            <div>État</div>
-            <div>Date</div>
-        </div>
+        <form method="POST" action="{% url 'dashboard:employee_alertes' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}">
+            {% csrf_token %}
+            <div class="alertes-actions">
+                <div class="alertes-actions-info"></div>
+                <div class="alertes-actions-buttons">
+                    <button type="submit" name="action" value="delete_selected" class="btn btn-danger-soft" onclick="return confirm('Supprimer définitivement les alertes sélectionnées ?');">
+                        Supprimer la sélection
+                    </button>
+                    <button type="submit" name="action" value="delete_all" class="btn btn-danger" onclick="return confirm('Supprimer définitivement toutes les alertes affichées ?');">
+                        Tout supprimer
+                    </button>
+                </div>
+            </div>
 
-        <div class="table-body">
-            {% for alerte in alertes %}
-                <div class="alertes-grid-row {% if alerte.type == 'DEMANDE_PLANNING' %}row-planning{% elif alerte.type in schedule_types %}row-schedule{% else %}row-other{% endif %}">
-                    <div>
-                        <span class="alerte-type-badge {% if alerte.type == 'DEMANDE_PLANNING' %}planning{% elif alerte.type in schedule_types %}schedule{% else %}other{% endif %}">
-                            {{ alerte.get_type_display }}
-                        </span>
+            <div class="alertes-grid-header">
+                <div class="alertes-checkbox-cell">
+                    <input type="checkbox" id="selectAllAlerts" aria-label="Tout sélectionner">
+                </div>
+                <div>Type</div>
+                <div>Description</div>
+                <div>État</div>
+                <div>Date</div>
+            </div>
+
+            <div class="table-body">
+                {% for alerte in alertes %}
+                    <div class="alertes-grid-row {% if alerte.type == 'DEMANDE_PLANNING' %}row-planning{% elif alerte.type in schedule_types %}row-schedule{% else %}row-other{% endif %}">
+                        <div class="alertes-checkbox-cell">
+                            <input type="checkbox" name="selected_alert_ids" value="{{ alerte.id }}" class="alert-select-item" aria-label="Sélectionner l'alerte {{ alerte.id }}">
+                        </div>
+                        <div>
+                            <span class="alerte-type-badge {% if alerte.type == 'DEMANDE_PLANNING' %}planning{% elif alerte.type in schedule_types %}schedule{% else %}other{% endif %}">
+                                {{ alerte.get_type_display }}
+                            </span>
+                        </div>
+                        <div class="alerte-description">{{ alerte.description|default:'-' }}</div>
+                        <div class="alerte-status">{{ alerte.event_status|default:'-' }}</div>
+                        <div class="alerte-date">{{ alerte.date_creation|date:'d/m/Y H:i' }}</div>
                     </div>
-                    <div class="alerte-description">{{ alerte.description|default:'-' }}</div>
-                    <div class="alerte-status">{{ alerte.event_status|default:'-' }}</div>
-                    <div class="alerte-date">{{ alerte.date_creation|date:'d/m/Y H:i' }}</div>
-                </div>
-            {% empty %}
-                <div style="padding: var(--spacing-xl); color: var(--color-text-secondary); text-align: center;">
-                    Aucune alerte à afficher pour le moment.
-                </div>
-            {% endfor %}
-        </div>
-    </div>
+                {% empty %}
+                    <div style="padding: var(--spacing-xl); color: var(--color-text-secondary); text-align: center;">
+                        Aucune alerte à afficher pour le moment.
+                    </div>
+                {% endfor %}
+            </div>
+        </form>
 </section>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const selectAll = document.getElementById('selectAllAlerts');
+        const items = Array.from(document.querySelectorAll('.alert-select-item'));
+
+        if (!selectAll || items.length === 0) {
+            return;
+        }
+
+        selectAll.addEventListener('change', function () {
+            items.forEach(function (item) {
+                item.checked = selectAll.checked;
+            });
+        });
+
+        items.forEach(function (item) {
+            item.addEventListener('change', function () {
+                selectAll.checked = items.every(function (i) { return i.checked; });
+            });
+        });
+    });
+</script>
+
 {% endblock %}
