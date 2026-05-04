@@ -10,7 +10,7 @@ from alerts.models import Alerte
 from attendance.models import Pointage
 from schedule.forms import ScheduleRequestForm
 from schedule.models import ScheduleRequest
-from schedule.services import build_pointage_feedback, get_schedule_settings, sync_schedule_alerts
+from schedule.services import build_pointage_feedback, get_belgian_holidays, get_schedule_settings, sync_schedule_alerts
 
 
 class ScheduleFeatureTests(TestCase):
@@ -36,9 +36,18 @@ class ScheduleFeatureTests(TestCase):
         RoleUtilisateur.objects.create(role=self.role_employee, utilisateur=self.employee)
         RoleUtilisateur.objects.create(role=self.role_admin, utilisateur=self.admin)
 
+        settings_obj = get_schedule_settings()
+        settings_obj.is_enabled = True
+        settings_obj.arrival_window_start = time(8, 0)
+        settings_obj.arrival_window_end = time(10, 0)
+        settings_obj.departure_window_start = time(16, 0)
+        settings_obj.departure_window_end = time(18, 0)
+        settings_obj.required_daily_minutes = 8 * 60
+        settings_obj.save()
+
     def _weekday_in_past(self):
         target_day = timezone.localdate() - timedelta(days=1)
-        while target_day.weekday() >= 5:
+        while target_day.weekday() >= 5 or target_day in get_belgian_holidays(target_day, target_day):
             target_day -= timedelta(days=1)
         return target_day
 

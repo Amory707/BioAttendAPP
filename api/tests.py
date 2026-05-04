@@ -1,7 +1,9 @@
 import hashlib
 import requests
 import uuid
-from datetime import datetime, time
+
+from datetime import datetime, time, timedelta
+
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -13,6 +15,7 @@ from django.utils import timezone
 from accounts.models import Role, RoleUtilisateur, Utilisateur
 from alerts.models import Alerte
 from attendance.models import Pointage
+from schedule.services import get_schedule_settings
 
 
 @override_settings(SECRET_KEY="test-api-secret")
@@ -344,6 +347,82 @@ class FaceIdentifyApiTests(TestCase):
 			.values_list("type", flat=True)
 		)
 		self.assertEqual(pointage_types, ["ENTREE", "SORTIE"])
+
+	def test_identify_returns_late_feedback_for_entry_pointage(self):
+		settings_obj = get_schedule_settings()
+		settings_obj.is_enabled = True
+		settings_obj.arrival_window_end = time(10, 0)
+		settings_obj.save(update_fields=["is_enabled", "arrival_window_end", "updated_at"])
+
+		user = Utilisateur.objects.create_user(
+			username="late-entry-user",
+			email="late-entry@example.com",
+			password="pass-123",
+		)
+		user.distance = 0.05
+		entry_time = timezone.make_aware(datetime.combine(timezone.localdate(), time(10, 30)))
+
+		queryset = Mock()
+		queryset.annotate.return_value = queryset
+		queryset.order_by.return_value = queryset
+		queryset.first.return_value = user
+
+		with (
+			patch("api.views.Utilisateur.objects.filter", return_value=queryset),
+			patch("api.views.timezone.now", return_value=entry_time),
+		):
+			response = self._post({"embedding": [0.2] * 512})
+
+		self.assertEqual(response.status_code, 200)
+		payload = response.json()
+		self.assertEqual(payload["pointage_type"], "ENTREE")
+		self.assertIn("RETARD", payload["schedule_flags"])
+		self.assertTrue(any("Retard de 0h30" in message for message in payload["schedule_feedback"]))
+
+	def test_identify_returns_work_duration_short_day_and_early_departure_for_exit_pointage(self):
+		settings_obj = get_schedule_settings()
+		settings_obj.is_enabled = True
+		settings_obj.departure_window_start = time(16, 0)
+		settings_obj.required_daily_minutes = 8 * 60
+		settings_obj.save(update_fields=["is_enabled", "departure_window_start", "required_daily_minutes", "updated_at"])
+
+		user = Utilisateur.objects.create_user(
+			username="early-exit-user",
+			email="early-exit@example.com",
+			password="pass-123",
+		)
+		user.distance = 0.05
+		target_day = timezone.localdate()
+		entry_time = timezone.make_aware(datetime.combine(target_day, time(10, 30)))
+		exit_time = entry_time + timedelta(hours=4, minutes=30)
+		Pointage.objects.create(
+			utilisateur=user,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=entry_time,
+			score_confiance=0.9,
+			origine=Pointage.ORIGINE_POINTEUSE,
+		)
+
+		queryset = Mock()
+		queryset.annotate.return_value = queryset
+		queryset.order_by.return_value = queryset
+		queryset.first.return_value = user
+
+		with (
+			patch("api.views.Utilisateur.objects.filter", return_value=queryset),
+			patch("api.views.timezone.now", return_value=exit_time),
+		):
+			response = self._post({"embedding": [0.2] * 512})
+
+		self.assertEqual(response.status_code, 200)
+		payload = response.json()
+		self.assertEqual(payload["pointage_type"], "SORTIE")
+		self.assertEqual(payload["worked_duration_display"], "4h30")
+		self.assertIn("DEPART_ANTICIPE", payload["schedule_flags"])
+		self.assertIn("JOURNEE_COURTE", payload["schedule_flags"])
+		self.assertTrue(any("Départ anticipé" in message for message in payload["schedule_feedback"]))
+		self.assertTrue(any("Travail effectif réduit" in message for message in payload["schedule_feedback"]))
 
 	def test_identify_toggle_ignores_manual_pointage_history(self):
 		user = Utilisateur.objects.create_user(

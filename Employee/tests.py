@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -10,6 +10,7 @@ from accounts.models import Role, RoleUtilisateur, Utilisateur
 from alerts.models import Alerte
 
 from attendance.models import Pointage
+from schedule.services import get_schedule_settings
 
 from .views import FiltreBiometrique, _validate_photo_uploads
 
@@ -34,6 +35,37 @@ class EmployeeAppTests(TestCase):
 		}
 		defaults.update(extra)
 		return Utilisateur.objects.create_user(username=username, **defaults)
+
+	def _configure_early_departure_settings(self):
+		settings_obj = get_schedule_settings()
+		settings_obj.is_enabled = True
+		settings_obj.departure_window_start = time(16, 0)
+		settings_obj.required_daily_minutes = 8 * 60
+		settings_obj.save(update_fields=[
+			"is_enabled",
+			"departure_window_start",
+			"required_daily_minutes",
+			"updated_at",
+		])
+
+	def _create_early_departure_pointages(self, user):
+		target_day = timezone.localdate()
+		entry_time = timezone.make_aware(datetime.combine(target_day, time(10, 30)))
+		exit_time = timezone.make_aware(datetime.combine(target_day, time(15, 0)))
+		Pointage.objects.create(
+			utilisateur=user,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=entry_time,
+			score_confiance=0.95,
+		)
+		Pointage.objects.create(
+			utilisateur=user,
+			statut="VALIDE",
+			type="SORTIE",
+			horodatage=exit_time,
+			score_confiance=0.96,
+		)
 
 	def test_validate_photo_uploads_rejects_more_than_five_images(self):
 		photos = [
@@ -153,6 +185,25 @@ class EmployeeAppTests(TestCase):
 		self.assertEqual(len(pointages), 1)
 		self.assertEqual(pointages[0].type, "ENTREE")
 		self.assertContains(response, "Pointage")
+
+	def test_hr_pointage_tables_show_early_departure_punctuality(self):
+		self._configure_early_departure_settings()
+		admin = self._create_user("hr-early-table")
+		employee = self._create_user("hr-early-employee")
+		self.client.force_login(admin)
+		self._create_early_departure_pointages(employee)
+
+		list_response = self.client.get(reverse("Employee:pointage_list"), {"type": "SORTIE"})
+		detail_response = self.client.get(reverse("Employee:utilisateur_detail", kwargs={"utilisateur_id": employee.pk}))
+
+		self.assertEqual(list_response.status_code, 200)
+		self.assertContains(list_response, "Ponctualité")
+		self.assertContains(list_response, "Départ anticipé")
+		self.assertContains(list_response, "Travail effectif réduit")
+		self.assertEqual(detail_response.status_code, 200)
+		self.assertContains(detail_response, "Ponctualité")
+		self.assertContains(detail_response, "Départ anticipé")
+		self.assertContains(detail_response, "Travail effectif réduit")
 
 	def test_statistiques_analytique_renders_global_metrics(self):
 		user = self._create_user("stats-admin")
