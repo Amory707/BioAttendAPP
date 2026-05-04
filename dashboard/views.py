@@ -1,5 +1,6 @@
 import csv
 from datetime import datetime, time, timedelta
+from urllib.parse import urlencode
 
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
@@ -9,6 +10,7 @@ from django.contrib.auth import logout
 from django.db.models import Count, Q, Min
 from django.db.models.functions import TruncDate
 from django.utils import timezone
+from django.urls import reverse
 
 from accounts.access import ADMIN_SPACE, EMPLOYEE_SPACE, get_active_space, set_active_space, user_can_access_employee_space
 from accounts.models import Utilisateur
@@ -593,6 +595,41 @@ def employee_alertes(request):
         alertes = alertes.filter(date_creation__date__gte=date_debut)
     if date_fin:
         alertes = alertes.filter(date_creation__date__lte=date_fin)
+
+    # Traitement POST pour les suppressions
+    if request.method == 'POST':
+        action = request.POST.get('action', '').strip()
+        
+        if action == 'delete_selected':
+            selected_ids = request.POST.getlist('selected_alert_ids')
+            if selected_ids:
+                deleted_count, _ = alertes.filter(id__in=selected_ids).delete()
+                if deleted_count:
+                    messages.success(request, f"{deleted_count} alerte(s) supprimée(s) définitivement.")
+                else:
+                    messages.warning(request, "Aucune alerte correspondante à supprimer.")
+            else:
+                messages.warning(request, "Sélectionnez au moins une alerte à supprimer.")
+        elif action == 'delete_all':
+            deleted_count, _ = alertes.delete()
+            if deleted_count:
+                messages.success(request, f"{deleted_count} alerte(s) supprimée(s) définitivement.")
+            else:
+                messages.info(request, "Aucune alerte à supprimer avec les filtres actuels.")
+        
+        # Redirection vers la même page avec les mêmes filtres
+        query_params = {}
+        if statut_filtre:
+            query_params['statut'] = statut_filtre
+        if date_debut_raw:
+            query_params['date_debut'] = date_debut_raw
+        if date_fin_raw:
+            query_params['date_fin'] = date_fin_raw
+        
+        redirect_url = reverse('dashboard:employee_alertes')
+        if query_params:
+            redirect_url = f"{redirect_url}?{urlencode(query_params)}"
+        return redirect(redirect_url)
 
     type_labels = dict(Alerte.TYPE_CHOICES)
     alertes = alertes.order_by('-date_creation')

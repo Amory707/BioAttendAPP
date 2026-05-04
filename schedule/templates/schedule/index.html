@@ -154,7 +154,7 @@
                 <button type="button" class="btn btn-primary" id="openScheduleRequestModal" {% if not features_enabled %}disabled{% endif %}>
                     {% if admin_view %}Nouvelle entrée RH{% else %}Nouvelle demande{% endif %}
                 </button>
-                {% if request.user.is_platform_admin %}
+                {% if admin_view %}
                     <button type="button" class="btn btn-secondary" id="openScheduleSettingsModal">Configurer les heures</button>
                 {% endif %}
             </div>
@@ -203,7 +203,7 @@
         </div>
     </div>
 
-    {% if request.user.is_platform_admin and settings_form %}
+    {% if admin_view and settings_form %}
         <div class="modal-backdrop" id="scheduleSettingsModal" aria-hidden="true">
             <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="scheduleSettingsModalTitle">
                 <div class="modal-header">
