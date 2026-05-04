@@ -1,7 +1,9 @@
 """
 API de reconnaissance faciale — BioAttend
 ==========================================
-Endpoint unique : POST /api/face/identify/
+Endpoints principaux :
+- POST /api/face/identify/ : identification faciale depuis la pointeuse
+- POST /api/schedule/absence-alert/ : déclenche la détection d'absence et l'envoi de mail si la journée de l'employé est terminée
 
 Le Raspberry Pi envoie un embedding (vecteur float32, taille 512) extrait
 localement par InsightFace. Cette vue compare ce vecteur à ceux stockés en
@@ -13,6 +15,7 @@ Une authentification légère est requise via:
 - X-API-Key: <SECRET_KEY>
 """
 
+import datetime
 import logging
 import secrets
 
@@ -27,7 +30,10 @@ from rest_framework.views import APIView
 from accounts.models import Utilisateur
 from alerts.models import Alerte
 from attendance.models import Pointage
-from schedule.services import build_pointage_feedback
+from schedule.services import (
+    build_pointage_feedback,
+    trigger_absence_alerts_for_day,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -422,3 +428,83 @@ class FrontEventView(DeviceApiAuthMixin, APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class AbsenceAlertView(DeviceApiAuthMixin, APIView):
+    def _parse_date(self, date_string):
+        if date_string is None:
+            return timezone.localdate(), None
+
+        if not isinstance(date_string, str):
+            return None, Response(
+                {
+                    "alert_sent": False,
+                    "error": "Le paramètre 'date' doit être une chaîne au format YYYY-MM-DD.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            return datetime.strptime(date_string, "%Y-%m-%d").date(), None
+        except ValueError:
+            return None, Response(
+                {
+                    "alert_sent": False,
+                    "error": "Le paramètre 'date' doit être au format YYYY-MM-DD.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    def _handle_request(self, target_day):
+        try:
+            result = trigger_absence_alerts_for_day(target_day)
+            return Response(
+                {
+                    "checked": result["checked"],
+                    "date": result["date"].strftime("%Y-%m-%d"),
+                    "absences": result["absences"],
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as exc:
+            logger.exception("Erreur lors du declenchement des alertes d absence")
+            return Response(
+                {
+                    "alert_sent": False,
+                    "error": str(exc),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    def get(self, request):
+        
+        if not self._is_authorized(request):
+            return Response(
+                {
+                    "alert_sent": False,
+                    "error": "Authentification requise via Authorization Bearer ou X-API-Key.",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        target_day, error = self._parse_date(request.query_params.get("date"))
+        if error is not None:
+            return error
+
+        return self._handle_request(target_day)
+
+    def post(self, request):
+        if not self._is_authorized(request):
+            return Response(
+                {
+                    "alert_sent": False,
+                    "error": "Authentification requise via Authorization Bearer ou X-API-Key.",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        target_day, error = self._parse_date(request.data.get("date"))
+        if error is not None:
+            return error
+
+        return self._handle_request(target_day)

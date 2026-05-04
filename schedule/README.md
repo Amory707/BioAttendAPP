@@ -20,3 +20,4 @@ Cette app gère :
 ## Commande utile
 
 - `python manage.py sync_schedule_alerts` : synchronise les alertes d’absence et de ponctualité.
+  - ce job doit être exécuté automatiquement chaque jour après la fin du créneau de travail (`departure_window_end`) pour envoyer les mails d’absences sans intervention manuelle.

@@ -27,7 +27,7 @@
         }
     },
 
-    "postCreateCommand": "python3 -m venv .venv && ./.venv/bin/pip install --upgrade pip setuptools wheel && ./.venv/bin/pip install -r requirements.txt && printf 'SECRET_KEY=\"%s\"\\nDEBUG=\"%s\"\\nDATABASE_URL=\"%s\"\\nSUPABASE_URL=\"%s\"\\nSUPABASE_KEY=\"%s\"\\n' \"$SECRET_KEY\" \"$DEBUG\" \"$DATABASE_URL\" \"$SUPABASE_URL\" \"$SUPABASE_KEY\" > .env",
+    "postCreateCommand": "python3 -m venv .venv && ./.venv/bin/pip install --upgrade pip setuptools wheel && ./.venv/bin/pip install -r requirements.txt && chmod +x .devcontainer/generate-env.sh && .devcontainer/generate-env.sh",
 
     "remoteUser": "vscode",
     

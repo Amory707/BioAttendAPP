@@ -130,6 +130,12 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard:index'
 LOGOUT_REDIRECT_URL = 'login'
 
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='no-reply@bioattend.local')
+BREVO_API_KEY = env('BREVO_API_KEY', default='')
+BREVO_SENDER_EMAIL = env('BREVO_SENDER_EMAIL', default=DEFAULT_FROM_EMAIL)
+BREVO_SENDER_NAME = env('BREVO_SENDER_NAME', default='BioAttend')
+BREVO_API_ENDPOINT = env('BREVO_API_ENDPOINT', default='https://api.brevo.com/v3/smtp/email')
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": [],

@@ -1,6 +1,9 @@
 import hashlib
+import requests
 import uuid
+
 from datetime import datetime, time, timedelta
+
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -448,6 +451,141 @@ class FaceIdentifyApiTests(TestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.json()["pointage_type"], "ENTREE")
+
+
+@override_settings(SECRET_KEY="test-api-secret")
+class AbsenceAlertApiTests(TestCase):
+	API_KEY = "test-api-secret"
+
+	def tearDown(self):
+		Alerte.objects.all().delete()
+		Pointage.objects.all().delete()
+		RoleUtilisateur.objects.all().delete()
+		Role.objects.all().delete()
+		Utilisateur.objects.all().delete()
+
+	def _url(self):
+		return reverse("api:absence-alert")
+
+	def _auth_headers(self, mode="bearer", key=None):
+		api_key = self.API_KEY if key is None else key
+		if mode == "x-api-key":
+			return {"HTTP_X_API_KEY": api_key}
+		return {"HTTP_AUTHORIZATION": f"Bearer {api_key}"}
+
+	def _get(self, params=None, auth_mode="bearer", key=None):
+		headers = self._auth_headers(mode=auth_mode, key=key)
+		return self.client.get(
+			self._url(),
+			params or {},
+			content_type="application/json",
+			**headers,
+		)
+
+	def _post(self, payload, auth_mode="bearer", key=None):
+		headers = self._auth_headers(mode=auth_mode, key=key)
+		return self.client.post(
+			self._url(),
+			payload,
+			content_type="application/json",
+			**headers,
+		)
+
+	def test_absence_alert_requires_authentication(self):
+		response = self.client.get(
+			self._url(),
+			content_type="application/json",
+		)
+
+		self.assertEqual(response.status_code, 401)
+		self.assertFalse(response.json()["alert_sent"])
+
+	def test_absence_alert_returns_empty_when_no_absences(self):
+		response = self._get()
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.json()["absences"], [])
+
+	@override_settings(BREVO_API_KEY='test-brevo-key', BREVO_SENDER_EMAIL='no-reply@example.com', BREVO_SENDER_NAME='BioAttend Test')
+	@patch('schedule.services.requests.post')
+	def test_absence_alert_sends_email_after_day_finished(self, mock_post):
+		admin_role = Role.objects.create(nom='admin')
+		admin_user = Utilisateur.objects.create_user(
+			username='admin-user',
+			email='admin@example.com',
+			password='pass-123',
+		)
+		RoleUtilisateur.objects.create(role=admin_role, utilisateur=admin_user)
+
+		employee = Utilisateur.objects.create_user(
+			username='employee-user',
+			email='employee@example.com',
+			password='pass-123',
+		)
+
+		mock_response = mock_post.return_value
+		mock_response.status_code = 201
+		mock_response.raise_for_status.return_value = None
+
+		target_day = timezone.localdate()
+		now_after_day = timezone.make_aware(datetime.combine(target_day, time(18, 30)))
+
+		with patch('schedule.services.timezone.now', return_value=now_after_day):
+			response = self._get({"date": target_day.strftime('%Y-%m-%d')})
+
+		self.assertEqual(response.status_code, 200)
+		payload = response.json()
+		self.assertEqual(payload["checked"], 1)
+		self.assertEqual(len(payload["absences"]), 1)
+		self.assertTrue(payload["absences"][0]["alert_created"])
+		self.assertTrue(payload["absences"][0]["email_sent"])
+		self.assertTrue(mock_post.called)
+
+	@override_settings(BREVO_API_KEY='test-brevo-key', BREVO_SENDER_EMAIL='no-reply@example.com', BREVO_SENDER_NAME='BioAttend Test')
+	@patch('schedule.services.requests.post')
+	def test_absence_alert_returns_500_when_email_send_fails(self, mock_post):
+		admin_role = Role.objects.create(nom='admin')
+		admin_user = Utilisateur.objects.create_user(
+			username='admin-user',
+			email='admin@example.com',
+			password='pass-123',
+		)
+		RoleUtilisateur.objects.create(role=admin_role, utilisateur=admin_user)
+
+		employee = Utilisateur.objects.create_user(
+			username='employee-user',
+			email='employee@example.com',
+			password='pass-123',
+		)
+
+		mock_post.side_effect = requests.RequestException('Brevo unreachable')
+
+		target_day = timezone.localdate()
+		now_after_day = timezone.make_aware(datetime.combine(target_day, time(18, 30)))
+
+		with patch('schedule.services.timezone.now', return_value=now_after_day):
+			response = self._get({"date": target_day.strftime('%Y-%m-%d')})
+
+		self.assertEqual(response.status_code, 500)
+		payload = response.json()
+		self.assertFalse(payload["alert_sent"])
+		self.assertIn('Brevo', payload["error"])
+
+	def test_absence_alert_does_not_send_before_day_finished(self):
+		employee = Utilisateur.objects.create_user(
+			username='employee-user',
+			email='employee@example.com',
+			password='pass-123',
+		)
+
+		target_day = timezone.localdate()
+		now_before_end = timezone.make_aware(datetime.combine(target_day, time(17, 0)))
+
+		with patch('schedule.services.timezone.now', return_value=now_before_end):
+			response = self._get({"date": target_day.strftime('%Y-%m-%d')})
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.json()["absences"], [])
 
 
 @override_settings(SECRET_KEY="test-api-secret")
