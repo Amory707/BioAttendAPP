@@ -11,6 +11,7 @@ from accounts.models import Role, RoleUtilisateur, Utilisateur
 from alerts.models import Alerte
 from attendance.models import Pointage
 from schedule.models import ScheduleRequest
+from schedule.services import get_schedule_settings
 
 
 class DashboardAppTests(TestCase):
@@ -36,6 +37,37 @@ class DashboardAppTests(TestCase):
 	def _assign_role(self, user, role_name):
 		role, _ = Role.objects.get_or_create(nom=role_name)
 		RoleUtilisateur.objects.get_or_create(utilisateur=user, role=role)
+
+	def _configure_early_departure_settings(self):
+		settings_obj = get_schedule_settings()
+		settings_obj.is_enabled = True
+		settings_obj.departure_window_start = time(16, 0)
+		settings_obj.required_daily_minutes = 8 * 60
+		settings_obj.save(update_fields=[
+			"is_enabled",
+			"departure_window_start",
+			"required_daily_minutes",
+			"updated_at",
+		])
+
+	def _create_early_departure_pointages(self, user):
+		target_day = timezone.localdate()
+		entry_time = timezone.make_aware(datetime.combine(target_day, time(10, 30)))
+		exit_time = timezone.make_aware(datetime.combine(target_day, time(15, 0)))
+		Pointage.objects.create(
+			utilisateur=user,
+			statut="VALIDE",
+			type="ENTREE",
+			horodatage=entry_time,
+			score_confiance=0.95,
+		)
+		Pointage.objects.create(
+			utilisateur=user,
+			statut="VALIDE",
+			type="SORTIE",
+			horodatage=exit_time,
+			score_confiance=0.96,
+		)
 
 	def test_dashboard_requires_authentication(self):
 		response = self.client.get(reverse("dashboard:index"))
@@ -79,6 +111,32 @@ class DashboardAppTests(TestCase):
 		self.assertContains(response, reverse("dashboard:today_punctuality_list", kwargs={"metric": "late"}))
 		self.assertContains(response, reverse("dashboard:today_punctuality_list", kwargs={"metric": "early"}))
 		self.assertContains(response, reverse("dashboard:today_punctuality_list", kwargs={"metric": "short"}))
+
+	def test_pointage_tables_show_early_departure_punctuality(self):
+		self._configure_early_departure_settings()
+		admin = self._create_user("admin-early-table")
+		employee = self._create_user("employee-early-table")
+		self._assign_role(admin, "admin")
+		self._assign_role(employee, "employé")
+		self._create_early_departure_pointages(employee)
+
+		self.client.force_login(admin)
+		admin_response = self.client.get(reverse("dashboard:index"))
+
+		self.assertEqual(admin_response.status_code, 200)
+		self.assertContains(admin_response, "Départ anticipé")
+		self.assertContains(admin_response, "Travail effectif réduit")
+
+		self.client.force_login(employee)
+		home_response = self.client.get(reverse("dashboard:employee_home"))
+		pointages_response = self.client.get(reverse("dashboard:employee_pointages"), {"type": "SORTIE"})
+
+		self.assertEqual(home_response.status_code, 200)
+		self.assertContains(home_response, "Départ anticipé")
+		self.assertContains(home_response, "Travail effectif réduit")
+		self.assertEqual(pointages_response.status_code, 200)
+		self.assertContains(pointages_response, "Départ anticipé")
+		self.assertContains(pointages_response, "Travail effectif réduit")
 
 	def test_today_punctuality_list_late_renders_employee(self):
 		admin = self._create_user("admin-late-list")
@@ -375,30 +433,33 @@ class DashboardAppTests(TestCase):
 		self.assertEqual(list(response.context["recent_incidents"])[0].utilisateur_id, employee.id)
 
 	def test_employee_home_shows_punctuality_and_effective_work_time(self):
+		self._configure_early_departure_settings()
 		employee = self._create_user("employee-punctuality")
 		self._assign_role(employee, "employé")
 		self.client.force_login(employee)
 
-		now = timezone.now().replace(hour=10, minute=30, second=0, microsecond=0)
+		target_day = timezone.localdate()
+		entry_time = timezone.make_aware(datetime.combine(target_day, time(10, 30)))
+		exit_time = timezone.make_aware(datetime.combine(target_day, time(15, 0)))
 		Pointage.objects.create(
 			utilisateur=employee,
 			statut="VALIDE",
 			type="ENTREE",
-			horodatage=now,
+			horodatage=entry_time,
 			score_confiance=0.96,
 		)
 		Pointage.objects.create(
 			utilisateur=employee,
 			statut="VALIDE",
 			type="SORTIE",
-			horodatage=now.replace(hour=15, minute=0),
+			horodatage=exit_time,
 			score_confiance=0.94,
 		)
 
 		response = self.client.get(reverse("dashboard:employee_home"))
 
 		self.assertEqual(response.status_code, 200)
-		self.assertContains(response, "Départs anticipés")
+		self.assertContains(response, "Départ anticipé")
 		self.assertContains(response, "Retard de")
 		self.assertContains(response, "4h30")
 

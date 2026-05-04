@@ -793,7 +793,7 @@ def utilisateur_detail(request, utilisateur_id):
 
     context = {
         'utilisateur': utilisateur,
-        'pointages': pointages,
+        'pointages': attach_schedule_display(list(pointages)),
         'dernier_pointage': dernier_pointage,
         'has_embedding': utilisateur.embedding_facial is not None,
     }
