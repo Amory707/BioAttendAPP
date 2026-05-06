@@ -18,7 +18,7 @@ from alerts.models import Alerte
 
 from attendance.models import Pointage
 from attendance.utils import summarize_work_time, format_duration
-from schedule.services import attach_schedule_display, analyze_day, get_belgian_holidays, get_schedule_settings
+from schedule.services import attach_schedule_display, analyze_day, analyze_days_for_users, get_belgian_holidays, get_schedule_settings
 
 EMPLOYEE_ALERT_TYPES = [
     'RETARD',
@@ -57,7 +57,7 @@ def _employee_queryset_for_dashboard():
     return Utilisateur.objects.all().distinct()
 
 
-def _compute_punctuality_counts_for_users(users, target_day):
+def _compute_punctuality_counts_for_users(users, target_day, analyses=None):
     if not users:
         return {'late': 0, 'early_departure': 0, 'short_day': 0}
 
@@ -68,7 +68,10 @@ def _compute_punctuality_counts_for_users(users, target_day):
     short_day = 0
 
     for utilisateur in users:
-        analysis = analyze_day(utilisateur, target_day, settings_obj=settings_obj, holiday_map=holiday_map)
+        if analyses is None:
+            analysis = analyze_day(utilisateur, target_day, settings_obj=settings_obj, holiday_map=holiday_map)
+        else:
+            analysis = analyses[(utilisateur.pk, target_day)]
         late += int(analysis['late'])
         early_departure += int(analysis['early_departure'])
         short_day += int(analysis['short_day'])
@@ -114,10 +117,12 @@ def _local_day_bounds(target_day):
 def _collect_punctuality_rows(metric, target_day):
     settings_obj = get_schedule_settings()
     holiday_map = get_belgian_holidays(target_day, target_day)
+    employee_list = list(_employee_queryset_for_dashboard().order_by('first_name', 'last_name', 'username'))
+    analyses = analyze_days_for_users(employee_list, target_day, target_day, settings_obj=settings_obj, holiday_map=holiday_map)
     rows = []
 
-    for utilisateur in _employee_queryset_for_dashboard().order_by('first_name', 'last_name', 'username'):
-        analysis = analyze_day(utilisateur, target_day, settings_obj=settings_obj, holiday_map=holiday_map)
+    for utilisateur in employee_list:
+        analysis = analyses[(utilisateur.pk, target_day)]
 
         if metric == 'late' and analysis['late'] and analysis['first_entry'] is not None:
             actual_entry = timezone.localtime(analysis['first_entry']).time()
@@ -197,6 +202,7 @@ def dashboard(request):
 
     settings_obj = get_schedule_settings()
     week_holidays = get_belgian_holidays(start_week, today)
+    week_analyses = analyze_days_for_users(employee_list, start_week, today, settings_obj=settings_obj, holiday_map=week_holidays)
 
     weekly_stats = []
     for i in range(7):
@@ -219,7 +225,7 @@ def dashboard(request):
         for utilisateur in employee_list:
             if utilisateur.pk in present_user_ids:
                 continue
-            analysis = analyze_day(utilisateur, day, settings_obj=settings_obj, holiday_map=week_holidays)
+            analysis = week_analyses[(utilisateur.pk, day)]
             if analysis['required_presence']:
                 unjustified_absences += 1
             else:
@@ -241,7 +247,7 @@ def dashboard(request):
             'security_incidents': security_incidents,
         })
 
-    punctuality_counts = _compute_punctuality_counts_for_users(employee_list, today)
+    punctuality_counts = _compute_punctuality_counts_for_users(employee_list, today, analyses=week_analyses)
     today_late_count = punctuality_counts['late']
     today_early_departure_count = punctuality_counts['early_departure']
     today_short_day_count = punctuality_counts['short_day']
@@ -328,6 +334,7 @@ def today_absent_list(request):
     employee_qs = _employee_queryset_for_dashboard()
     settings_obj = get_schedule_settings()
     holiday_map = get_belgian_holidays(today, today)
+    analyses = analyze_days_for_users(list(employee_qs), today, today, settings_obj=settings_obj, holiday_map=holiday_map)
 
     present_user_ids = set(
         Pointage.objects.filter(
@@ -345,7 +352,7 @@ def today_absent_list(request):
     absents_non_attendus = []
     absents_non_justifies = []
     for utilisateur in absentees:
-        analysis = analyze_day(utilisateur, today, settings_obj=settings_obj, holiday_map=holiday_map)
+        analysis = analyses[(utilisateur.pk, today)]
         row = {
             'utilisateur': utilisateur,
             'label': _user_label(utilisateur),

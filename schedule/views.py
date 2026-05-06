@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -35,6 +36,22 @@ def _deny_and_logout(request):
 
 def _is_admin_view(request):
     return get_active_space(request) != EMPLOYEE_SPACE and request.user.is_platform_admin
+
+
+def _sync_recent_schedule_alerts_once(request, admin_view):
+    if not schedule_features_enabled():
+        return
+
+    today = timezone.localdate()
+    user_token = 'admin' if admin_view else str(request.user.pk)
+    cache_key = f"schedule-alert-sync:{user_token}:{today.isoformat()}"
+    if cache.get(cache_key):
+        return
+
+    sync_schedule_alerts(
+        users=None if admin_view else [request.user],
+    )
+    cache.set(cache_key, True, 15 * 60)
 
 
 def _parse_month(raw_value):
@@ -102,11 +119,7 @@ def schedule_home(request):
     month_start, month_end = month_bounds(selected_month)
     settings_obj = get_schedule_settings()
 
-    sync_schedule_alerts(
-        start_date=month_start,
-        end_date=min(month_end, timezone.localdate()),
-        users=None if admin_view else [request.user],
-    )
+    _sync_recent_schedule_alerts_once(request, admin_view)
 
     visible_entries = ScheduleRequest.objects.select_related('utilisateur', 'created_by', 'reviewed_by').filter(
         status=ScheduleRequest.STATUS_APPROVED,
@@ -140,11 +153,11 @@ def schedule_home(request):
     recent_requests = ScheduleRequest.objects.select_related('utilisateur', 'reviewed_by').all()
 
     if admin_view:
-        pending_requests = pending_requests.order_by('start_at', 'created_at')[:25]
-        recent_requests = recent_requests.order_by('-created_at')[:40]
+        pending_requests = list(pending_requests.order_by('start_at', 'created_at')[:25])
+        recent_requests = list(recent_requests.order_by('-created_at')[:40])
     else:
-        pending_requests = pending_requests.filter(utilisateur=request.user).order_by('start_at', 'created_at')[:25]
-        recent_requests = recent_requests.filter(utilisateur=request.user).order_by('-created_at')[:40]
+        pending_requests = list(pending_requests.filter(utilisateur=request.user).order_by('start_at', 'created_at')[:25])
+        recent_requests = list(recent_requests.filter(utilisateur=request.user).order_by('-created_at')[:40])
 
     previous_month = (month_start - timedelta(days=1)).replace(day=1)
     next_month = (month_end + timedelta(days=1)).replace(day=1)
@@ -162,7 +175,7 @@ def schedule_home(request):
         'admin_view': admin_view,
         'settings_obj': settings_obj,
         'features_enabled': settings_obj.is_enabled,
-        'pending_count': pending_requests.count(),
+        'pending_count': len(pending_requests),
         'approved_absence_count': visible_entries.count(),
         'holiday_count': len(holiday_map),
     }
