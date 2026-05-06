@@ -45,6 +45,12 @@ class Pointage(models.Model):
     class Meta:
         db_table = 'pointage'
         ordering = ['-horodatage']
+        indexes = [
+            models.Index(fields=['utilisateur', 'statut', 'horodatage'], name='point_user_stat_time_idx'),
+            models.Index(fields=['utilisateur', 'origine', '-horodatage', '-id'], name='point_user_orig_time_idx'),
+            models.Index(fields=['origine', 'statut', 'incident_type', 'horodatage'], name='point_security_time_idx'),
+            models.Index(fields=['statut', 'horodatage'], name='point_stat_time_idx'),
+        ]
 
     def __str__(self):
         return f"{self.utilisateur} - {self.type} @ {self.horodatage}"

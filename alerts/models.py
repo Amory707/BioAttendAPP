@@ -57,6 +57,10 @@ class Alerte(models.Model):
     class Meta:
         db_table = 'alerte'
         ordering = ['-date_creation']
+        indexes = [
+            models.Index(fields=['masquee', 'type', 'date_creation'], name='alerte_mask_type_time_idx'),
+            models.Index(fields=['utilisateur', 'masquee', 'type', 'date_creation'], name='alerte_user_type_time_idx'),
+        ]
 
     @classmethod
     def default_description_for_incident(cls, incident_type):
