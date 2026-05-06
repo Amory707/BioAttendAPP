@@ -445,7 +445,7 @@ class AbsenceAlertView(DeviceApiAuthMixin, APIView):
             )
 
         try:
-            return datetime.strptime(date_string, "%Y-%m-%d").date(), None
+            return datetime.datetime.strptime(date_string, "%Y-%m-%d").date(), None
         except ValueError:
             return None, Response(
                 {
