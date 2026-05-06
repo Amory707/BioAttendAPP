@@ -12,6 +12,8 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = env('SECRET_KEY', default='')
 DEBUG = env.bool('DEBUG', default=False)
+REQUEST_TIMING_LOG = env.bool('REQUEST_TIMING_LOG', default=False)
+REQUEST_TIMING_HEADERS = env.bool('REQUEST_TIMING_HEADERS', default=True)
 
 if not SECRET_KEY:
 
@@ -67,6 +69,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "core.middleware.RequestTimingMiddleware",
     "accounts.middleware.ThreadLocalMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",

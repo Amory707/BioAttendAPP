@@ -87,6 +87,10 @@ class ScheduleRequest(models.Model):
         ordering = ['-start_at', '-created_at']
         verbose_name = 'Demande planning'
         verbose_name_plural = 'Demandes planning'
+        indexes = [
+            models.Index(fields=['utilisateur', 'status', 'start_at', 'end_at'], name='sched_user_status_range_idx'),
+            models.Index(fields=['status', 'start_at', 'created_at'], name='sched_status_time_idx'),
+        ]
 
     def clean(self):
         if self.end_at <= self.start_at:
