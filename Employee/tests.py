@@ -12,7 +12,7 @@ from alerts.models import Alerte
 from attendance.models import Pointage
 from schedule.services import get_schedule_settings
 
-from .views import FiltreBiometrique, _validate_photo_uploads
+from .views import FiltreBiometrique, _compute_security_index, _validate_photo_uploads
 
 @override_settings(SECRET_KEY='test-api-secret')
 class EmployeeAppTests(TestCase):
@@ -87,6 +87,15 @@ class EmployeeAppTests(TestCase):
 
 		self.assertEqual(error, "Seuls les fichiers image sont autorises.")
 
+	def test_compute_security_index_returns_value_for_single_photo(self):
+		indice = _compute_security_index([[1.0, 0.0, 0.0]])
+
+		self.assertEqual(indice, 100.0)
+
+	def test_compute_security_index_rejects_different_faces(self):
+		with self.assertRaisesMessage(ValueError, "personnes differentes"):
+			_compute_security_index([[1.0, 0.0], [0.0, 1.0]])
+
 	def test_filtre_biometrique_filters_enrolled_and_non_enrolled(self):
 		enrolled = self._create_user("enrolled", embedding_facial=[0.0] * 512)
 		non_enrolled = self._create_user("nonenrolled", embedding_facial=None)
@@ -98,6 +107,20 @@ class EmployeeAppTests(TestCase):
 		self.assertNotIn(non_enrolled, enroles)
 		self.assertIn(non_enrolled, non_enroles)
 		self.assertNotIn(enrolled, non_enroles)
+
+	def test_utilisateur_list_backfills_missing_security_index_for_enrolled_users(self):
+		admin = self._create_user("security-admin")
+		enrolled = self._create_user("security-enrolled", embedding_facial=[0.0] * 512, indice_surete=None)
+		non_enrolled = self._create_user("security-no-photo", embedding_facial=None, indice_surete=None)
+		self.client.force_login(admin)
+
+		response = self.client.get(reverse("Employee:utilisateur_list"))
+
+		self.assertEqual(response.status_code, 200)
+		enrolled.refresh_from_db()
+		non_enrolled.refresh_from_db()
+		self.assertEqual(enrolled.indice_surete, 100.0)
+		self.assertIsNone(non_enrolled.indice_surete)
 
 	def test_utilisateur_list_requires_authentication(self):
 		response = self.client.get(reverse("Employee:utilisateur_list"))

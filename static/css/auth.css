@@ -361,29 +361,6 @@ a:hover {
     margin-bottom: 0;
 }
 
-.message-success,
-.success-message,
-.alert-success {
-    background-color: #e8f5e9;
-    border: 2px solid #66bb6a;
-    border-left: 4px solid #4caf50;
-    color: #2e7d32;
-    padding: var(--spacing-lg);
-    border-radius: var(--radius-md);
-    margin-bottom: var(--spacing-lg);
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    animation: slideDown 0.3s ease-out;
-}
-
-.message-success::before {
-    content: "✅";
-    font-size: 20px;
-    flex-shrink: 0;
-}
-
 .message-info,
 .info-message,
 .alert-info {
@@ -426,12 +403,6 @@ body.dark-mode .error-message {
     background-color: #3e2723;
     border-color: #bf360c;
     color: #ff6e40;
-}
-
-body.dark-mode .message-success {
-    background-color: #1b5e20;
-    border-color: #4caf50;
-    color: #a5d6a7;
 }
 
 body.dark-mode .message-info {
@@ -667,7 +638,6 @@ a:focus-visible {
 
     .errorlist,
     .error-message,
-    .message-success,
     .message-info {
         padding: var(--spacing-md);
         font-size: 13px;

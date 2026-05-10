@@ -25,6 +25,12 @@
     backdrop-filter: blur(4px);
 }
 
+body.dark-mode .app-container .top-bar {
+    background: #111827 !important;
+    border-bottom-color: #374151;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+}
+
 .app-container .top-bar-left {
     display: flex;
     align-items: center;
@@ -215,9 +221,13 @@
 .app-container .dropdown-menu {
     margin-top: 8px;
     border-radius: 12px;
-    border: 1px solid #d6dce5;
+    border: 1px solid var(--color-border);
     box-shadow: 0 16px 26px rgba(15, 28, 49, 0.14);
     overflow: hidden;
+}
+
+body.dark-mode .app-container .dropdown-menu {
+    background: var(--color-bg-white);
 }
 
 .app-container .dropdown-item {
@@ -328,12 +338,18 @@
     }
 
     .app-container .top-nav-menu {
-        width: auto;
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
         border-radius: 0;
     }
 
     .app-container .top-bar .nav-item {
+        width: 100%;
         padding: 7px 10px;
+        min-height: 40px;
+        border-radius: 10px;
     }
 
     .app-container .top-bar-right {
@@ -357,26 +373,32 @@
 
 @media (max-width: 560px) {
     .app-container .top-bar {
-        padding: 8px;
+        padding: 8px 10px 10px;
+    }
+
+    .app-container .top-bar-left {
+        width: 100%;
+        flex: 1 1 100%;
     }
 
     .app-container .brand-link .logo-avatar {
-        width: 34px;
-        height: 34px;
+        width: 32px;
+        height: 32px;
     }
 
     .app-container .brand-link .sidebar-title {
-        font-size: 20px;
+        font-size: 18px;
     }
 
     .app-container .top-nav-menu {
+        width: 100%;
         gap: 6px;
     }
 
     .app-container .top-bar .nav-item {
-        width: 34px;
-        min-width: 34px;
-        height: 34px;
+        width: 100%;
+        min-width: 0;
+        height: 40px;
         padding: 0;
         border-radius: 10px;
         justify-content: center;
@@ -396,10 +418,31 @@
     }
 
     .app-container .user-btn {
+        min-width: 34px;
         padding: 4px 8px;
     }
 
     .app-container .dropdown-menu {
         min-width: 200px;
+        max-width: calc(100vw - 20px);
+    }
+
+    .app-container .main-content {
+        overflow-x: clip;
+    }
+
+    .page {
+        padding: 12px !important;
+    }
+
+    .page-header {
+        align-items: flex-start !important;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .page-header h1 {
+        font-size: 22px;
+        line-height: 1.2;
     }
 }

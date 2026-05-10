@@ -25,6 +25,10 @@
             border-bottom: 1px solid #f0f0f0;
             transition: background var(--transition-fast);
         }
+        body.dark-mode .emp-grid-header,
+        body.dark-mode .emp-grid-row {
+            border-color: var(--color-border);
+        }
         .emp-grid-row:last-child { border-bottom: none; }
         .emp-grid-row:hover { background-color: var(--color-bg-light); }
         .emp-name { font-weight: 500; color: var(--color-text-primary); }
@@ -56,6 +60,9 @@
         .action-btn.view  { background: #E8F4FD; color: var(--color-primary); }
         .action-btn.edit  { background: #E8F8F5; color: var(--color-secondary); }
         .action-btn.del   { background: #FDEDEC; color: var(--color-accent-red); }
+        body.dark-mode .action-btn.view { background: rgba(96, 165, 250, 0.16); color: #93C5FD; }
+        body.dark-mode .action-btn.edit { background: rgba(52, 211, 153, 0.16); color: #6EE7B7; }
+        body.dark-mode .action-btn.del { background: rgba(251, 113, 133, 0.16); color: #FDA4AF; }
         .action-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
         .emp-search-bar {
             display: flex;
@@ -127,6 +134,82 @@
         .surete-high { background: #E8F8F5; color: #14866D; }
         .surete-mid { background: #FFF8E1; color: #B7791F; }
         .surete-low { background: #FDEDEC; color: #C0392B; }
+        body.dark-mode .surete-high { background: rgba(52, 211, 153, 0.16); color: #6EE7B7; }
+        body.dark-mode .surete-mid { background: rgba(251, 191, 36, 0.18); color: #FCD34D; }
+        body.dark-mode .surete-low { background: rgba(251, 113, 133, 0.16); color: #FDA4AF; }
+        @media (max-width: 720px) {
+            .page-header {
+                flex-direction: column;
+            }
+            .page-header > div:last-child {
+                width: 100%;
+                display: grid !important;
+                grid-template-columns: 1fr 1fr;
+                gap: var(--spacing-sm);
+            }
+            .page-header .btn {
+                width: 100%;
+                min-width: 0;
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+            .recent-table {
+                background: transparent;
+                box-shadow: none;
+                border-radius: 0;
+                overflow: visible;
+            }
+            .emp-grid-header {
+                display: none;
+            }
+            .table-body {
+                gap: var(--spacing-sm);
+            }
+            .emp-grid-row {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                gap: 8px 12px;
+                padding: 14px;
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-md);
+                background: var(--color-bg-white);
+                box-shadow: var(--shadow-sm);
+            }
+            .emp-name {
+                grid-column: 1 / -1;
+                font-size: var(--font-size-base);
+            }
+            .emp-grid-row > .emp-secondary:nth-child(2)::before { content: "@"; }
+            .emp-grid-row > .emp-secondary:nth-child(3)::before { content: "Dept. "; font-weight: 600; color: var(--color-text-primary); }
+            .emp-grid-row > .emp-secondary:nth-child(4) {
+                grid-column: 1 / -1;
+                overflow-wrap: anywhere;
+            }
+            .emp-grid-row > div:nth-child(5) {
+                align-self: center;
+                justify-self: start;
+            }
+            .emp-actions {
+                justify-content: flex-end;
+            }
+            .action-btn {
+                width: 34px;
+                height: 34px;
+                padding: 0;
+                justify-content: center;
+            }
+        }
+        @media (max-width: 420px) {
+            .page-header > div:last-child {
+                grid-template-columns: 1fr;
+            }
+            .emp-grid-row {
+                grid-template-columns: 1fr;
+            }
+            .emp-actions {
+                justify-content: flex-start;
+            }
+        }
     </style>
 {% endblock %}
 {% block content %}

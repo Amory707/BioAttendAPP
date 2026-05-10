@@ -58,7 +58,9 @@
     {% if messages %}
         <div style="margin-bottom: var(--spacing-lg);">
             {% for message in messages %}
-                <div class="alert-{{ message.tags }}">{{ message }}</div>
+                {% if 'success' not in message.tags %}
+                    <div class="alert-{{ message.tags }}">{{ message }}</div>
+                {% endif %}
             {% endfor %}
         </div>
     {% endif %}

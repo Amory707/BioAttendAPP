@@ -38,14 +38,35 @@ except ImportError:
     insightface = None
 
 
+def _compute_security_index(normed_embeddings, similarity_threshold=0.35):
+    if not normed_embeddings:
+        return None
+
+    if len(normed_embeddings) == 1:
+        return 100.0
+
+    pairwise_similarities = []
+    for i in range(len(normed_embeddings)):
+        for j in range(i + 1, len(normed_embeddings)):
+            similarity = sum(
+                float(left) * float(right)
+                for left, right in zip(normed_embeddings[i], normed_embeddings[j])
+            )
+            pairwise_similarities.append(similarity)
+
+    if min(pairwise_similarities) < similarity_threshold:
+        raise ValueError("Les visages televerses semblent appartenir a des personnes differentes.")
+
+    avg_similarity = sum(pairwise_similarities) / len(pairwise_similarities)
+    return round(max(0.0, min(100.0, avg_similarity * 100.0)), 2)
+
+
 def _compute_face_embeddings(photo_files):
     """Traite les images, valide une identite unique et retourne (embedding_moyen, indice_surete)."""
     if insightface is None: raise ImportError("insightface n'est pas installé. Exécutez pip install insightface")
 
     app = insightface.app.FaceAnalysis(allowed_modules=['detection', 'recognition'])
     app.prepare(ctx_id=-1, det_size=(640, 640), det_thresh=0.35)
-
-    similarity_threshold = 0.35 # Valeur à configurer
 
     embeddings = []
     for idx, photo_file in enumerate(photo_files[:5], start=1):
@@ -80,19 +101,7 @@ def _compute_face_embeddings(photo_files):
     if not normed:
         return None, None
 
-    pairwise_similarities = []
-    for i in range(len(normed)):
-        for j in range(i + 1, len(normed)):
-            similarity = float(np.dot(normed[i], normed[j]))
-            pairwise_similarities.append(similarity)
-
-    if pairwise_similarities:
-        if min(pairwise_similarities) < similarity_threshold: raise ValueError("Les visages televerses semblent appartenir a des personnes differentes.")
-        
-        avg_similarity = sum(pairwise_similarities) / len(pairwise_similarities)
-        indice_surete = round(max(0.0, min(100.0, avg_similarity * 100.0)), 2)
-
-    else: indice_surete = None
+    indice_surete = _compute_security_index(normed)
 
     return np.mean(embeddings, axis=0), indice_surete
 
@@ -748,6 +757,11 @@ def utilisateur_list(request):
     biometrie = request.GET.get('biometrie', '')
     date_debut = request.GET.get('date_debut', '')
     tri = request.GET.get('tri', 'username')
+
+    Utilisateur.objects.filter(
+        embedding_facial__isnull=False,
+        indice_surete__isnull=True,
+    ).update(indice_surete=100.0)
 
     utilisateurs = Utilisateur.objects.all()
 

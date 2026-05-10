@@ -77,11 +77,20 @@ a.btn:hover {
 
 
 body.dark-mode {
-    --color-bg-light: #1A1A2E;
-    --color-bg-white: #16213E;
-    --color-text-primary: #ECF0F1;
-    --color-text-secondary: #BDC3C7;
-    --color-bg-sidebar: #0F3460;
+    --color-primary: #60A5FA;
+    --color-primary-dark: #2563EB;
+    --color-secondary: #34D399;
+    --color-accent-orange: #FBBF24;
+    --color-accent-red: #FB7185;
+    --color-bg-light: #111827;
+    --color-bg-white: #1F2937;
+    --color-bg-sidebar: #111827;
+    --color-text-primary: #F9FAFB;
+    --color-text-secondary: #D1D5DB;
+    --color-text-light: #9CA3AF;
+    --color-border: #374151;
+    --color-border-light: #2D3748;
+    color-scheme: dark;
 }
 
 * {
@@ -101,6 +110,10 @@ body {
     transition: background-color var(--transition-base), color var(--transition-base);
     font-size: var(--font-size-base);
     line-height: 1.6;
+}
+
+body.dark-mode {
+    background: var(--color-bg-light);
 }
 
 .app-container {
@@ -610,7 +623,7 @@ body.dark-mode .search-input {
 
 .dropdown-divider {
     height: 1px;
-    background-color: #E0E0E0;
+    background-color: var(--color-border);
     margin: var(--spacing-xs) 0;
 }
 
@@ -619,5 +632,3 @@ body.dark-mode .search-input {
     width: 20px;
     text-align: center;
 }
-
-

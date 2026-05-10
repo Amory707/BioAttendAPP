@@ -163,9 +163,11 @@
     </div>
 
     {% for message in messages %}
-        <div class="feature-banner" style="background:{% if message.tags == 'success' %}#ecfdf5{% else %}#fff7ed{% endif %}; color:{% if message.tags == 'success' %}#166534{% else %}#9a3412{% endif %}; border-color:{% if message.tags == 'success' %}#bbf7d0{% else %}#fed7aa{% endif %};">
-            {{ message }}
-        </div>
+        {% if 'success' not in message.tags %}
+            <div class="feature-banner" style="background:#fff7ed; color:#9a3412; border-color:#fed7aa;">
+                {{ message }}
+            </div>
+        {% endif %}
     {% endfor %}
 
     {% if not features_enabled %}
