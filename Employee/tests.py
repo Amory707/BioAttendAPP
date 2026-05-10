@@ -12,6 +12,7 @@ from alerts.models import Alerte
 from attendance.models import Pointage
 from schedule.services import get_schedule_settings
 
+from .models import BiometricSettings
 from .views import FiltreBiometrique, _compute_security_index, _validate_photo_uploads
 
 @override_settings(SECRET_KEY='test-api-secret')
@@ -95,6 +96,14 @@ class EmployeeAppTests(TestCase):
 	def test_compute_security_index_rejects_different_faces(self):
 		with self.assertRaisesMessage(ValueError, "personnes differentes"):
 			_compute_security_index([[1.0, 0.0], [0.0, 1.0]])
+
+	def test_compute_security_index_uses_configured_threshold(self):
+		settings_obj = BiometricSettings.get_solo()
+		settings_obj.photo_similarity_threshold = 60.0
+		settings_obj.save(update_fields=["photo_similarity_threshold", "updated_at"])
+
+		with self.assertRaisesMessage(ValueError, "personnes differentes"):
+			_compute_security_index([[1.0, 0.0], [0.55, 0.835]])
 
 	def test_filtre_biometrique_filters_enrolled_and_non_enrolled(self):
 		enrolled = self._create_user("enrolled", embedding_facial=[0.0] * 512)
@@ -181,6 +190,67 @@ class EmployeeAppTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, "Un seul rôle peut être attribué")
 		self.assertFalse(Utilisateur.objects.filter(email="ari.dual@example.com").exists())
+
+	def test_acces_total_updates_global_biometric_threshold_from_employee_list(self):
+		role_admin = self._create_role("admin")
+		role_total = self._create_role("acces_total")
+		admin = self._create_user("threshold-admin")
+		RoleUtilisateur.objects.bulk_create([
+			RoleUtilisateur(utilisateur=admin, role=role_total),
+		])
+		employee = self._create_user(
+			"threshold-employee",
+			first_name="Mila",
+			last_name="Low",
+			embedding_facial=[0.1] * 512,
+			indice_surete=49.0,
+		)
+		RoleUtilisateur.objects.create(utilisateur=employee, role=role_admin)
+		self.client.force_login(admin)
+
+		list_response = self.client.get(reverse("Employee:utilisateur_list"))
+		self.assertContains(list_response, reverse("Employee:biometric_settings"))
+
+		response = self.client.post(reverse("Employee:biometric_settings"), {
+			"photo_similarity_threshold": "50",
+		})
+
+		self.assertEqual(response.status_code, 302)
+		employee.refresh_from_db()
+		self.assertIsNone(employee.embedding_facial)
+		self.assertIsNone(employee.indice_surete)
+
+	def test_admin_cannot_update_global_biometric_threshold(self):
+		role_admin = self._create_role("admin")
+		admin = self._create_user("plain-admin")
+		RoleUtilisateur.objects.create(utilisateur=admin, role=role_admin)
+		employee = self._create_user(
+			"plain-admin-target",
+			first_name="Nora",
+			last_name="Guard",
+			embedding_facial=[0.1] * 512,
+			indice_surete=49.0,
+		)
+		RoleUtilisateur.objects.create(utilisateur=employee, role=role_admin)
+		settings_obj = BiometricSettings.get_solo()
+		settings_obj.photo_similarity_threshold = 40.0
+		settings_obj.save(update_fields=["photo_similarity_threshold", "updated_at"])
+		self.client.force_login(admin)
+
+		get_response = self.client.get(reverse("Employee:utilisateur_list"))
+		self.assertNotContains(get_response, "Seuil biométrique global")
+
+		response = self.client.post(reverse("Employee:biometric_settings"), {
+			"photo_similarity_threshold": "90",
+		})
+
+		self.assertEqual(response.status_code, 302)
+		self.assertRedirects(response, reverse("Employee:utilisateur_list"))
+		settings_obj.refresh_from_db()
+		employee.refresh_from_db()
+		self.assertEqual(settings_obj.photo_similarity_threshold, 40.0)
+		self.assertIsNotNone(employee.embedding_facial)
+		self.assertEqual(employee.indice_surete, 49.0)
 
 	def test_pointage_list_filters_by_type(self):
 		user = self._create_user("pointage-user")

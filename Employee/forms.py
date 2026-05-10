@@ -4,6 +4,7 @@ import unicodedata
 from django import forms
 from accounts.models import Role, RoleUtilisateur, Utilisateur
 
+from .models import BiometricSettings
 
 def _generate_username(first_name, last_name):
     """Génère un username unique depuis prénom+nom."""
@@ -44,7 +45,6 @@ class UtilisateurUnifiedForm(forms.ModelForm):
         label='Mot de passe',
         help_text='Laissez vide pour conserver le mot de passe actuel.',
     )
-
     class Meta:
         model = Utilisateur
         fields = ['first_name', 'last_name', 'email', 'departement', 'date_debut', 'date_fin']
@@ -133,3 +133,19 @@ class UtilisateurUnifiedForm(forms.ModelForm):
         ).delete()
         if selected_role is not None:
             RoleUtilisateur.objects.get_or_create(utilisateur=user, role=selected_role)
+
+
+class BiometricSettingsForm(forms.ModelForm):
+    class Meta:
+        model = BiometricSettings
+        fields = ['photo_similarity_threshold']
+        labels = {
+            'photo_similarity_threshold': 'Seuil de similarité minimal (%)',
+        }
+        widgets = {
+            'photo_similarity_threshold': forms.NumberInput(attrs={
+                'min': '0',
+                'max': '100',
+                'step': '0.1',
+            }),
+        }

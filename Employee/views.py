@@ -23,7 +23,8 @@ from attendance.models import Pointage
 from attendance.utils import summarize_work_time
 from schedule.services import attach_schedule_display
 
-from .forms import UtilisateurUnifiedForm
+from .forms import BiometricSettingsForm, UtilisateurUnifiedForm
+from .models import BiometricSettings
 
 MAX_UPLOAD_IMAGE_COUNT = 5
 MAX_TOTAL_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
@@ -38,12 +39,19 @@ except ImportError:
     insightface = None
 
 
-def _compute_security_index(normed_embeddings, similarity_threshold=0.35):
+def _get_biometric_similarity_threshold():
+    return BiometricSettings.get_solo().photo_similarity_threshold / 100.0
+
+
+def _compute_security_index(normed_embeddings, similarity_threshold=None):
     if not normed_embeddings:
         return None
 
     if len(normed_embeddings) == 1:
         return 100.0
+
+    if similarity_threshold is None:
+        similarity_threshold = _get_biometric_similarity_threshold()
 
     pairwise_similarities = []
     for i in range(len(normed_embeddings)):
@@ -61,7 +69,7 @@ def _compute_security_index(normed_embeddings, similarity_threshold=0.35):
     return round(max(0.0, min(100.0, avg_similarity * 100.0)), 2)
 
 
-def _compute_face_embeddings(photo_files):
+def _compute_face_embeddings(photo_files, similarity_threshold=None):
     """Traite les images, valide une identite unique et retourne (embedding_moyen, indice_surete)."""
     if insightface is None: raise ImportError("insightface n'est pas installé. Exécutez pip install insightface")
 
@@ -101,9 +109,28 @@ def _compute_face_embeddings(photo_files):
     if not normed:
         return None, None
 
-    indice_surete = _compute_security_index(normed)
+    indice_surete = _compute_security_index(normed, similarity_threshold=similarity_threshold)
 
     return np.mean(embeddings, axis=0), indice_surete
+
+
+def _can_manage_biometric_settings(user):
+    return bool(
+        getattr(user, 'is_acces_total', False)
+        or (getattr(user, 'is_superuser', False) and getattr(user, 'username', '') == 'bioattend')
+    )
+
+
+def _save_biometric_similarity_threshold(threshold):
+    settings_obj = BiometricSettings.get_solo()
+    if abs(settings_obj.photo_similarity_threshold - threshold) >= 0.001:
+        settings_obj.photo_similarity_threshold = threshold
+        settings_obj.save(update_fields=['photo_similarity_threshold', 'updated_at'])
+
+    return Utilisateur.objects.filter(
+        embedding_facial__isnull=False,
+        indice_surete__lt=threshold,
+    ).update(embedding_facial=None, indice_surete=None)
 
 def _validate_photo_uploads(photo_files):
     if len(photo_files) > MAX_UPLOAD_IMAGE_COUNT:
@@ -752,6 +779,9 @@ def exporter_prestations_csv(request, utilisateur_id=None):
 
 @login_required(login_url='login')
 def utilisateur_list(request):
+    can_manage_biometric_settings = _can_manage_biometric_settings(request.user)
+    biometric_settings = BiometricSettings.get_solo()
+
     recherche = request.GET.get('q', '').strip()
     departement = request.GET.get('departement', '')
     biometrie = request.GET.get('biometrie', '')
@@ -789,12 +819,42 @@ def utilisateur_list(request):
         'filtre_date_debut': date_debut,
         'tri': tri,
         'sort_options': SORT_OPTIONS,
+        'biometric_settings': biometric_settings,
+        'biometric_settings_form': BiometricSettingsForm(instance=biometric_settings),
+        'can_manage_biometric_settings': can_manage_biometric_settings,
         'liste_departements': Utilisateur.objects.values_list('departement', flat=True)
         .distinct()
         .exclude(departement__isnull=True),
     }
 
     return render(request, 'utilisateur/utilisateur_list.html', context)
+
+
+@login_required(login_url='login')
+def biometric_settings_view(request):
+    if not _can_manage_biometric_settings(request.user):
+        messages.error(request, "Seuls les comptes acces_total peuvent modifier le seuil biométrique.")
+        return redirect('Employee:utilisateur_list')
+
+    settings_obj = BiometricSettings.get_solo()
+    form = BiometricSettingsForm(request.POST or None, instance=settings_obj)
+
+    if request.method == 'POST':
+        if form.is_valid():
+            threshold = form.cleaned_data['photo_similarity_threshold']
+            removed_count = _save_biometric_similarity_threshold(threshold)
+            messages.success(request, f"Seuil biométrique mis à jour à {threshold:.1f}%.")
+            if removed_count:
+                messages.warning(request, f"{removed_count} employé(s) sous le seuil biométrique ont été désenrôlé(s).")
+            return redirect('Employee:utilisateur_list')
+        for _, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, error)
+
+    return render(request, 'utilisateur/biometric_settings.html', {
+        'settings_form': form,
+        'settings_obj': settings_obj,
+    })
 
 @login_required(login_url='login')
 def utilisateur_detail(request, utilisateur_id):

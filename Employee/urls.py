@@ -5,6 +5,7 @@ app_name = 'Employee'
 
 urlpatterns = [
     path('utilisateurs/', views.utilisateur_list, name='utilisateur_list'),
+    path('utilisateurs/biometrie/parametres/', views.biometric_settings_view, name='biometric_settings'),
     path('utilisateurs/ajouter/', views.create_utilisateur, name='utilisateur_create'),
     path('utilisateurs/<uuid:utilisateur_id>/modifier/', views.update_utilisateur, name='utilisateur_update'),
     path('utilisateurs/<uuid:utilisateur_id>/supprimer/', views.delete_utilisateur, name='utilisateur_delete'),

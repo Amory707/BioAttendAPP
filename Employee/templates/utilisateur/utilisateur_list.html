@@ -137,6 +137,49 @@
         body.dark-mode .surete-high { background: rgba(52, 211, 153, 0.16); color: #6EE7B7; }
         body.dark-mode .surete-mid { background: rgba(251, 191, 36, 0.18); color: #FCD34D; }
         body.dark-mode .surete-low { background: rgba(251, 113, 133, 0.16); color: #FDA4AF; }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .48);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+        .modal-backdrop.show { display: flex; }
+        .modal-card {
+            width: min(560px, 100%);
+            max-height: 90vh;
+            overflow-y: auto;
+            background: var(--color-bg-white);
+            border: 1px solid rgba(148, 163, 184, .22);
+            border-radius: 16px;
+            padding: 1.2rem;
+            box-shadow: var(--shadow-md);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .modal-title { margin: 0; }
+        .modal-close {
+            border: none;
+            background: transparent;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            font-weight: 700;
+        }
+        .modal-card .form-group { margin-bottom: .9rem; }
+        .modal-card .form-group label { display: block; margin-bottom: .25rem; font-weight: 600; color: var(--color-text-primary); }
+        .modal-card .form-group input { width: 100%; border: 1px solid rgba(148, 163, 184, .28); border-radius: 10px; padding: .65rem .8rem; background: var(--color-bg-white); color: var(--color-text-primary); }
+        .modal-card .form-help { color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-top: .35rem; }
+        .inline-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+        body.dark-mode .modal-card { background: #16213E; border-color: rgba(148, 163, 184, .24); }
+        body.dark-mode .modal-card .form-group input { background: rgba(15, 23, 42, .82); border-color: rgba(148, 163, 184, .22); color: #e5e7eb; }
         @media (max-width: 720px) {
             .page-header {
                 flex-direction: column;
@@ -226,11 +269,41 @@
             <a href="{% url 'Employee:utilisateur_create' %}" class="btn btn-primary">
                 <i class="fas fa-plus"></i>&nbsp; Ajouter
             </a>
+            {% if can_manage_biometric_settings %}
+            <button type="button" class="btn btn-secondary" id="openBiometricSettingsModal">
+                <i class="fas fa-fingerprint"></i>&nbsp; Configurer la biométrie
+            </button>
+            {% endif %}
             <a href="{% url 'Employee:exporter_csv' %}" class="btn btn-export">
                 <i class="fas fa-file-csv"></i>&nbsp; Exporter CSV
             </a>
         </div>
     </div>
+
+    {% if can_manage_biometric_settings %}
+        <div class="modal-backdrop" id="biometricSettingsModal" aria-hidden="true">
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="biometricSettingsModalTitle">
+                <div class="modal-header">
+                    <h2 id="biometricSettingsModalTitle" class="modal-title">Configurer la biométrie</h2>
+                    <button type="button" class="modal-close" id="closeBiometricSettingsModal" aria-label="Fermer">Fermer</button>
+                </div>
+                <form method="post" action="{% url 'Employee:biometric_settings' %}">
+                    {% csrf_token %}
+                    {% for field in biometric_settings_form %}
+                        <div class="form-group">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            <div class="form-help">Les employés déjà enrôlés avec un indice inférieur à ce seuil seront désenrôlés à l'enregistrement.</div>
+                        </div>
+                    {% endfor %}
+                    <div class="inline-actions">
+                        <button type="submit" class="btn btn-primary">Enregistrer</button>
+                        <button type="button" class="btn btn-secondary" id="cancelBiometricSettingsModal">Annuler</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
 
     <form method="GET" class="emp-search-bar">
         <input type="text" name="q" placeholder="Rechercher par nom, prénom ou email…" value="{{ recherche }}">
@@ -297,4 +370,43 @@
     </div>
 
 </section>
+{% endblock %}
+
+{% block extra_js %}
+    {{ block.super }}
+    {% if can_manage_biometric_settings %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const modal = document.getElementById('biometricSettingsModal');
+            const openButton = document.getElementById('openBiometricSettingsModal');
+            const closeButton = document.getElementById('closeBiometricSettingsModal');
+            const cancelButton = document.getElementById('cancelBiometricSettingsModal');
+
+            if (!modal || !openButton) return;
+
+            const openModal = function () {
+                modal.classList.add('show');
+                modal.setAttribute('aria-hidden', 'false');
+            };
+
+            const closeModal = function () {
+                modal.classList.remove('show');
+                modal.setAttribute('aria-hidden', 'true');
+                openButton.focus();
+            };
+
+            openButton.addEventListener('click', openModal);
+            if (closeButton) closeButton.addEventListener('click', closeModal);
+            if (cancelButton) cancelButton.addEventListener('click', closeModal);
+
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal) closeModal();
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && modal.classList.contains('show')) closeModal();
+            });
+        });
+    </script>
+    {% endif %}
 {% endblock %}
