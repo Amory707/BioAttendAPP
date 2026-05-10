@@ -118,6 +118,20 @@ La correction consiste a:
 Le calendrier, les demandes en attente, l'historique recent, les jours feries
 et les exports restent disponibles.
 
+Mesures apres deploiement:
+
+- premier chargement:
+  - `X-BioAttend-Duration-ms`: 2866.7 ms
+  - `X-BioAttend-DB-Queries`: 81 requetes
+  - `X-BioAttend-DB-ms`: 2443.1 ms
+- deuxieme chargement:
+  - `X-BioAttend-Duration-ms`: 1292.1 ms
+  - `X-BioAttend-DB-Queries`: 39 requetes
+  - `X-BioAttend-DB-ms`: 1139.5 ms
+
+La deuxieme mesure confirme que le cache court evite de refaire la
+synchronisation planning a chaque ouverture de page.
+
 ### 5. Optimisation du dashboard
 
 Le dashboard a ensuite ete mesure a environ 6,9 secondes:
@@ -141,6 +155,105 @@ La correction ajoute un chargement groupe des analyses planning:
 
 Les cartes du dashboard, le graphique hebdomadaire et les listes de presence
 gardent les memes donnees, mais avec beaucoup moins d'allers-retours SQL.
+
+## Bilan des mesures
+
+### Page statistiques
+
+Mesure avant correction:
+
+- `X-BioAttend-Duration-ms`: 20685.1 ms
+- `X-BioAttend-DB-Queries`: 596 requetes
+- `X-BioAttend-DB-ms`: 17532.3 ms
+
+Mesure apres correction:
+
+- `X-BioAttend-Duration-ms`: 2023.7 ms
+- `X-BioAttend-DB-Queries`: 44 requetes
+- `X-BioAttend-DB-ms`: 1506.6 ms
+
+Bilan:
+
+- temps total divise par environ 10;
+- requetes DB reduites de 596 a 44;
+- temps DB reduit de 17,5 secondes a 1,5 seconde;
+- la page reste complete: pointages, historiques, graphiques, alertes et exports.
+
+### Dashboard
+
+Mesure avant correction:
+
+- `X-BioAttend-Duration-ms`: 6932.6 ms
+- `X-BioAttend-DB-Queries`: 212 requetes
+- `X-BioAttend-DB-ms`: 6294.2 ms
+
+Mesure apres correction:
+
+- `X-BioAttend-Duration-ms`: 1786.2 ms
+- `X-BioAttend-DB-Queries`: 49 requetes
+- `X-BioAttend-DB-ms`: 1513.6 ms
+
+Bilan:
+
+- temps total reduit de 6,9 secondes a 1,8 seconde;
+- requetes DB reduites de 212 a 49;
+- le calcul des presences, absences et retards est conserve;
+- les donnees hebdomadaires sont calculees en memoire apres chargement groupe.
+
+### Planning
+
+Mesure avant correction:
+
+- `X-BioAttend-Duration-ms`: 4157.7 ms
+- `X-BioAttend-DB-Queries`: 116 requetes
+- `X-BioAttend-DB-ms`: 3573.6 ms
+
+Mesure apres correction, premier chargement:
+
+- `X-BioAttend-Duration-ms`: 2866.7 ms
+- `X-BioAttend-DB-Queries`: 81 requetes
+- `X-BioAttend-DB-ms`: 2443.1 ms
+
+Mesure apres correction, deuxieme chargement:
+
+- `X-BioAttend-Duration-ms`: 1292.1 ms
+- `X-BioAttend-DB-Queries`: 39 requetes
+- `X-BioAttend-DB-ms`: 1139.5 ms
+
+Bilan:
+
+- la premiere ouverture reste plus couteuse car elle peut declencher une
+  synchronisation planning;
+- le cache court evite de refaire cette synchronisation a chaque refresh;
+- au deuxieme chargement, le temps total descend a environ 1,3 seconde;
+- les demandes en attente, l'historique recent, le calendrier et les exports
+  restent disponibles.
+
+### Onglet employe
+
+Mesure observee:
+
+- `X-BioAttend-Duration-ms`: 1280.5 ms
+- `X-BioAttend-DB-Queries`: 20 requetes
+- `X-BioAttend-DB-ms`: 741.8 ms
+
+Bilan:
+
+- cette page etait deja dans une zone acceptable;
+- aucune correction urgente n'a ete appliquee sur cet onglet;
+- elle pourra etre optimisee plus tard si les pages principales sont stables.
+
+### Synthese globale
+
+Les gains principaux viennent de la baisse du nombre de requetes SQL:
+
+- statistiques: 596 -> 44 requetes;
+- dashboard: 212 -> 49 requetes;
+- planning: 116 -> 39 requetes au deuxieme chargement;
+- onglet employe: 20 requetes, deja acceptable.
+
+Le probleme initial etait donc bien un ensemble de requetes repetitives vers
+Supabase, amplifie par la latence entre Hetzner Allemagne et Supabase Irlande.
 
 ## Ce qui n'a pas ete supprime
 
