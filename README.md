@@ -1,487 +1,367 @@
 # 🧬 BioAttend
 
-BioAttend est la plateforme de gestion des pointages biométriques (reconnaissance faciale) et de planning. Ce README centralise :
-
-- Présentation du projet
-- Démarrage rapide (local / Docker)
-- Dépendances
-- Dockerfile et notes de déploiement
-- Documentation complète des endpoints API (/api/)
-- Liste des routes web (UI) exposées par les apps
-- Structure du dépôt et explication des composants
-- Exemples d'utilisation (cURL)
-- Tests, conseils de développement et dépannage
+Plateforme de pointage biométrique (reconnaissance faciale), gestion des plannings et alertes RH.
 
 ---
 
-## Sommaire
+## Table des matières
 
-- Présentation
-- Quickstart
-  - Prérequis
-  - Lancer en Docker
-  - Lancer localement (venv)
-- Variables d'environnement principales
-- Dockerfile (extrait)
-- Dépendances
-- API — Documentation complète
-  - POST /api/face/identify/
-  - POST /api/front/events/
-  - GET, POST /api/schedule/absence-alert/
-- Routes web / UI (liste)
-- Structure de fichiers (arborescence)
-- Tests & quality
-- Développement & bonnes pratiques
-- Déploiement & opération
-- FAQ & dépannage
-- Contribuer
-- Licence
+- [Présentation](#présentation)
+- [Quickstart](#quickstart)
+  - [Prérequis](#prérequis)
+  - [Démarrage local (venv)](#démarrage-local-venv)
+  - [Démarrage avec Docker](#démarrage-avec-docker)
+- [Variables d'environnement](#variables-denvironnement)
+  - [Variables obligatoires](#variables-obligatoires)
+  - [Variables optionnelles & mail (Brevo)](#variables-optionnelles--mail-brevo)
+- [Dockerfile & déploiement](#dockerfile--déploiement)
+- [Dépendances principales](#dépendances-principales)
+- [API — Documentation complète (/api/)](#api---documentation-complète-api)
+  - [POST /api/face/identify/](#post-apifaceidentify)
+  - [POST /api/front/events/](#post-apifrontevents)
+  - [GET, POST /api/schedule/absence-alert/](#get-post-apischeduleabsence-alert)
+- [Routes Web (UI) — aperçu](#routes-web-ui--aperçu)
+- [Structure du dépôt](#structure-du-dépôt)
+- [Envoi d'emails & Brevo (détails)](#envoi-demails--brevo-détails)
+- [Tests](#tests)
+- [Bonnes pratiques & exploitation](#bonnes-pratiques--exploitation)
+- [FAQ & dépannage rapide](#faq--dépannage-rapide)
+- [Contribuer](#contribuer)
+- [Licence](#licence)
 
 ---
 
 ## Présentation
 
-BioAttend fournit :
-- Pointage via reconnaissance faciale (pointeuses / Raspberry Pi + InsightFace).
-- Gestion des employés, alertes et plannings.
-- Interface web d'administration et tableau de bord.
-- API rest légère protégée par clé (Authorization Bearer | X-API-Key).
+BioAttend gère :
+- la capture et l'identification faciale depuis des pointeuses (Raspberry Pi + InsightFace),
+- la création et le suivi des pointages (ENTREE / SORTIE),
+- la détection d'absences et de retards,
+- l'envoi d'alertes e‑mail (via Brevo),
+- une interface web d'administration et des exports CSV.
 
-Langages dominants : Python (Django & DRF), HTML/CSS, un peu de JS.
+Le backend est une application Django + Django REST Framework. Les embeddings sont stockés dans PostgreSQL via l'extension pgvector.
 
 ---
 
 ## Quickstart
 
-Prérequis
-- Docker (recommandé pour prod / test local)
-- Python 3.11 pour développement local
-- PostgreSQL avec extension pgvector pour les embeddings (ou Supabase)
+### Prérequis
+- Python 3.11 (dev)
+- PostgreSQL (pgvector recommandé) ou Supabase
+- Docker (recommandé pour production)
+- Clé API Brevo si envoi d'emails nécessaire
 
-Variables d'environnement (exemples)
-- DATABASE_URL - URL PostgreSQL (ex: postgres://user:pass@host:5432/dbname)
-- SECRET_KEY - clé Django (et clé API pour les devices)
-- DEBUG - true|false
-- ALLOWED_HOSTS - hôtes autorisés
-- EMAIL_BACKEND / SMTP_* - config mail
-- MEDIA_ROOT / STATIC_ROOT (optionnel si Docker gère)
-
-Lancer en local (venv)
+### Démarrage local (venv)
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env  # ou exporter variables d'env requises
+# générer .env (voir .devcontainer/generate-env.sh ou copier .env.example)
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Lancer en Docker (image prod)
-- Construire :
+### Démarrage avec Docker
+Construction :
 ```bash
 docker build -t bioattend:latest .
 ```
-- Lancer (exemple minimal)
+Exécution (exemple minimal) :
 ```bash
-docker run -e SECRET_KEY='ma-cle-secrete' -e DATABASE_URL='postgres://...' -p 80:80 bioattend:latest
+docker run -e SECRET_KEY='ma-cle' -e DATABASE_URL='postgres://user:pass@host:5432/db' -p 80:80 bioattend:latest
 ```
-Le conteneur exécute collectstatic, migrate puis démarre Gunicorn (80).
-
-Dockerfile (extrait complet)
-```text
-name=Dockerfile url=https://github.com/Nde-Code/BioAttendAPP/blob/89417c3feb538bbae52e78e6b008349ae90cdc98/Dockerfile
-FROM python:3.11-slim as builder
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    libgl1 \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender1 \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir gunicorn==21.2.0
-
-FROM python:3.11-slim
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
-    libgl1 \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender1 \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-RUN useradd -m -u 1000 bioattend && \
-    mkdir -p /app /app/staticfiles /app/media && \
-    chown -R bioattend:bioattend /app
-
-WORKDIR /app
-
-COPY --chown=bioattend:bioattend . .
-
-EXPOSE 80
-
-USER bioattend
-
-CMD python manage.py collectstatic --noinput && \
-    python manage.py migrate --noinput && \
-    gunicorn BioAttend.wsgi:application --bind 0.0.0.0:80 --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - --log-level info
-```
-
-> Notes Docker :
-> - Image multi-stage pour réduire la taille.
-> - Dépendances système nécessaires pour OpenCV/insightface (libgl, libgomp...).
-> - Gunicorn configuré : 4 workers, 2 threads ; timeout 120s — ajuster selon ressources.
-> - Le conteneur exécute automatiquement les migrations et collectstatic au démarrage.
+Le container exécute automatiquement `collectstatic` et `migrate` puis démarre Gunicorn.
 
 ---
 
-## Dépendances
+## Variables d'environnement
 
-Fichier requirements.txt (extrait)
-```text
-name=requirements.txt url=https://github.com/Nde-Code/BioAttendAPP/blob/ec5b2f0738761f73c6d42939e1a8cbee1a91a95e/requirements.txt
-albucore==0.0.24
-albumentations==2.0.8
-annotated-types==0.7.0
-asgiref==3.11.1
-certifi==2026.2.25
-cffi==2.0.0
-...
-Django==5.1.15
-djangorestframework==3.17.1
-pgvector==0.4.2
-insightface==0.7.3
-opencv-python-headless==4.13.0.92
-psycopg2-binary==2.9.11
-gunicorn==21.2.0 (installé par Dockerfile)
-whitenoise==6.12.0
-...
+Le projet utilise django-environ. Voici les variables principales (fournies par `.devcontainer/generate-env.sh` et utilisées dans `BioAttend/settings.py`).
+
+Variables obligatoires / importantes
+- SECRET_KEY — clé Django (également utilisée comme clé API pour les devices dans l'état actuel)
+- DATABASE_URL — URL de connexion PostgreSQL (ex : `postgres://user:pass@host:5432/db`)
+- DEBUG — `True`/`False`
+- ALLOWED_HOSTS — hôtes autorisés (string ou liste)
+
+Variables liées au mail / Brevo
+- DEFAULT_FROM_EMAIL — adresse par défaut (`no-reply@bioattend.local` si absent)
+- BREVO_API_KEY — clé API Brevo (nécessaire pour envoyer des e‑mails)
+- BREVO_SENDER_EMAIL — adresse expéditeur (ex: `contact@mondomaine.com`)
+- BREVO_SENDER_NAME — nom expéditeur (ex: `BioAttend`)
+- BREVO_API_ENDPOINT — URL Brevo (par défaut `https://api.brevo.com/v3/smtp/email`)
+
+Autres variables utiles
+- SUPABASE_URL / SUPABASE_KEY — si vous utilisez Supabase
+- MEDIA_ROOT / STATIC_ROOT — emplacements pour fichiers et médias
+
+Exemple `.env` minimal (ne pas committer):
+```dotenv
+SECRET_KEY="changeme"
+DEBUG=True
+DATABASE_URL="postgres://user:pass@db:5432/bioattend"
+DEFAULT_FROM_EMAIL="no-reply@bioattend.local"
+BREVO_API_KEY="votre_cle_brevo"
+BREVO_SENDER_EMAIL="contact@exemple.com"
+BREVO_SENDER_NAME="BioAttend"
 ```
 
-Remarques :
-- pgvector est utilisé côté DB pour stocker et rechercher les embeddings (CosineDistance).
-- insightface + onnxruntime + numpy + opencv sont requis pour la partie IA/embeddings si tu veux exécuter l'extraction localement.
-- Certaines bibliothèques (onnxruntime, insightface) dépendent d’artefacts système — vérifier compatibilité CPU / GPU.
+---
+
+## Dockerfile & déploiement
+
+Le Dockerfile fourni est multi-stage et optimisé pour produire une image légère avec un environnement virtuel préinstallé.
+
+Points clés :
+- Image de base : `python:3.11-slim`
+- Dépendances système pour OpenCV / insightface (libgl, libgomp, libsm6, ...)
+- Pip installe `requirements.txt` puis `gunicorn`
+- Au démarrage : `collectstatic`, `migrate`, puis Gunicorn lancé sur le port 80
+- Utilisateur non-root `bioattend` (UID 1000)
+
+Extrait (voir Dockerfile complet dans le repo) :
+```dockerfile
+FROM python:3.11-slim as builder
+# ... apt-get + installation deps python ...
+COPY requirements.txt .
+RUN pip install -r requirements.txt && pip install gunicorn==21.2.0
+FROM python:3.11-slim
+# ... copy venv, add user, expose, CMD ...
+```
+
+Conseils :
+- Protéger SECRET_KEY et DATABASE_URL via le gestionnaire de secrets de votre orchestrateur.
+- Garder `migrate` automatique pour déploiements simples ; pour environnements multi-instances utiliser stratégie de migration contrôlée.
+
+---
+
+## Dépendances principales
+
+Fichier : `requirements.txt` (extraits)
+- Django==5.1.15
+- djangorestframework==3.17.1
+- pgvector==0.4.2
+- insightface==0.7.3
+- onnxruntime, numpy, opencv-python-headless
+- psycopg2-binary
+- gunicorn (installé via Dockerfile)
+- whitenoise (servir les static en production simple)
+
+Remarque : certaines dépendances d'IA (insightface, onnxruntime) peuvent nécessiter des paquets natifs ou version spécifique selon CPU/GPU.
 
 ---
 
 ## API — Documentation complète (/api/)
 
-Préfixe global : toutes les routes API sont incluses sous `/api/` via `BioAttend/urls.py`.
+Préfixe global : `/api/` (défini dans `BioAttend/urls.py`).
 
-Authentification pour les endpoints API
-- Header préféré : Authorization: Bearer <SECRET_KEY>
-- Alternatif : X-API-Key: <SECRET_KEY>
-- La valeur comparée est `settings.SECRET_KEY`. Si manquante ou invalide, réponse 401.
+Authentification
+- Header `Authorization: Bearer <SECRET_KEY>` ou `X-API-Key: <SECRET_KEY>`
+- Le code compare la valeur à `settings.SECRET_KEY` via `secrets.compare_digest`
 
-Les endpoints principaux découverts :
-- POST /api/face/identify/
-- POST /api/front/events/
-- GET, POST /api/schedule/absence-alert/
-
-Détails, validations et exemples ci‑dessous.
+Types de réponses standard : JSON. Erreurs retournent des codes HTTP appropriés (400, 401, 403, 404, 500).
 
 ---
 
-### 1) POST /api/face/identify/
-But : identifier un utilisateur depuis un embedding facial envoyé par une pointeuse (Raspberry Pi/InsightFace), créer un pointage (ENTREE/SORTIE) en production, et renvoyer un feedback de ponctualité.
+### POST /api/face/identify/
+But : identification faciale envoyée par la pointeuse. En production, crée un `Pointage` validé.
 
-Endpoint source : api/views.py (FaceIdentifyView)
-- URL : /api/face/identify/
 - Méthode : POST
-- Auth : Authorization Bearer | X-API-Key
+- Auth : Bearer / X-API-Key
+- Payload JSON :
+  - `embedding` (required) : liste de 512 floats
+  - `ingestion_mode` (optional) : `"production"` (défaut) ou `"test"` (désactive persistance)
+  - `fraud_detected` (optional) : bool — si `true` retourne 403
+  - `fraud_reason` (optional) : string
+- Validations :
+  - Embedding taille = 512, éléments numériques → sinon 400
+  - ingestion_mode doit être `production` ou `test` → sinon 400
+- Logique :
+  - Recherche du meilleur match via `pgvector` : cosine distance
+  - Seuil : `settings.FACE_MATCH_THRESHOLD` (0.5 par défaut)
+  - Si correspondance et `production` : création de `Pointage` (statut `VALIDE`), calcul du feedback ponctualité via `build_pointage_feedback`
+- Réponses :
+  - 200 (succès) : JSON avec `matched: true`, `user_id`, `username`, `distance`, `pointage_id`, `pointage_type`, `schedule_feedback`, `worked_duration_display`, …
+  - 400 : payload invalide
+  - 401 : auth manquante / invalide
+  - 403 : fraude détectée
+  - 404 : pas de correspondance
+  - 500 : erreur serveur (ex : pgvector)
 
-Payload JSON attendu :
-- embedding (required) : liste de 512 floats — vecteur d'embedding
-- ingestion_mode (optional) : "production" (par défaut) ou "test"
-  - "test" désactive les effets persistants (création de pointage/alerte)
-- fraud_detected (optional) : boolean (défaut false) — si true → rejet (403)
-- fraud_reason (optional) : string
-
-Validations & erreurs :
-- Si clé API incorrecte → 401
-- Si ingestion_mode invalide → 400
-- Si embedding manquant / non-liste / mauvaise longueur / valeurs non numériques → 400
-- Si fraude détectée → 403 (et enregistre incident si ingestion_mode != test)
-- Si pb DB / pgvector → 500
-
-Logique :
-- EMBEDDING_SIZE = 512 (constante)
-- Recherche du match via pgvector :
-  Utilisateur.objects.filter(embedding_facial__isnull=False).annotate(distance=CosineDistance("embedding_facial", embedding)).order_by("distance").first()
-- Threshold : settings.FACE_MATCH_THRESHOLD (défaut 0.5 si non défini)
-  - Si match.distance > threshold → rejet (404)
-  - Si aucun match → 404
-- Si matched & production :
-  - Calcul du type de pointage suivant via _next_pointage_type_for_pointeuse(utilisateur) (ENTREE/SORTIE)
-  - Création d’un Pointage (statut "VALIDE", origine Pointage.ORIGINE_POINTEUSE)
-  - build_pointage_feedback(pointage) renvoie messages / flags / worked_duration_display
-
-Réponse (succès 200) :
-```json
-{
-  "matched": true,
-  "user_id": "uuid-de-l-utilisateur",
-  "username": "jdoe",
-  "full_name": "John Doe",
-  "distance": 0.123456,
-  "pointage_id": "uuid-pointage",
-  "pointage_type": "ENTREE",
-  "schedule_feedback": ["message1", ...],
-  "schedule_flags": ["FLAG_A", ...],
-  "worked_duration_display": "7h30",
-  "ingestion_mode": "production"
-}
-```
-
-Réponse (exemples d'erreurs) :
-- Embedding manquant :
-```json
-{ "matched": false, "error": "Le champ 'embedding' est requis." }
-```
-- Auth manquante :
-```json
-{ "matched": false, "error": "Authentification requise via Authorization Bearer ou X-API-Key." }
-```
-
-Exemple cURL
+Exemple (cURL) :
 ```bash
-curl -X POST https://example.com/api/face/identify/ \
+curl -X POST https://host/api/face/identify/ \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"ingestion_mode":"production","embedding":[0.1, -0.2, ... 512 valeurs ...]}'
+  -d '{"ingestion_mode":"production","embedding":[0.0,0.1,...512 valeurs...] }'
 ```
 
 ---
 
-### 2) POST /api/front/events/
-But : journaliser des événements venant d'une borne (pointeuse/front) (utilisateur inconnu, échec…).
+### POST /api/front/events/
+But : journaliser un événement depuis la borne (ex: utilisateur inconnu, tentative de spoof, échec de reconnaissance).
 
-Endpoint source : api/views.py (FrontEventView)
-- URL : /api/front/events/
 - Méthode : POST
-- Auth : Authorization Bearer | X-API-Key
+- Auth : Bearer / X-API-Key
+- Payload JSON requis :
+  - `event_type` : `unknown_user` | `recognition_failed` | `spoof_attempt`
+  - `status` : `error` | `rejected` | `blocked`
+  - `message` : string non vide
+  - `device_name` : string non vide
+  - `details` : object (optionnel)
+- Effet :
+  - Crée un `Pointage` non validé (`statut='NON_VALIDE'`) avec `incident_type` mappé
+  - Appelle `Alerte.create_or_update_for_incident(...)`
+- Réponses :
+  - 201 Created (succès) : `{ "logged": true, "event_id": "...", "event_type": "...", "status": "..." }`
+  - 400 : params invalides
+  - 401 : auth invalide
 
-Payload JSON attendu :
-- event_type (required) : "unknown_user" | "recognition_failed" | "spoof_attempt"
-  - Map interne : unknown_user → "UTILISATEUR_INCONNU", recognition_failed → "ECHEC_RECONNAISSANCE", spoof_attempt → "TENTATIVE_FRAUDE"
-- status (required) : "error" | "rejected" | "blocked"
-  - Map interne : ERROR/REJECTED/BLOCKED
-- message (required) : string non vide
-- device_name (required) : string non vide
-- details (optional) : object JSON
-
-Effet :
-- Crée un Pointage (utilisateur=None, statut='NON_VALIDE', incident_type = mapping, device_name, details)
-- Alerte.create_or_update_for_incident(...) est appelée
-
-Réponses :
-- 201 Created (succès) :
-```json
-{ "logged": true, "event_id": "uuid-pointage", "event_type": "unknown_user", "status": "error" }
-```
-- 400 Bad Request si champs invalides
-- 401 Unauthorized si clé invalide
-
-Exemple cURL
+Exemple :
 ```bash
-curl -X POST https://example.com/api/front/events/ \
+curl -X POST https://host/api/front/events/ \
   -H "Authorization: Bearer $SECRET_KEY" \
   -H "Content-Type: application/json" \
-  -d '{
-    "event_type": "unknown_user",
-    "status": "error",
-    "message": "Aucun visage trouvé",
-    "device_name": "pointeuse-1",
-    "details": {"image_cid":"..."}
-  }'
+  -d '{"event_type":"unknown_user","status":"error","message":"Pas de visage","device_name":"pointeuse-1"}'
 ```
 
 ---
 
-### 3) GET, POST /api/schedule/absence-alert/
-But : déclencher la détection d'absences pour un jour donné et l'envoi d'alertes mails (service trigger_absence_alerts_for_day).
+### GET, POST /api/schedule/absence-alert/
+But : déclencher la détection d'absences/retards pour un jour donné et (si nécessaire) envoyer des emails via Brevo.
 
-Endpoint source : api/views.py (AbsenceAlertView)
-- URL : /api/schedule/absence-alert/
-- Méthodes : GET (query param `date`) et POST (JSON { "date": "YYYY-MM-DD" })
-- Auth : Authorization Bearer | X-API-Key
-- Paramètre date (optionnel) format `YYYY-MM-DD`. Si absent, la date utilisée est `timezone.localdate()`.
-
-Réponse (succès 200) :
-```json
-{
-  "checked": true,
-  "date": "2026-05-14",
-  "absences": [
-    {"utilisateur_id": "...", "nom": "Dupont", "shift": "..."},
-    ...
-  ]
-}
-```
-Erreurs :
-- 400 si date mal formée
-- 401 si clé invalide
-- 500 si erreur interne (le code journalise l'exception)
-
-Exemples :
-- GET : `/api/schedule/absence-alert/?date=2026-05-14`
-- POST body : `{"date": "2026-05-14"}`
+- Méthodes :
+  - GET `/api/schedule/absence-alert/?date=YYYY-MM-DD`
+  - POST `/api/schedule/absence-alert/` avec JSON `{ "date": "YYYY-MM-DD" }`
+- Auth : Bearer / X-API-Key
+- Paramètre `date` : facultatif, format `YYYY-MM-DD`. Si absent → date locale (`timezone.localdate()`).
+- Effet :
+  - Appelle `trigger_absence_alerts_for_day(date)` (dans `schedule/services.py`)
+  - Crée en base les `Alerte` correspondantes et envoie mails RH (si configuré)
+- Réponses :
+  - 200 : `{ "checked": <int|bool>, "date":"YYYY-MM-DD", "absences":[ ... ] }`
+  - 400 : date invalide
+  - 401 : auth invalide
+  - 500 : erreur si l'envoi mail échoue par exemple
 
 ---
 
-## Routes web (UI) — résumé des urls principales
+## Routes Web (UI) — aperçu
 
-Les urls HTML sont déclarées dans les modules suivants (préfixe racine tel que défini dans `BioAttend/urls.py`).
+Les urls UI principales se trouvent dans les apps :
+- `core/` → `/` (accueil)
+- `dashboard/` → `/dashboard/` (tableau de bord, listes presents/absents, export CSV)
+- `accounts/` → `/accounts/login/`, `/accounts/settings/`...
+- `Employee/` → `/Employee/utilisateurs/`, `/Employee/pointages/`, export CSV, etc.
+- `schedule/` → `/schedule/`, `/schedule/submit/`, `/schedule/settings/`...
+- `api/` → endpoints décrits ci‑dessus
 
-BioAttend/urls.py (inclut)
-- / (core.urls)
-- /dashboard/ (dashboard.urls)
-- /accounts/ (accounts.urls + django.contrib.auth.urls)
-- /Employee/ (Employee.urls)
-- /api/ (api.urls)  ← API expliqué ci‑dessus
-- /schedule/ (schedule.urls)
-
-Extrait des routes importantes (UI) :
-- core:
-  - GET / → page d'accueil
-- dashboard:
-  - GET /dashboard/ → tableau de bord principal
-  - GET /dashboard/presents-aujourdhui/
-  - GET /dashboard/absents-aujourdhui/
-  - etc.
-- accounts:
-  - /accounts/login/
-  - /accounts/settings/
-  - /accounts/password/change/
-- Employee:
-  - /Employee/utilisateurs/ (liste)
-  - /Employee/utilisateurs/ajouter/
-  - /Employee/utilisateurs/<uuid>/modifier/
-  - /Employee/pointages/, /Employee/pointages/export-csv/
-  - /Employee/alertes/
-- schedule:
-  - /schedule/ (home)
-  - /schedule/submit/
-  - /schedule/export/csv/
-  - /schedule/settings/
-  - /schedule/requests/<uuid>/approve/ et /reject/
-
-(Consulte les fichiers `*/urls.py` pour la liste complète des routes et noms d'URL.)
+Consultez `*/urls.py` pour la liste exhaustive et les noms de routes.
 
 ---
 
-## Structure du dépôt (vue d'ensemble)
+## Structure du dépôt (résumé)
 
-Arborescence clé (simplifiée)
-- BioAttend/                - projet Django (settings, urls, wsgi)
+- BioAttend/ — settings, urls, wsgi
 - api/
-  - urls.py                - déclaration des endpoints API (/api/...)
-  - views.py               - implémentation de FaceIdentifyView, FrontEventView, AbsenceAlertView
-  - tests.py               - tests unitaires pour l'API (FaceIdentify)
-- accounts/                 - gestion des comptes & vues d'auth
-- core/                     - page d'accueil, middleware utilitaires
-- dashboard/                - vues du tableau de bord
-- Employee/                 - gestion utilisateurs & pointages (UI)
-- schedule/                 - gestion demandes planning, alertes
-- attendance/               - modèles de pointage
-- alerts/                   - modèle & logique d'alertes
+  - urls.py
+  - views.py (FaceIdentifyView, FrontEventView, AbsenceAlertView)
+  - tests.py
+- accounts/, Employee/, dashboard/, core/, schedule/, attendance/, alerts/ — apps Django
 - requirements.txt
 - Dockerfile
-- manage.py
+- .devcontainer/ (scripts d'initialisation .env)
 
-Explication des composants principaux
-- api/views.py : logique d'API utilisée par les pointeuses.
-- accounts, Employee, schedule, dashboard : vues web et formulaires (UI).
-- attendance.models.Pointage : modèle représentant un pointage ; utilisé/produit par l'API.
-- alerts.models.Alerte : centralise la création / mise à jour des alertes d'incident.
-- schedule.services : contient build_pointage_feedback et trigger_absence_alerts_for_day.
+---
+
+## Envoi d'emails & Brevo (détails opérationnels)
+
+Le projet utilise l'API SMTP de Brevo via un POST JSON. Comportement principal :
+- Fonctions d'envoi dans `schedule/services.py` :
+  - `_send_email_via_brevo(subject, html_content, to_emails, cc_emails=None)`
+  - `_send_absence_notification(...)`, `_send_late_notification(...)`
+- Préconditions :
+  - `settings.BREVO_API_KEY` doit être renseignée
+  - Destinataires RH sont résolus via `get_rh_recipient_emails()` (utilisateurs avec rôle `admin` ou `acces_total` et email)
+- Payload envoyé :
+```json
+{
+  "sender": { "name": "BioAttend", "email": "no-reply@..." },
+  "to": [{"email": "rh@example.com"}],
+  "cc": [{"email": "employee@example.com"}],   // optionnel
+  "subject": "Alerte absence ...",
+  "htmlContent": "<p>...</p>",
+  "textContent": "..."
+}
+```
+- Headers : `accept: application/json`, `api-key: <BREVO_API_KEY>`
+- Erreurs : `requests.RequestException` est capturée et transformée en `EmailDeliveryError` ; l'appelant reçoit un 500 si l'envoi échoue lors du déclenchement d'alertes.
+
+Tests :
+- Les tests unitaires patchent `requests.post` et vérifient que le payload contient `subject`, `cc`, `htmlContent`, etc.
+
+Recommandations :
+- Utiliser une clé Brevo dédiée au service.
+- Surveiller les quotas/erreurs 4xx et 5xx retournés par Brevo.
+- En production, logguer les échecs d'envoi et mettre en place une file de retry si besoin.
 
 ---
 
 ## Tests
 
-- Tests unitaires pour l'API se trouvent dans `api/tests.py`. Ils couvrent validation d'input, auth et une partie du flux d'identification.
-- Lancer tests :
-```bash
-python manage.py test
-```
-- Le projet utilise `override_settings` pour isoler la configuration API durant les tests (ex: SECRET_KEY de test).
+- Lancer : `python manage.py test`
+- Les tests importants :
+  - `api/tests.py` — validation et flux FaceIdentify, AbsenceAlert
+  - `schedule/tests.py` — envoi d'email, création d'alertes
+- Les tests utilisent `override_settings` pour fournir `BREVO_API_KEY` factice et patchent `requests.post`.
 
 ---
 
-## Développement & bonnes pratiques
+## Bonnes pratiques & exploitation
 
-- Mode ingestion:
-  - Utiliser `ingestion_mode: "test"` pour tester sans créer de pointages/alertes persistants.
-- Logging et diagnostic:
-  - Le projet contient des headers HTTP de diagnostic (middleware) qui exposent `X-BioAttend-Duration-ms`, `X-BioAttend-DB-Queries`, etc. utiles pour profiler.
-- Requêtes PG / performances:
-  - La recherche d'embeddings utilise pgvector ; vérifie les indexes et la configuration Postgres pour performances (index pgvector si nécessaire).
-- Sécurité:
-  - La clé API est `SECRET_KEY` ; pour un déploiement à long terme il est recommandé d’extraire une clé API dédiée et d’implémenter scopes / rotation.
-- CI / Lint:
-  - Ajouter flake8/ruff et un job CI pour tests + lint est recommandé.
-
----
-
-## Déploiement & exploitation
-
-- Production : exécuter le conteneur Docker exposant le port 80 derrière un reverse-proxy (Nginx) si nécessaire.
-- DB : PostgreSQL avec pgvector (ou Supabase) est requis.
-- Stockage média : configurer MEDIA_ROOT / stockage cloud (S3, supabase storage) en prod.
-- Migrations automatiques : Dockerfile exécute `python manage.py migrate --noinput` au démarrage — option pratique mais attention aux migrations concurrentes en scale-out.
-- Backups : planifier sauvegarde PostgreSQL régulière (embeddings inclus).
+- Ne pas utiliser `SECRET_KEY` comme unique clé API pour la production : prévoir une clé dédiée et un mécanisme d'authentification des devices plus robuste.
+- Indexer correctement les colonnes utilisées par pgvector pour améliorer les temps de recherche.
+- Exposer des métriques de performance (middleware intégré fournit `X-BioAttend-Duration-ms`, `X-BioAttend-DB-Queries`, `X-BioAttend-DB-ms`).
+- Mettre en place monitoring sur les jobs d'envoi mail et sur les erreurs d'IA (insightface/onnxruntime).
+- Sauvegarder régulièrement la base (embeddings inclus).
 
 ---
 
 ## FAQ & dépannage rapide
 
-Q : L’API retourne 401 pour la pointeuse même si la clé semble correcte  
-A : Vérifier que la valeur envoyée dans Authorization: Bearer <SECRET_KEY> correspond exactement à settings.SECRET_KEY. Le code utilise secrets.compare_digest() (sensible à la moindre différence).
+Q : La pointeuse reçoit un 401 alors que la clé est correcte  
+A : Vérifier le header exact envoyé (`Authorization: Bearer <SECRET_KEY>` ou `X-API-Key`). La comparaison est stricte.
 
-Q : Recherche pgvector lente  
-A : S’assurer que pgvector est bien configuré et que les colonnes d’embedding sont indexées (migrer/ajouter index si nécessaire).
+Q : Les emails Brevo ne partent pas  
+A : Vérifier `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` et la réponse HTTP renvoyée par Brevo (logs). En cas d'exception, le code remonte l'erreur (500).
 
-Q : Embeddings invalides (taille autre que 512)  
-A : L’API vérifie EMBEDDING_SIZE = 512 et rejettera toute taille différente (400).
+Q : Recherche d’embeddings lente  
+A : Vérifier pgvector et l'indexation, et évaluer le plan d'exécution côté PostgreSQL.
 
 ---
 
 ## Contribuer
 
-1. Fork & branch feature/bugfix.
-2. Ajouter des tests pour les changements.
-3. Ouvrir PR avec description et checklist.
-4. Respecter les règles de formatting (black/ruff recommandés).
-
----
-
-## Ressources & références
-
-- InsightFace : framework pour extraction d’embeddings.
-- pgvector : stockage / recherche d’embeddings dans Postgres.
-- Django REST Framework : base des endpoints API.
+1. Fork & branch (ex: `feature/ma-modif`)
+2. Ajouter tests & documentation
+3. Ouvrir PR décrivant les changements
+4. Respecter linting / formatting (black / ruff recommandés)
 
 ---
 
 ## Licence
 
-(Vérifier et remplir la licence appropriée: ex. MIT / AGPL / proprietaire)
+À préciser (MIT / AGPL / proprietaire). Ajoutez un fichier `LICENSE` adapté.
+
+---
+
+Merci — j’ai parcouru les sources (`api/urls.py`, `api/views.py`, `api/tests.py`, `schedule/services.py`, `BioAttend/settings.py`, `Dockerfile`, `requirements.txt`, etc.) pour produire cette documentation. 
+
+Si tu veux, je peux :
+- committer ce README directement dans une branche `docs/readme` et ouvrir une PR,
+- générer un fichier OpenAPI (YAML) minimal pour les 3 endpoints API,
+- ajouter une collection Postman / example requests dans `docs/`.
+
+Dis‑moi quelle option tu préfères et je m'occupe de la suite.
