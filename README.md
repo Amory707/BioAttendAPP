@@ -48,9 +48,9 @@ Le backend est une application Django + Django REST Framework. Les embeddings so
 
 ### Prérequis
 - Python 3.11 (dev)
-- PostgreSQL (pgvector recommandé) ou Supabase
+- Supabase
 - Docker (recommandé pour production)
-- Clé API Brevo si envoi d'emails nécessaire
+- Clé API Brevo
 
 ### Démarrage local (venv)
 ```bash
@@ -62,19 +62,6 @@ python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 ```
-
-### Démarrage avec Docker
-Construction :
-```bash
-docker build -t bioattend:latest .
-```
-Exécution (exemple minimal) :
-```bash
-docker run -e SECRET_KEY='ma-cle' -e DATABASE_URL='postgres://user:pass@host:5432/db' -p 80:80 bioattend:latest
-```
-Le container exécute automatiquement `collectstatic` et `migrate` puis démarre Gunicorn.
-
----
 
 ## Variables d'environnement
 
@@ -94,8 +81,8 @@ Variables liées au mail / Brevo
 - BREVO_API_ENDPOINT — URL Brevo (par défaut `https://api.brevo.com/v3/smtp/email`)
 
 Autres variables utiles
-- SUPABASE_URL / SUPABASE_KEY — si vous utilisez Supabase
-- MEDIA_ROOT / STATIC_ROOT — emplacements pour fichiers et médias
+- SUPABASE_URL et SUPABASE_KEY 
+- MEDIA_ROOT / STATIC_ROOT
 
 Exemple `.env` minimal (ne pas committer):
 ```dotenv
@@ -149,7 +136,7 @@ Fichier : `requirements.txt` (extraits)
 - gunicorn (installé via Dockerfile)
 - whitenoise (servir les static en production simple)
 
-Remarque : certaines dépendances d'IA (insightface, onnxruntime) peuvent nécessiter des paquets natifs ou version spécifique selon CPU/GPU.
+> Remarque : certaines dépendances d'IA (insightface, onnxruntime) peuvent nécessiter des paquets natifs ou version spécifique selon CPU/GPU.
 
 ---
 
@@ -337,31 +324,8 @@ A : Vérifier le header exact envoyé (`Authorization: Bearer <SECRET_KEY>` ou `
 Q : Les emails Brevo ne partent pas  
 A : Vérifier `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` et la réponse HTTP renvoyée par Brevo (logs). En cas d'exception, le code remonte l'erreur (500).
 
-Q : Recherche d’embeddings lente  
-A : Vérifier pgvector et l'indexation, et évaluer le plan d'exécution côté PostgreSQL.
-
----
-
-## Contribuer
-
-1. Fork & branch (ex: `feature/ma-modif`)
-2. Ajouter tests & documentation
-3. Ouvrir PR décrivant les changements
-4. Respecter linting / formatting (black / ruff recommandés)
-
 ---
 
 ## Licence
 
-À préciser (MIT / AGPL / proprietaire). Ajoutez un fichier `LICENSE` adapté.
-
----
-
-Merci — j’ai parcouru les sources (`api/urls.py`, `api/views.py`, `api/tests.py`, `schedule/services.py`, `BioAttend/settings.py`, `Dockerfile`, `requirements.txt`, etc.) pour produire cette documentation. 
-
-Si tu veux, je peux :
-- committer ce README directement dans une branche `docs/readme` et ouvrir une PR,
-- générer un fichier OpenAPI (YAML) minimal pour les 3 endpoints API,
-- ajouter une collection Postman / example requests dans `docs/`.
-
-Dis‑moi quelle option tu préfères et je m'occupe de la suite.
+À préciser avec le promoteur.
